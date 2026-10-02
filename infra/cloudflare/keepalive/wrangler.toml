@@ -1,0 +1,9 @@
+name = "contextforge-keepalive"
+main = "src/index.ts"
+compatibility_date = "2026-10-01"
+
+[triggers]
+crons = ["*/10 * * * *"]
+
+[vars]
+TARGET_URL = "https://contextforge.onrender.com/health"

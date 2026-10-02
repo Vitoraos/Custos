@@ -1,0 +1,28 @@
+{
+  "name": "contextforge",
+  "version": "1.0.0",
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22.19.0"
+  },
+  "dependencies": {
+    "fastmcp": "^4.22.1",
+    "@strands-agents/sdk": "^1.19.0",
+    "openai": "^6.49.0",
+    "@supabase/supabase-js": "^2.0.0",
+    "zod": "^4.1.12"
+  },
+  "devDependencies": {
+    "tsx": "^4.0.0",
+    "typescript": "^5.6.0",
+    "@types/node": "^22.0.0"
+  },
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "start": "node dist/index.js",
+    "build": "tsc",
+    "demo": "npx serve demo/public -l 3001",
+    "test": "tsx --test tests/*.test.ts"
+  }
+}

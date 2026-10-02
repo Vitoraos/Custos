@@ -1,0 +1,27 @@
+services:
+  - type: web
+    name: contextforge
+    env: node
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: GROQ_API_KEY
+        sync: false
+      - key: CLOUDFLARE_ACCOUNT_ID
+        sync: false
+      - key: CLOUDFLARE_API_TOKEN
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: OPENROUTER_API_KEY
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: MCP_TRANSPORT_TYPE
+        value: http-stream
+      - key: MCP_STATELESS
+        value: 'true'
+    plan: free
+    healthCheckPath: /health

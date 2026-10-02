@@ -1,0 +1,455 @@
+{
+  "_meta": {
+    "name": "ContextForge demo fixtures",
+    "version": "1.0",
+    "purpose": "Deterministic replay data for the demo simulator. Runs with ZERO LLM calls so rate limits and cold starts can never break a take. Live mode (real MCP server + LLM) is optional and can be toggled on top.",
+    "disclaimer": "The 'without_contextforge' scenes are an illustrative simulation of failure patterns reported by users, not recordings of real Alexa+ output. Show this caption on screen: 'Simulated Alexa+ behavior based on reported user issues.'",
+    "fictional_data": "News headlines, recipes, device names and the demo account are invented for the demo.",
+    "target_runtime_seconds": 165
+  },
+
+  "demo_user": {
+    "user_id": "amzn1.account.DEMO-USER-001",
+    "display_name": "Demo User",
+    "home_city": "Lagos",
+    "units": "celsius"
+  },
+
+  "chaos_toggles": {
+    "_help": "Used only in live mode or by the simulator's 'inject failure' button. Scenes R1 and R2 turn these on.",
+    "bad_recipe_on_first_call": false,
+    "shopping_503_on_first_call": false,
+    "planner_429_on_first_call": false
+  },
+
+  "mock_tools": {
+    "find_recipe": {
+      "good": {
+        "vegan|peanut-free|4|dinner": {
+          "recipe_name": "Vegan Pasta Primavera",
+          "servings": 4,
+          "ingredients": ["pasta", "tomatoes", "basil", "olive oil", "garlic", "zucchini"],
+          "instructions": ["Boil pasta", "Saute vegetables", "Combine and serve"],
+          "dietary_compliance": ["vegan", "peanut-free"],
+          "contains": []
+        },
+        "vegan|peanut-free|4|dinner|retry": {
+          "recipe_name": "Chickpea Coconut Curry",
+          "servings": 4,
+          "ingredients": ["chickpeas", "coconut milk", "tomatoes", "onion", "garlic", "ginger", "spinach", "curry powder", "rice"],
+          "instructions": ["Saute aromatics", "Simmer chickpeas in coconut milk", "Stir in spinach", "Serve over rice"],
+          "dietary_compliance": ["vegan", "peanut-free"],
+          "contains": []
+        }
+      },
+      "bad_injected": {
+        "recipe_name": "Creamy Chicken Alfredo",
+        "servings": 4,
+        "ingredients": ["fettuccine", "chicken breast", "heavy cream", "parmesan", "garlic", "butter"],
+        "instructions": ["Cook pasta", "Saute chicken", "Add cream and parmesan"],
+        "dietary_compliance": [],
+        "contains": ["meat", "dairy"]
+      }
+    },
+    "get_weather": {
+      "Lagos|celsius": "Lagos: 22C, clear sky",
+      "Lagos|fahrenheit": "Lagos: 72F, clear sky"
+    },
+    "check_calendar": {
+      "default": { "available_slots": ["09:00", "11:00", "14:00", "16:00", "18:00"] }
+    },
+    "add_to_shopping_list": {
+      "success_template": "Added {n} items to shopping list: {items}",
+      "failure_injected": { "status": 503, "error": "shopping_service_unavailable", "retryable": true }
+    },
+    "control_smart_home": {
+      "coffee_maker|schedule_on|06:55": "Coffee maker scheduled to start at 06:55",
+      "thermostat|set_temperature|21": "Thermostat set to 21C"
+    },
+    "set_reminder": {
+      "Wake up|tomorrow 07:00|none": "Reminder set: \"Wake up\" at tomorrow 07:00",
+      "Take medication|20:00|daily": "Reminder set: \"Take medication\" at 20:00 (daily)"
+    },
+    "get_news": {
+      "_note": "NEW TOOL: the spec's demo uses a newsTool but never defines it. Mock it with these fictional headlines (or a free RSS feed if you want it live).",
+      "count_3": [
+        "City council approves expanded night bus routes",
+        "Local startup opens free coding classes for teens",
+        "Clear, cool weekend forecast across the region"
+      ]
+    }
+  },
+
+  "memory_snapshots": {
+    "before_S1": {
+      "preferences": [
+        ["allergies", "peanuts", "diet"],
+        ["music_taste", "jazz", "music"],
+        ["wake_time", "07:00", "schedule"],
+        ["preferred_temperature", "21_celsius", "smart_home"],
+        ["home_city", "Lagos", "personal"]
+      ],
+      "instructions": [
+        { "text": "Keep answers short. No jokes or upselling.", "priority": "critical" }
+      ],
+      "context": [
+        { "text": "User asked to be reminded about medication at 8pm daily.", "priority": "high", "expires": null }
+      ],
+      "recent_tasks": [
+        { "when": "2 days ago", "task": "Set up morning routine", "status": "completed" }
+      ]
+    },
+    "after_S1": {
+      "preferences": [
+        ["diet", "vegan", "diet"],
+        ["allergies", "peanuts", "diet"],
+        ["music_taste", "jazz", "music"],
+        ["wake_time", "07:00", "schedule"],
+        ["preferred_temperature", "21_celsius", "smart_home"],
+        ["home_city", "Lagos", "personal"]
+      ],
+      "instructions": [
+        { "text": "Keep answers short. No jokes or upselling.", "priority": "critical" }
+      ],
+      "context": [
+        { "text": "Dinner plan in progress: Vegan Pasta Primavera for 4. Ingredients: pasta, tomatoes, basil, olive oil, garlic, zucchini. Shopping list not yet updated.", "priority": "medium", "expires": "24h" },
+        { "text": "User asked to be reminded about medication at 8pm daily.", "priority": "high", "expires": null }
+      ],
+      "recent_tasks": [
+        { "when": "just now", "task": "Plan vegan dinner for 4", "status": "completed" },
+        { "when": "2 days ago", "task": "Set up morning routine", "status": "completed" }
+      ]
+    },
+    "after_S2": {
+      "preferences": [
+        ["diet", "vegan", "diet"],
+        ["allergies", "peanuts", "diet"],
+        ["music_taste", "jazz", "music"],
+        ["wake_time", "07:00", "schedule"],
+        ["preferred_temperature", "21_celsius", "smart_home"],
+        ["home_city", "Lagos", "personal"]
+      ],
+      "instructions": [
+        { "text": "Keep answers short. No jokes or upselling.", "priority": "critical" }
+      ],
+      "context": [
+        { "text": "User planned vegan dinner for 4 using Pasta Primavera; 6 ingredients added to shopping list.", "priority": "medium", "expires": "72h" },
+        { "text": "User asked to be reminded about medication at 8pm daily.", "priority": "high", "expires": null }
+      ],
+      "recent_tasks": [
+        { "when": "just now", "task": "Add dinner ingredients to shopping list + check weather", "status": "completed" },
+        { "when": "just now", "task": "Plan vegan dinner for 4", "status": "completed" },
+        { "when": "2 days ago", "task": "Set up morning routine", "status": "completed" }
+      ]
+    },
+    "after_S4": {
+      "preferences": [
+        ["diet", "vegan", "diet"],
+        ["allergies", "peanuts", "diet"],
+        ["music_taste", "jazz", "music"],
+        ["wake_time", "07:00", "schedule"],
+        ["preferred_temperature", "21_celsius", "smart_home"],
+        ["home_city", "Lagos", "personal"]
+      ],
+      "instructions": [
+        { "text": "Keep answers short. No jokes or upselling.", "priority": "critical" }
+      ],
+      "context": [
+        { "text": "Morning routine set for tomorrow: wake 07:00, coffee 06:55, news + weather ready.", "priority": "medium", "expires": "24h" },
+        { "text": "User planned vegan dinner for 4 using Pasta Primavera.", "priority": "medium", "expires": "48h" },
+        { "text": "User asked to be reminded about medication at 8pm daily.", "priority": "high", "expires": null }
+      ],
+      "recent_tasks": [
+        { "when": "just now", "task": "Set up morning routine", "status": "completed" },
+        { "when": "yesterday", "task": "Add dinner ingredients to shopping list + check weather", "status": "completed" },
+        { "when": "yesterday", "task": "Plan vegan dinner for 4", "status": "completed" }
+      ]
+    }
+  },
+
+  "scenes": {
+
+    "without_contextforge": [
+      {
+        "id": "F1",
+        "title": "Preference amnesia",
+        "caption": "Alexa+ ignores a stated dietary preference",
+        "memory_panel": "empty",
+        "turns": [
+          { "speaker": "user", "text": "Alexa, I'm vegan. Plan dinner for 4 people.", "delay_ms": 0 },
+          { "speaker": "alexa", "text": "Great! How about a juicy steak dinner for 4? I can add ribeyes to your cart.", "delay_ms": 1200, "failure": "ignored_preference", "badge": "Ignored: vegan" },
+          { "speaker": "user", "text": "I said I'm vegan.", "delay_ms": 1500 },
+          { "speaker": "alexa", "text": "Sorry about that! How about grilled lemon-herb chicken?", "delay_ms": 1200, "failure": "ignored_preference_repeat", "badge": "Ignored again" },
+          { "speaker": "user", "text": "...", "delay_ms": 1500, "annotation": "User gives up" }
+        ]
+      },
+      {
+        "id": "F2",
+        "title": "Zero recall",
+        "caption": "No memory across sessions (next day)",
+        "memory_panel": "empty",
+        "turns": [
+          { "speaker": "user", "text": "Alexa, what did I ask you to remember yesterday?", "delay_ms": 0 },
+          { "speaker": "alexa", "text": "I don't have any stored preferences.", "delay_ms": 1200, "failure": "no_cross_session_memory", "badge": "No memory", "verbose_variant": "I don't have any stored preferences. By the way, did you know Alexa+ can help you discover new recipes with Prime?" }
+        ]
+      },
+      {
+        "id": "F3",
+        "title": "Cannot chain steps",
+        "caption": "One request, four tasks, one done",
+        "memory_panel": "empty",
+        "turns": [
+          { "speaker": "user", "text": "Alexa, plan my morning: wake me at 7, start the coffee maker, read me the top 3 headlines, and tell me the weather.", "delay_ms": 0 },
+          { "speaker": "alexa", "text": "I can set an alarm for 7 AM. What else would you like?", "delay_ms": 1400, "failure": "no_multi_step", "badge": "1 of 4 steps" },
+          { "speaker": "user", "text": "Start the coffee maker.", "delay_ms": 1500, "optional": true },
+          { "speaker": "alexa", "text": "I can't do that right now. Would you like me to remind you to make coffee?", "delay_ms": 1200, "failure": "no_multi_step", "badge": "Still 1 of 4", "optional": true }
+        ]
+      }
+    ],
+
+    "with_contextforge": [
+      {
+        "id": "S1",
+        "title": "Remember + plan",
+        "caption": "States a preference once. ContextForge stores it and enforces it.",
+        "memory_before": "before_S1",
+        "memory_after": "after_S1",
+        "user_say": "Alexa, I'm vegan. Plan dinner for 4 people.",
+        "tool_calls": [
+          {
+            "tool": "store_preference",
+            "args": { "user_id": "amzn1.account.DEMO-USER-001", "key": "diet", "value": "vegan", "category": "diet", "source": "explicit" },
+            "result": "Preference stored: diet = vegan. This will be remembered for all future interactions.",
+            "latency_ms": 180,
+            "ui_delay_ms": 700
+          },
+          {
+            "tool": "execute_workflow",
+            "args": { "user_id": "amzn1.account.DEMO-USER-001", "task": "Plan dinner for 4 people", "max_steps": 10, "max_retries_per_step": 2 },
+            "workflow": {
+              "loaded_preferences": ["diet=vegan", "allergies=peanuts", "home_city=Lagos"],
+              "loaded_instructions": ["Keep answers short. No jokes or upselling."],
+              "planner_output": [
+                { "order": 1, "description": "Find a vegan, peanut-free dinner recipe for 4", "required_tool": "find_recipe", "expected_input": { "dietary_restrictions": ["vegan", "peanut-free"], "servings": 4, "meal_type": "dinner" } },
+                { "order": 2, "description": "Check the recipe against stored restrictions", "required_tool": null, "expected_input": {} }
+              ],
+              "executor_trace": [
+                { "step": 1, "tool": "find_recipe", "attempt": 1, "status": "success", "output_ref": "mock_tools.find_recipe.good[vegan|peanut-free|4|dinner]", "latency_ms": 420 },
+                { "step": 2, "tool": null, "attempt": 1, "status": "success", "output": "Recipe contains no meat, dairy, eggs or peanuts", "latency_ms": 5 }
+              ],
+              "verifier_report": {
+                "overall_status": "completed",
+                "step_results": ["success", "success"],
+                "gaps_found": [],
+                "retry_suggestions": [],
+                "preferences_respected": ["diet=vegan", "allergies=peanuts"],
+                "summary": "Found Vegan Pasta Primavera for 4. Vegan and peanut-free."
+              },
+              "durationMs": 3100
+            },
+            "result_summary": "Found Vegan Pasta Primavera for 4. Vegan and peanut-free.",
+            "ui_delay_ms": 1800
+          },
+          {
+            "tool": "store_context",
+            "args": {
+              "user_id": "amzn1.account.DEMO-USER-001",
+              "context": "Dinner plan in progress: Vegan Pasta Primavera for 4. Ingredients: pasta, tomatoes, basil, olive oil, garlic, zucchini. Shopping list not yet updated.",
+              "priority": "medium",
+              "expires_in_hours": 24,
+              "related_task_id": "exec_demo_001"
+            },
+            "result": "Context stored (id: ctx_demo_001), expires in 24h.",
+            "latency_ms": 150,
+            "ui_delay_ms": 500
+          }
+        ],
+        "alexa_response": "I've saved that you're vegan and found a Vegan Pasta Primavera for 4. It's peanut-free too. Want me to add the ingredients to your shopping list?"
+      },
+      {
+        "id": "S2",
+        "title": "Multi-turn follow-up",
+        "caption": "'Yes' only works because ContextForge remembered the plan",
+        "memory_before": "after_S1",
+        "memory_after": "after_S2",
+        "user_say": "Yes, and check the weather too.",
+        "tool_calls": [
+          {
+            "tool": "get_context",
+            "args": { "user_id": "amzn1.account.DEMO-USER-001", "limit": 5 },
+            "result": [
+              { "context": "Dinner plan in progress: Vegan Pasta Primavera for 4. Ingredients: pasta, tomatoes, basil, olive oil, garlic, zucchini. Shopping list not yet updated.", "priority": "medium" },
+              { "context": "User asked to be reminded about medication at 8pm daily.", "priority": "high" }
+            ],
+            "latency_ms": 140,
+            "ui_delay_ms": 700
+          },
+          {
+            "tool": "execute_workflow",
+            "args": { "user_id": "amzn1.account.DEMO-USER-001", "task": "Add the dinner ingredients to my shopping list and check the weather" },
+            "workflow": {
+              "loaded_preferences": ["home_city=Lagos"],
+              "planner_output": [
+                { "order": 1, "description": "Add recipe ingredients to the shopping list", "required_tool": "add_to_shopping_list", "expected_input": { "items": ["pasta", "tomatoes", "basil", "olive oil", "garlic", "zucchini"] } },
+                { "order": 2, "description": "Check the weather for the home city", "required_tool": "get_weather", "expected_input": { "city": "Lagos", "units": "celsius" } }
+              ],
+              "executor_trace": [
+                { "step": 1, "tool": "add_to_shopping_list", "attempt": 1, "status": "success", "output": "Added 6 items to shopping list: pasta, tomatoes, basil, olive oil, garlic, zucchini", "latency_ms": 260 },
+                { "step": 2, "tool": "get_weather", "attempt": 1, "status": "success", "output": "Lagos: 22C, clear sky", "latency_ms": 380 }
+              ],
+              "verifier_report": {
+                "overall_status": "completed",
+                "step_results": ["success", "success"],
+                "gaps_found": [],
+                "retry_suggestions": [],
+                "summary": "6 items added. Weather retrieved."
+              },
+              "durationMs": 4200
+            },
+            "result_summary": "6 items added. Lagos: 22C, clear sky.",
+            "ui_delay_ms": 1800
+          }
+        ],
+        "alexa_response": "Done. I added pasta, tomatoes, basil, olive oil, garlic, and zucchini to your shopping list. It's 22 degrees and clear in Lagos."
+      },
+      {
+        "id": "S3",
+        "title": "Memory the next day",
+        "caption": "Next day. Fresh session. Nothing lost.",
+        "memory_before": "after_S2",
+        "memory_after": "after_S2",
+        "clock_jump": "+1 day",
+        "user_say": "Alexa, what do you remember about me?",
+        "tool_calls": [
+          {
+            "tool": "get_memory_summary",
+            "args": { "user_id": "amzn1.account.DEMO-USER-001" },
+            "result": "Here's what I know about you:\n\nPREFERENCES:\n- Diet: Vegan\n- Allergies: Peanuts\n- Music taste: Jazz\n- Wake time: 07:00\n- Preferred temperature: 21C\n- Home city: Lagos\n\nSTANDING INSTRUCTIONS:\n- Keep answers short. No jokes or upselling.\n\nRECENT CONTEXT:\n- You planned a vegan dinner for 4 yesterday using Pasta Primavera and added the ingredients to your shopping list\n- You asked to be reminded about medication at 8pm daily\n\nRECENT TASKS:\n- Yesterday: Planned dinner + checked weather + added groceries (completed)\n- 3 days ago: Set up morning routine (completed)\n\nI will respect all of these in future interactions.",
+            "latency_ms": 310,
+            "ui_delay_ms": 1500
+          }
+        ],
+        "alexa_response": "You're vegan, allergic to peanuts, enjoy jazz, and wake at 7. Yesterday you planned a vegan dinner with Pasta Primavera. I'll keep answers short, as you asked."
+      },
+      {
+        "id": "S4",
+        "title": "Multi-step orchestration",
+        "caption": "One sentence. Four tools. Verified.",
+        "memory_before": "after_S2",
+        "memory_after": "after_S4",
+        "user_say": "Alexa, set up my morning: wake me at 7, start the coffee maker, read me the top 3 headlines, and tell me the weather.",
+        "tool_calls": [
+          {
+            "tool": "execute_workflow",
+            "args": { "user_id": "amzn1.account.DEMO-USER-001", "task": "Set up my morning: wake me at 7, start the coffee maker, read me the top 3 headlines, and tell me the weather" },
+            "workflow": {
+              "loaded_preferences": ["wake_time=07:00", "home_city=Lagos"],
+              "planner_output": [
+                { "order": 1, "description": "Set wake-up alarm for 07:00", "required_tool": "set_reminder", "expected_input": { "message": "Wake up", "time": "tomorrow 07:00", "recurring": "none" } },
+                { "order": 2, "description": "Schedule the coffee maker for 06:55", "required_tool": "control_smart_home", "expected_input": { "device": "coffee_maker", "action": "schedule_on", "value": "06:55" } },
+                { "order": 3, "description": "Fetch the top 3 headlines", "required_tool": "get_news", "expected_input": { "count": 3 } },
+                { "order": 4, "description": "Check the weather for the home city", "required_tool": "get_weather", "expected_input": { "city": "Lagos", "units": "celsius" } }
+              ],
+              "executor_trace": [
+                { "step": 1, "tool": "set_reminder", "attempt": 1, "status": "success", "output": "Reminder set: \"Wake up\" at tomorrow 07:00", "latency_ms": 210 },
+                { "step": 2, "tool": "control_smart_home", "attempt": 1, "status": "success", "output": "Coffee maker scheduled to start at 06:55", "latency_ms": 340 },
+                { "step": 3, "tool": "get_news", "attempt": 1, "status": "success", "output": ["City council approves expanded night bus routes", "Local startup opens free coding classes for teens", "Clear, cool weekend forecast across the region"], "latency_ms": 520 },
+                { "step": 4, "tool": "get_weather", "attempt": 1, "status": "success", "output": "Lagos: 22C, clear sky", "latency_ms": 390 }
+              ],
+              "verifier_report": {
+                "overall_status": "completed",
+                "step_results": ["success", "success", "success", "success"],
+                "gaps_found": [],
+                "retry_suggestions": [],
+                "summary": "All 4 steps completed successfully."
+              },
+              "durationMs": 8400
+            },
+            "result_summary": "All 4 steps completed successfully.",
+            "ui_delay_ms": 2600
+          }
+        ],
+        "alexa_response": "Morning routine set. I'll wake you at 7 and start the coffee at 6:55. Headlines: City council approves expanded night bus routes. Local startup opens free coding classes for teens. Clear, cool weekend forecast across the region. It's 22 degrees and clear in Lagos."
+      }
+    ],
+
+    "resilience_optional": [
+      {
+        "id": "R1",
+        "title": "Verifier catches a violation",
+        "caption": "The first recipe breaks the vegan rule. The verifier rejects it and the executor retries.",
+        "chaos": { "bad_recipe_on_first_call": true },
+        "memory_before": "after_S2",
+        "memory_after": "after_S2",
+        "user_say": "Alexa, plan a different dinner for 4 tomorrow.",
+        "tool_calls": [
+          {
+            "tool": "execute_workflow",
+            "args": { "user_id": "amzn1.account.DEMO-USER-001", "task": "Plan a different dinner for 4 tomorrow" },
+            "workflow": {
+              "loaded_preferences": ["diet=vegan", "allergies=peanuts"],
+              "planner_output": [
+                { "order": 1, "description": "Find a different vegan, peanut-free dinner for 4", "required_tool": "find_recipe", "expected_input": { "dietary_restrictions": ["vegan", "peanut-free"], "servings": 4, "meal_type": "dinner" } }
+              ],
+              "executor_trace": [
+                { "step": 1, "tool": "find_recipe", "attempt": 1, "status": "returned", "output_ref": "mock_tools.find_recipe.bad_injected", "latency_ms": 400 },
+                { "step": 1, "tool": "find_recipe", "attempt": 2, "status": "success", "output_ref": "mock_tools.find_recipe.good[vegan|peanut-free|4|dinner|retry]", "latency_ms": 430, "note": "Retried with explicit exclude list: meat, dairy, eggs, peanuts" }
+              ],
+              "verifier_reports": [
+                { "after_attempt": 1, "overall_status": "failed", "gaps_found": ["Recipe 'Creamy Chicken Alfredo' contains meat and dairy", "Violates diet=vegan"], "retry_suggestions": ["Re-run find_recipe with exclude: meat, dairy, eggs, peanuts"] },
+                { "after_attempt": 2, "overall_status": "completed", "gaps_found": [], "summary": "Chickpea Coconut Curry is vegan and peanut-free." }
+              ],
+              "durationMs": 5200
+            },
+            "result_summary": "Rejected non-vegan result, retried, found Chickpea Coconut Curry.",
+            "ui_delay_ms": 3200
+          }
+        ],
+        "alexa_response": "How about a chickpea coconut curry for 4? It's vegan and peanut-free."
+      },
+      {
+        "id": "R2",
+        "title": "Transient failure + model fallback",
+        "caption": "A tool fails once. The planner model rate-limits. The user never notices.",
+        "chaos": { "shopping_503_on_first_call": true, "planner_429_on_first_call": true },
+        "memory_before": "after_S2",
+        "memory_after": "after_S2",
+        "user_say": "Alexa, add the curry ingredients to my shopping list.",
+        "tool_calls": [
+          {
+            "tool": "execute_workflow",
+            "args": { "user_id": "amzn1.account.DEMO-USER-001", "task": "Add the curry ingredients to my shopping list" },
+            "workflow": {
+              "model_events": [
+                { "role": "planner", "attempt": 1, "provider": "openrouter", "result": "429 rate limited" },
+                { "role": "planner", "attempt": 2, "provider": "fallback (second provider)", "result": "ok" }
+              ],
+              "planner_output": [
+                { "order": 1, "description": "Add curry ingredients to the shopping list", "required_tool": "add_to_shopping_list", "expected_input": { "items": ["chickpeas", "coconut milk", "tomatoes", "onion", "garlic", "ginger", "spinach", "curry powder", "rice"] } }
+              ],
+              "executor_trace": [
+                { "step": 1, "tool": "add_to_shopping_list", "attempt": 1, "status": "error", "output": { "status": 503, "error": "shopping_service_unavailable", "retryable": true }, "latency_ms": 300 },
+                { "step": 1, "tool": "add_to_shopping_list", "attempt": 2, "status": "success", "output": "Added 9 items to shopping list: chickpeas, coconut milk, tomatoes, onion, garlic, ginger, spinach, curry powder, rice", "latency_ms": 270, "note": "Retried after 800ms backoff" }
+              ],
+              "verifier_report": { "overall_status": "completed", "gaps_found": [], "summary": "9 items added after 1 retry." },
+              "durationMs": 6100
+            },
+            "result_summary": "9 items added after 1 retry.",
+            "ui_delay_ms": 3200
+          }
+        ],
+        "alexa_response": "Done. I added 9 items to your shopping list."
+      }
+    ]
+  },
+
+  "video_timeline": [
+    { "t": "0:00-0:15", "scene": "title card", "narration": "Alexa+ can't remember you. We built ContextForge to fix that." },
+    { "t": "0:15-0:45", "scene": "F1, F2, F3", "narration": "Same requests, without ContextForge. Ignored preference, zero recall, one step of four. (Show the 'simulated' caption.)" },
+    { "t": "0:45-1:15", "scene": "S1, S2", "narration": "With ContextForge: say it once, it's stored, enforced, and the follow-up just works." },
+    { "t": "1:15-1:40", "scene": "S3", "narration": "Next day, fresh session. Everything is still there." },
+    { "t": "1:40-2:00", "scene": "S4", "narration": "One sentence, four tools, one verified result." },
+    { "t": "2:00-2:30", "scene": "architecture + optional R1", "narration": "Planner, executor, verifier on an MCP server. The verifier caught a non-vegan recipe and forced a retry." },
+    { "t": "2:30-2:45", "scene": "end card", "narration": "ContextForge gives Alexa+ the memory it's missing." }
+  ]
+}
