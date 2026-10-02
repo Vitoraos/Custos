@@ -165,21 +165,75 @@ and recent tasks in one breath.
 
 Every signature, constraint, and a worked example for each tool: [`API.md`](./API.md).
 
-## 9. Deployment (Render + Cloudflare)
+## 9. Deployment (Render · Vercel · Cloudflare · Supabase)
 
-**Render** hosts the server as a free web service that auto-deploys from Git. Build with
-`npm install && npm run build`, start with `npm start`, keep the free plan, and point the health check at
-`/health`. Secrets go in the dashboard as environment variables (or `infra/render.yaml` as code). Three
-free-tier realities to plan around: the service sleeps after fifteen idle minutes and takes about a minute
-to wake, its filesystem is ephemeral, and a permanently-warmed service consumes roughly 744 of your 750
-monthly hours — so run exactly one free service in that workspace through judging.
+Two things ship independently: the **backend** (MCP server + database) and the **frontend** (static replay
+page). Here is exactly what goes where:
 
-**Cloudflare's** free plan fills the gaps (`infra/cloudflare/keepalive/`). A cron trigger pings `/health`
-every ten minutes so the judges never eat a cold start — deploy it with `npx wrangler deploy` from that
-folder and leave it running until judging ends. For development, `cloudflared tunnel --url
+| Piece | Folder to point at | Render | Vercel | Cloudflare | Supabase |
+|-------|--------------------|--------|--------|------------|----------|
+| Backend: MCP server | repo root (`npm run build` → `dist/`, start `npm start`) | ✅ Web Service (recommended) | ⚠️ possible, not recommended — see below | ❌ unverified (Node `FastMCP.start` ≠ Workers runtime) | n/a (no compute) |
+| Backend: database | `infra/schema.sql`, then `infra/seed.sql` | n/a | n/a | n/a | ✅ SQL Editor |
+| Backend: keep-alive cron | `infra/cloudflare/keepalive/` | n/a | n/a | ✅ `wrangler deploy` | n/a |
+| Frontend: replay page | `demo/public/` | ✅ Static Site | ✅ Project (root = `demo/public`) | ✅ Pages / Workers static assets | n/a |
+
+### Backend → Render (recommended home for the MCP server)
+
+Render is the only listed platform that runs our server as-is, because FastMCP's `httpStream` transport
+expects a long-lived Node process, which is exactly what a Render Web Service is. Create it from the repo
+root (it must see `package.json` and `src/`): build command `npm install && npm run build`, start command
+`npm start`, free plan, health check path `/health`. Secrets go in the dashboard as environment variables
+(or commit them as code in `infra/render.yaml`). Once live, the MCP endpoint is
+`https://<your-app>.onrender.com/mcp`.
+
+Three free-tier realities to plan around: the service sleeps after fifteen idle minutes and takes about a
+minute to wake, its filesystem is ephemeral, and a permanently-warmed service consumes roughly 744 of your
+750 monthly hours — so run exactly one free service in that workspace through judging.
+
+### Backend → Supabase (the database — SQL files, not a deploy)
+
+Supabase hosts no code here, only data. Open the SQL Editor on your project and run **in order**:
+first the contents of `infra/schema.sql` (tables, indexes, RLS), then `infra/seed.sql` Section A
+(baseline demo state; Section B is retakes only). Both files end with a `COUNT(*)` check — expect
+`preferences:5, context:1, executions:1, instructions:1`. The server reaches the database over the network
+using `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY`, so no Supabase-side deploy step exists; just make sure
+those two values are set wherever the backend runs.
+
+### Backend → Cloudflare (keep-alive cron only)
+
+What deploys to Cloudflare from this repo is the keep-alive Worker in `infra/cloudflare/keepalive/`
+(`wrangler.toml` + `src/index.ts`), not the MCP server itself: our server boots via Node's
+`FastMCP.start()`, and whether the Strands agents run under the Workers runtime is still unverified, so
+don't point a Worker at `src/` and hope. From that folder, run `npx wrangler deploy` — the
+`*/10 * * * *` trigger then pings the Render `/health` endpoint every ten minutes so judges never eat a
+cold start. Leave it running until judging ends. For development, `cloudflared tunnel --url
 http://localhost:3000` puts your laptop on a public https URL for Alexa+ testing without deploying at all.
-And the replay page in `demo/public` can be published as static assets for a public demo URL in the
-submission.
+
+### Backend → Vercel (possible, not recommended)
+
+Vercel's model is serverless functions, not long-lived streaming processes, so the `httpStream` server
+fights the platform: cold starts per invocation, function-duration caps, and stateful-session assumptions
+all work against it. If you must, the folder is still the repo root with `npm run build`, wrapped so
+`src/index.ts` becomes a function handler — expect transport surgery and test `tools/list` over SSE
+fallback carefully. Honest advice: keep the backend on Render and let Vercel do what it's good at (below).
+
+### Frontend → Vercel (ideal replay host)
+
+The replay page is four dependency-free files, so Vercel is arguably its happiest home. Point a Vercel
+project's **root directory at `demo/public/`** (or run `vercel --prod` from inside that folder): no build
+command, no output directory, `index.html` serves at `/` with `app.js`, `style.css`, and
+`demo-fixtures.json` beside it. Append `?speed=2` for faster retakes. Use this URL in the submission.
+
+### Frontend → Render (Static Site)
+
+Same folder, `demo/public/`: create a **Static Site** (not a Web Service) pointed at that publish
+directory, no build command. Free, instant, and keeps everything on one provider if you prefer.
+
+### Frontend → Cloudflare (Pages or Workers static assets)
+
+Publish the same `demo/public/` folder as a Pages project (`npx wrangler pages deploy demo/public`) or
+as Workers static assets. Either gives you a global CDN URL for the submission with zero config — a good
+pick if your keep-alive Worker already lives on Cloudflare.
 
 ## 10. Project structure
 
