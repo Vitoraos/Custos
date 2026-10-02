@@ -98,8 +98,7 @@ Response (abridged):
   ],
   "verdict": {"overall_status": "completed", "gaps_found": [], "retry_suggestions": [], "summary": "…"},
   "modelEvents": [],
-  "durationMs": 8400,
-  "usage": {"groq": 2}
+  "durationMs": 8400
 }
 ```
 

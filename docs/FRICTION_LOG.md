@@ -6,6 +6,26 @@
 
 ---
 
+## Oct 2 — Simplification: OpenRouter-only, Cloudflare deleted, external keep-alive
+
+Three cuts in one commit, all in the direction of less to own. First, the four-provider pool collapsed to
+a single OpenRouter endpoint. The pool existed to dodge the 50-request daily free cap, but it quadrupled
+key management and every take behaved slightly differently per provider; with twenty days for retakes, one
+provider at ~25 live workflows a day plus the quota-free replay is the calmer setup. `providers.ts` shrank
+to thirty lines, and `runWithFallback` kept its name and return shape so `workflow.ts` never noticed —
+though the rename is now a small lie we kept deliberately to avoid churn. The `usage` export died with the
+pool, which broke `execute_workflow.ts` exactly once (`TS2305`); removing the import and the `usage` spread
+fixed it, and the type checker confirmed the rest.
+
+Second, Cloudflare left the project entirely. Its API credentials existed only for Workers AI, which died
+with the pool, so the whole `infra/cloudflare/` tree followed — and with it the `wrangler` and tunnel
+references in the docs. The keep-alive cron moved to a free cron-job.org ping against `/health` instead of
+code, because the GitHub Actions alternative bills a minute per run and would burn through this private
+repo's 2,000 free minutes a month around day fourteen. No code, no minutes, no maintenance. Zero time lost
+to bugs; the work was all deletion, which is the best kind.
+
+---
+
 ## Oct 2 — `npx serve` refused to start (broken local cache, not our code)
 
 I ran `npx serve demo/public -l 3001` to preview the replay page and got a wall of red:

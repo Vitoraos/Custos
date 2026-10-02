@@ -7,7 +7,6 @@ import {
   storeExecution,
 } from '../storage/supabase.js';
 import { runWorkflow } from '../agent/workflow.js';
-import { usage } from '../agent/providers.js';
 
 export const executeWorkflowTool = {
   name: 'execute_workflow',
@@ -65,6 +64,6 @@ export const executeWorkflowTool = {
       );
     }
 
-    return JSON.stringify({ ...result, usage });
+    return JSON.stringify(result);
   },
 };

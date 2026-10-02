@@ -7,7 +7,7 @@
 
 At a glance: MCP spec `2025-11-25` over Streamable HTTP (`POST /mcp`, stateless mode), six MCP tools,
 a Plan → Execute → Verify pipeline that spends just two LLM calls per workflow, and a stack of
-FastMCP, the Strands Agents SDK, Supabase PostgreSQL, Render, and Cloudflare — all on free tiers. The demo
+FastMCP, the Strands Agents SDK, OpenRouter free models, Supabase PostgreSQL, and Render — all on free tiers. The demo
 replays deterministically with zero LLM calls, so rate limits and cold starts can never ruin a take.
 
 ---
@@ -22,7 +22,7 @@ replays deterministically with zero LLM calls, so rate limits and cold starts ca
 6. [Running the MCP server](#6-running-the-mcp-server)
 7. [Testing with MCP Inspector](#7-testing-with-mcp-inspector)
 8. [MCP tools](#8-mcp-tools)
-9. [Deployment (Render + Cloudflare)](#9-deployment-render--cloudflare)
+9. [Deployment (Render · Vercel · Supabase + external keep-alive)](#9-deployment-render--vercel--supabase--external-keep-alive)
 10. [Project structure](#10-project-structure)
 11. [Testing](#11-testing)
 12. [Submission checklist mapping](#12-submission-checklist-mapping)
@@ -129,7 +129,7 @@ npm start        # node dist/index.js (what Render runs)
 ```
 
 The server starts in **stateless Streamable HTTP** mode on `endpoint: '/mcp'`, with a `/health` endpoint
-answering `ok` with a 200 for Render health checks and the Cloudflare keep-alive cron. One transport
+answering `ok` with a 200 for Render health checks and the external keep-alive ping. One transport
 gotcha worth knowing up front: tool calls arrive as `POST /mcp` with
 `Accept: application/json, text/event-stream` — both values are required, and responses stream back as
 SSE `event: message` frames. Miss the header and FastMCP answers `4002 Not Acceptable` before your code
@@ -165,17 +165,17 @@ and recent tasks in one breath.
 
 Every signature, constraint, and a worked example for each tool: [`API.md`](./API.md).
 
-## 9. Deployment (Render · Vercel · Cloudflare · Supabase)
+## 9. Deployment (Render · Vercel · Supabase + external keep-alive)
 
 Two things ship independently: the **backend** (MCP server + database) and the **frontend** (static replay
 page). Here is exactly what goes where:
 
-| Piece | Folder to point at | Render | Vercel | Cloudflare | Supabase |
-|-------|--------------------|--------|--------|------------|----------|
-| Backend: MCP server | repo root (`npm run build` → `dist/`, start `npm start`) | ✅ Web Service (recommended) | ⚠️ possible, not recommended — see below | ❌ unverified (Node `FastMCP.start` ≠ Workers runtime) | n/a (no compute) |
-| Backend: database | `infra/schema.sql`, then `infra/seed.sql` | n/a | n/a | n/a | ✅ SQL Editor |
-| Backend: keep-alive cron | `infra/cloudflare/keepalive/` | n/a | n/a | ✅ `wrangler deploy` | n/a |
-| Frontend: replay page | `demo/public/` | ✅ Static Site | ✅ Project (root = `demo/public`) | ✅ Pages / Workers static assets | n/a |
+| Piece | Folder to point at | Render | Vercel | Supabase |
+|-------|--------------------|--------|--------|----------|
+| Backend: MCP server | repo root (`npm run build` → `dist/`, start `npm start`) | ✅ Web Service (recommended) | ⚠️ possible, not recommended — see below | n/a (no compute) |
+| Backend: database | `infra/schema.sql`, then `infra/seed.sql` | n/a | n/a | ✅ SQL Editor |
+| Backend: keep-alive ping | no code — external cron (see below) | n/a (the thing being pinged) | n/a | n/a |
+| Frontend: replay page | `demo/public/` | ✅ Static Site | ✅ Project (root = `demo/public`) | n/a |
 
 ### Backend → Render (recommended home for the MCP server)
 
@@ -199,15 +199,18 @@ first the contents of `infra/schema.sql` (tables, indexes, RLS), then `infra/see
 using `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY`, so no Supabase-side deploy step exists; just make sure
 those two values are set wherever the backend runs.
 
-### Backend → Cloudflare (keep-alive cron only)
+### Keep-alive: external ping (no code, no Cloudflare)
 
-What deploys to Cloudflare from this repo is the keep-alive Worker in `infra/cloudflare/keepalive/`
-(`wrangler.toml` + `src/index.ts`), not the MCP server itself: our server boots via Node's
-`FastMCP.start()`, and whether the Strands agents run under the Workers runtime is still unverified, so
-don't point a Worker at `src/` and hope. From that folder, run `npx wrangler deploy` — the
-`*/10 * * * *` trigger then pings the Render `/health` endpoint every ten minutes so judges never eat a
-cold start. Leave it running until judging ends. For development, `cloudflared tunnel --url
-http://localhost:3000` puts your laptop on a public https URL for Alexa+ testing without deploying at all.
+Render's free tier sleeps after fifteen idle minutes, so something must ping
+`https://<your-app>.onrender.com/health` every ten minutes or judges eat a one-minute cold start. We do
+this with a free [cron-job.org](https://cron-job.org) job rather than code: create the job, point it at
+the `/health` URL, set the interval to 10 minutes, title it `contextforge-keepalive`. It takes two minutes
+in their dashboard, costs nothing, and gets deleted after judging.
+
+Why not a GitHub Actions cron or a Cloudflare Worker? A 10-minute Actions schedule burns roughly 4,300
+billed minutes a month against this private repo's 2,000-minute free allowance — dead by mid-month — and
+a Worker is a deployment to maintain for a job that is literally one HTTP GET. The external pinger has no
+repo footprint at all, which is why no keep-alive code exists in this project.
 
 ### Backend → Vercel (possible, not recommended)
 
@@ -229,12 +232,6 @@ command, no output directory, `index.html` serves at `/` with `app.js`, `style.c
 Same folder, `demo/public/`: create a **Static Site** (not a Web Service) pointed at that publish
 directory, no build command. Free, instant, and keeps everything on one provider if you prefer.
 
-### Frontend → Cloudflare (Pages or Workers static assets)
-
-Publish the same `demo/public/` folder as a Pages project (`npx wrangler pages deploy demo/public`) or
-as Workers static assets. Either gives you a global CDN URL for the submission with zero config — a good
-pick if your keep-alive Worker already lives on Cloudflare.
-
 ## 10. Project structure
 
 ```
@@ -252,8 +249,7 @@ pick if your keep-alive Worker already lives on Cloudflare.
 ├── infra/
 │   ├── schema.sql               # v2 schema (priority_rank, started_at index, RLS)
 │   ├── seed.sql                 # Section A baseline + Section B day-2 retake state
-│   ├── render.yaml              # Render infrastructure as code
-│   └── cloudflare/keepalive/    # cron Worker (wrangler.toml + src/index.ts)
+│   └── render.yaml              # Render infrastructure as code
 ├── tests/                       # tool, storage, workflow, and integration tests
 ├── docs/
 │   ├── README.md (this file) · PROBLEM.md · ARCHITECTURE.md · API.md · FRICTION_LOG.md
