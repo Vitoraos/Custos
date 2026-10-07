@@ -1,0 +1,173 @@
+[
+  {
+    "name": "Vegan Pasta Primavera",
+    "ingredients": [
+      "pasta",
+      "tomatoes",
+      "basil",
+      "olive oil",
+      "garlic",
+      "zucchini"
+    ]
+  },
+  {
+    "name": "Lentil Soup",
+    "ingredients": [
+      "red lentils",
+      "onion",
+      "carrots",
+      "celery",
+      "cumin",
+      "olive oil",
+      "vegetable broth"
+    ]
+  },
+  {
+    "name": "Chickpea Curry",
+    "ingredients": [
+      "chickpeas",
+      "coconut milk",
+      "onion",
+      "tomatoes",
+      "curry powder",
+      "rice"
+    ]
+  },
+  {
+    "name": "Vegetable Stir Fry",
+    "ingredients": [
+      "broccoli",
+      "bell peppers",
+      "carrots",
+      "soy sauce",
+      "sesame oil",
+      "rice noodles"
+    ]
+  },
+  {
+    "name": "Black Bean Tacos",
+    "ingredients": [
+      "black beans",
+      "corn tortillas",
+      "avocado",
+      "lime",
+      "cilantro",
+      "onion"
+    ]
+  },
+  {
+    "name": "Margherita Pizza",
+    "ingredients": [
+      "pizza dough",
+      "tomatoes",
+      "mozzarella",
+      "basil",
+      "olive oil"
+    ]
+  },
+  {
+    "name": "Cheese Omelette",
+    "ingredients": ["eggs", "cheddar", "butter", "salt", "pepper"]
+  },
+  {
+    "name": "Grilled Salmon",
+    "ingredients": ["salmon", "lemon", "olive oil", "garlic", "dill"]
+  },
+  {
+    "name": "Chicken Alfredo",
+    "ingredients": [
+      "fettuccine",
+      "chicken breast",
+      "heavy cream",
+      "parmesan",
+      "garlic",
+      "butter"
+    ]
+  },
+  {
+    "name": "Beef Stew",
+    "ingredients": [
+      "beef",
+      "potatoes",
+      "carrots",
+      "onion",
+      "beef broth",
+      "thyme"
+    ]
+  },
+  {
+    "name": "Tuna Sandwich",
+    "ingredients": ["tuna", "bread", "mayonnaise", "lettuce", "lemon"]
+  },
+  {
+    "name": "Shrimp Pasta",
+    "ingredients": [
+      "shrimp",
+      "pasta",
+      "garlic",
+      "olive oil",
+      "parsley",
+      "lemon"
+    ]
+  },
+  {
+    "name": "Miso Soup",
+    "ingredients": ["miso", "tofu", "seaweed", "spring onions", "dashi"]
+  },
+  {
+    "name": "Greek Salad",
+    "ingredients": [
+      "cucumber",
+      "tomatoes",
+      "red onion",
+      "feta",
+      "olives",
+      "olive oil"
+    ]
+  },
+  {
+    "name": "Pancakes",
+    "ingredients": ["flour", "milk", "eggs", "butter", "sugar", "baking powder"]
+  },
+  {
+    "name": "Fried Rice",
+    "ingredients": [
+      "rice",
+      "eggs",
+      "soy sauce",
+      "peas",
+      "carrots",
+      "sesame oil"
+    ]
+  },
+  {
+    "name": "Tomato Soup",
+    "ingredients": [
+      "tomatoes",
+      "onion",
+      "garlic",
+      "vegetable broth",
+      "cream",
+      "basil"
+    ]
+  },
+  {
+    "name": "Hummus Plate",
+    "ingredients": [
+      "chickpeas",
+      "tahini",
+      "lemon",
+      "garlic",
+      "olive oil",
+      "pita bread"
+    ]
+  },
+  {
+    "name": "Almond Cake",
+    "ingredients": ["almonds", "flour", "sugar", "eggs", "butter"]
+  },
+  {
+    "name": "Honey Glazed Carrots",
+    "ingredients": ["carrots", "honey", "butter", "thyme"]
+  }
+]
