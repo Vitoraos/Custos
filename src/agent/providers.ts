@@ -2,17 +2,17 @@
 // Single OpenRouter endpoint (OpenAI-compatible) via Strands' OpenAI provider.
 // Model defaults to the `openrouter/free` auto-router; pin OPENROUTER_MODEL to a
 // specific `:free` model for take-to-take consistency during recording.
-import { Agent } from '@strands-agents/sdk';
-import { OpenAIModel } from '@strands-agents/sdk/models/openai';
+import { Agent } from "@strands-agents/sdk";
+import { OpenAIModel } from "@strands-agents/sdk/models/openai";
 
-const BASE_URL = 'https://openrouter.ai/api/v1';
+const BASE_URL = "https://openrouter.ai/api/v1";
 
 function makeAgent(systemPrompt: string) {
   const model = new OpenAIModel({
-    api: 'chat',
+    api: "chat",
     apiKey: process.env.OPENROUTER_API_KEY,
     clientConfig: { baseURL: BASE_URL },
-    modelId: process.env.OPENROUTER_MODEL ?? 'openrouter/free',
+    modelId: process.env.OPENROUTER_MODEL ?? "openrouter/free",
   });
   return new Agent({ model, systemPrompt });
 }
@@ -23,5 +23,9 @@ export async function runWithFallback(systemPrompt: string, prompt: string) {
   const result = await makeAgent(systemPrompt).invoke(prompt);
   // Confirmed on @strands-agents/sdk 1.19.0: AgentResult.toString() returns
   // interrupts/structuredOutput JSON, else textBlock content joined by newlines.
-  return { text: result.toString(), provider: 'openrouter', fallbacks: [] as string[] };
+  return {
+    text: result.toString(),
+    provider: "openrouter",
+    fallbacks: [] as string[],
+  };
 }

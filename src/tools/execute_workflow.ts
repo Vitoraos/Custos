@@ -1,25 +1,30 @@
-import { z } from 'zod';
+import { z } from "zod";
+import { runWorkflow } from "../agent/workflow.js";
 import {
   getActiveInstructions,
   getContexts,
   getPreferences,
   storeContext,
   storeExecution,
-} from '../storage/supabase.js';
-import { runWorkflow } from '../agent/workflow.js';
+} from "../storage/supabase.js";
 
 export const executeWorkflowTool = {
-  name: 'execute_workflow',
+  name: "execute_workflow",
   description:
-    'Plan and execute a multi-step task. Breaks the task into concrete steps, executes ' +
-    'each step using available tools, verifies results, and retries failed steps. Loads ' +
+    "Plan and execute a multi-step task. Breaks the task into concrete steps, executes " +
+    "each step using available tools, verifies results, and retries failed steps. Loads " +
     "the user's preferences and context before execution so stored preferences are " +
-    'respected. For simple single-step requests, use individual tools directly.',
+    "respected. For simple single-step requests, use individual tools directly.",
   parameters: z.object({
-    user_id: z.string().describe('Unique user identifier'),
-    task: z.string().describe('Natural language description of the task to execute.'),
-    max_steps: z.number().optional().describe('Max steps. Defaults to 10.'),
-    max_retries_per_step: z.number().optional().describe('Max retries per step. Defaults to 2.'),
+    user_id: z.string().describe("Unique user identifier"),
+    task: z
+      .string()
+      .describe("Natural language description of the task to execute."),
+    max_steps: z.number().optional().describe("Max steps. Defaults to 10."),
+    max_retries_per_step: z
+      .number()
+      .optional()
+      .describe("Max retries per step. Defaults to 2."),
   }),
   execute: async (args: {
     user_id: string;
@@ -41,7 +46,9 @@ export const executeWorkflowTool = {
         key: p.key,
         value: p.value,
       })),
-      instructions: instructions.map((i: { instruction: string }) => i.instruction),
+      instructions: instructions.map(
+        (i: { instruction: string }) => i.instruction,
+      ),
       context: contexts.map((c: { context: string }) => c.context),
       maxSteps: args.max_steps,
       maxRetries: args.max_retries_per_step,
@@ -52,15 +59,15 @@ export const executeWorkflowTool = {
       args.user_id,
       args.task,
       result.steps as unknown[],
-      result.status === 'completed' ? 'completed' : 'failed',
-      result.verdict.summary
+      result.status === "completed" ? "completed" : "failed",
+      result.verdict.summary,
     );
-    if (result.status === 'completed') {
+    if (result.status === "completed") {
       await storeContext(
         args.user_id,
         `Completed task "${args.task}": ${result.verdict.summary}`,
-        'medium',
-        72
+        "medium",
+        72,
       );
     }
 
