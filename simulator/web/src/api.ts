@@ -15,14 +15,20 @@ export async function issueGuest(): Promise<{ guestId: string }> {
   return r.json();
 }
 
-export async function* chat(guestId: string, text: string): AsyncGenerator<SimEvent, void, void> {
+export async function* chat(
+  guestId: string,
+  text: string,
+): AsyncGenerator<SimEvent, void, void> {
   const r = await fetch("/sim/chat", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ guestId, text }),
   });
   if (!r.ok || !r.body) {
-    const err = (await r.json().catch(() => ({ error: r.statusText }))) as { error?: string; replay?: boolean };
+    const err = (await r.json().catch(() => ({ error: r.statusText }))) as {
+      error?: string;
+      replay?: boolean;
+    };
     yield { col: "forge", type: "error", text: err.error ?? "chat failed" };
     return;
   }
@@ -55,7 +61,11 @@ export async function truth(guestId: string): Promise<Record<string, unknown>> {
   return r.json();
 }
 
-export async function setFaults(guestId: string, profile: string, params: Record<string, unknown> = {}): Promise<void> {
+export async function setFaults(
+  guestId: string,
+  profile: string,
+  params: Record<string, unknown> = {},
+): Promise<void> {
   await fetch("/sim/faults", {
     method: "POST",
     headers: { "Content-Type": "application/json" },

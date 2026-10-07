@@ -1,9 +1,20 @@
 // npm run sim:record -- --base http://localhost:3000 --out dinner-ab -- 'text one' 'text two'
 // Captures REAL live /sim/chat SSE streams (events + timings) to
 // simulator/web/public/replays/<out>.json. Needs a running server + model key.
-const base = (process.argv.find((a) => a.startsWith("--base="))?.slice(7) ?? "http://localhost:3000").replace(/\/$/, "");
-const out = process.argv.find((a) => a.startsWith("--out="))?.slice(6) ?? "session";
-const texts = process.argv.filter((a) => !a.startsWith("--") && !a.endsWith("sim-record.ts") && a !== process.argv[1]).slice(1);
+const base = (
+  process.argv.find((a) => a.startsWith("--base="))?.slice(7) ??
+  "http://localhost:3000"
+).replace(/\/$/, "");
+const out =
+  process.argv.find((a) => a.startsWith("--out="))?.slice(6) ?? "session";
+const texts = process.argv
+  .filter(
+    (a) =>
+      !a.startsWith("--") &&
+      !a.endsWith("sim-record.ts") &&
+      a !== process.argv[1],
+  )
+  .slice(1);
 if (texts.length === 0) {
   console.error("sim:record: pass scenario texts after --");
   process.exit(1);
@@ -11,7 +22,9 @@ if (texts.length === 0) {
 const { writeFileSync, mkdirSync } = await import("node:fs");
 mkdirSync("simulator/web/public/replays", { recursive: true });
 
-const guestRes = (await fetch(`${base}/sim/guest`, { method: "POST" }).then((r) => r.json())) as { guestId: string };
+const guestRes = (await fetch(`${base}/sim/guest`, { method: "POST" }).then(
+  (r) => r.json(),
+)) as { guestId: string };
 const guest = guestRes.guestId;
 console.log(`sim:record: guest ${guest}`);
 for (const [i, text] of texts.entries()) {
@@ -40,7 +53,10 @@ for (const [i, text] of texts.entries()) {
         const t = line.trim();
         if (t.startsWith("data:")) {
           try {
-            events.push({ at: Date.now() - t0, ev: JSON.parse(t.slice(5).trim()) });
+            events.push({
+              at: Date.now() - t0,
+              ev: JSON.parse(t.slice(5).trim()),
+            });
           } catch {
             // keep-alive
           }

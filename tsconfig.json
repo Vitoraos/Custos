@@ -9,6 +9,12 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true
   },
-  "include": ["src/**/*", "scripts/**/*", "infra/seed.ts", "simulator/api/**/*", "test/**/*"],
+  "include": [
+    "src/**/*",
+    "scripts/**/*",
+    "infra/seed.ts",
+    "simulator/api/**/*",
+    "test/**/*"
+  ],
   "exclude": ["node_modules", "dist"]
 }

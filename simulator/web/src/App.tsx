@@ -1,13 +1,15 @@
 import { useEffect, useRef, useState } from "react";
-import { chat, issueGuest, setFaults, truth, type SimEvent } from "./api";
+import { chat, issueGuest, type SimEvent, setFaults, truth } from "./api";
 import { voice } from "./voice";
 
 interface Msg {
+  id: number;
   who: "you" | "asst";
   col?: "forge" | "baseline";
   text: string;
 }
 interface ToolChip {
+  id: number;
   col: "forge" | "baseline";
   name: string;
   args?: unknown;
@@ -15,6 +17,7 @@ interface ToolChip {
   say?: string;
   open?: boolean;
 }
+let nextId = 1;
 
 const SCENARIOS = [
   "I'm vegan and my daughter Maya is allergic to peanuts. Remember that.",
@@ -28,12 +31,18 @@ const SCENARIOS = [
 ];
 const FAULTS = ["none", "lost_ack:30%", "delayed:2s", "offline:20%", "flaky"];
 
-function faultParams(f: string): { profile: string; params: Record<string, unknown> } {
+function faultParams(f: string): {
+  profile: string;
+  params: Record<string, unknown>;
+} {
   const [profile, arg] = f.split(":");
-  if (profile === "lost_ack") return { profile, params: { p: 0.3, seed: Date.now() % 100000 } };
+  if (profile === "lost_ack")
+    return { profile, params: { p: 0.3, seed: Date.now() % 100000 } };
   if (profile === "delayed") return { profile, params: { ms: 2000 } };
-  if (profile === "offline") return { profile, params: { p: 0.2, seed: Date.now() % 100000 } };
-  if (profile === "flaky") return { profile, params: { seed: Date.now() % 100000 } };
+  if (profile === "offline")
+    return { profile, params: { p: 0.2, seed: Date.now() % 100000 } };
+  if (profile === "flaky")
+    return { profile, params: { seed: Date.now() % 100000 } };
   void arg;
   return { profile: "none", params: {} };
 }
@@ -51,7 +60,10 @@ export default function App() {
   const [mode, setMode] = useState<"ab" | "forge" | "replay">("ab");
   const [replayName, setReplayName] = useState("dinner-ab.json");
   const [speaking, setSpeaking] = useState(false);
-  const partial = useRef<{ forge: string; baseline: string }>({ forge: "", baseline: "" });
+  const partial = useRef<{ forge: string; baseline: string }>({
+    forge: "",
+    baseline: "",
+  });
   const timer = useRef(0);
 
   useEffect(() => {
@@ -84,13 +96,32 @@ export default function App() {
       partial.current[ev.col] += ev.text ?? "";
       setMsgs((m) => {
         const last = m[m.length - 1];
-        if (last && last.who === "asst" && last.col === ev.col && !last.text.endsWith(".")) {
-          return [...m.slice(0, -1), { ...last, text: partial.current[ev.col] }];
+        if (
+          last &&
+          last.who === "asst" &&
+          last.col === ev.col &&
+          !last.text.endsWith(".")
+        ) {
+          return [
+            ...m.slice(0, -1),
+            { ...last, text: partial.current[ev.col] },
+          ];
         }
-        return [...m, { who: "asst", col: ev.col, text: partial.current[ev.col] }];
+        return [
+          ...m,
+          {
+            id: nextId++,
+            who: "asst",
+            col: ev.col,
+            text: partial.current[ev.col],
+          },
+        ];
       });
     } else if (ev.type === "tool_call") {
-      setChips((c) => [...c, { col: ev.col, name: ev.name ?? "?", args: ev.args }]);
+      setChips((c) => [
+        ...c,
+        { id: nextId++, col: ev.col, name: ev.name ?? "?", args: ev.args },
+      ]);
     } else if (ev.type === "tool_result") {
       setChips((c) => {
         const i = [...c].map((x) => x.col).lastIndexOf(ev.col);
@@ -101,10 +132,19 @@ export default function App() {
       });
     } else if (ev.type === "final" && ev.text) {
       partial.current[ev.col] = "";
-      setMsgs((m) => [...m.filter((x) => !(x.who === "asst" && x.col === ev.col && !x.text.endsWith("."))), { who: "asst", col: ev.col, text: ev.text as string }]);
+      setMsgs((m) => [
+        ...m.filter(
+          (x) =>
+            !(x.who === "asst" && x.col === ev.col && !x.text.endsWith(".")),
+        ),
+        { who: "asst", col: ev.col, text: ev.text as string, id: nextId++ },
+      ]);
       if (!muted) void voice.speak(ev.text);
     } else if (ev.type === "error") {
-      setMsgs((m) => [...m, { who: "asst", col: ev.col, text: `Error: ${ev.text}` }]);
+      setMsgs((m) => [
+        ...m,
+        { id: nextId++, who: "asst", col: ev.col, text: `Error: ${ev.text}` },
+      ]);
     }
   }
 
@@ -112,7 +152,7 @@ export default function App() {
     const t = text.trim();
     if (!t || busy || !guestId) return;
     setBusy(true);
-    setMsgs((m) => [...m, { who: "you", text: t }]);
+    setMsgs((m) => [...m, { id: nextId++, who: "you", text: t }]);
     setInput("");
     try {
       for await (const ev of chat(guestId, t)) handleEvent(ev);
@@ -139,7 +179,14 @@ export default function App() {
         handleEvent(ev);
       }
     } catch {
-      setMsgs((m) => [...m, { who: "asst", text: "No recording found. Record one with npm run sim:record when the model is available." }]);
+      setMsgs((m) => [
+        ...m,
+        {
+          id: nextId++,
+          who: "asst",
+          text: "No recording found. Record one with npm run sim:record when the model is available.",
+        },
+      ]);
     } finally {
       setBusy(false);
     }
@@ -156,26 +203,56 @@ export default function App() {
     return (
       <main className="start">
         <h1>Simulated voice assistant</h1>
-        <p>Text in, agent works, voice out. One input feeds two columns: without and with ContextForge.</p>
-        <button type="button" onClick={start}>Start</button>
+        <p>
+          Text in, agent works, voice out. One input feeds two columns: without
+          and with ContextForge.
+        </p>
+        <button type="button" onClick={start}>
+          Start
+        </button>
       </main>
     );
   }
 
   const col = (name: "forge" | "baseline", title: string, sub: string) => (
     <section className="panel">
-      <h2>{title}<span className="sub">{sub}</span></h2>
+      <h2>
+        {title}
+        <span className="sub">{sub}</span>
+      </h2>
       <div className="feed">
-        {msgs.filter((m) => !m.col || m.col === name).map((m, i) => (
-          <div key={i} className={`bubble ${m.who}`}>{m.who === "you" ? "you: " : "asst: "}{m.text}</div>
-        ))}
+        {msgs
+          .filter((m) => !m.col || m.col === name)
+          .map((m) => (
+            <div key={m.id} className={`bubble ${m.who}`}>
+              {m.who === "you" ? "you: " : "asst: "}
+              {m.text}
+            </div>
+          ))}
       </div>
       <div className="chips">
-        {chips.filter((c) => c.col === name).map((c, i) => (
-          <button type="button" key={i} className="chip" onClick={() => setChips((all) => all.map((x, j) => (j === i ? { ...x, open: !x.open } : x)))}>
-            ⚙ {c.name}{c.outcome ? ` → ${c.outcome}` : ""}{c.open ? <pre>{JSON.stringify({ args: c.args, say: c.say }, null, 1)}</pre> : null}
-          </button>
-        ))}
+        {chips
+          .filter((c) => c.col === name)
+          .map((c) => (
+            <button
+              type="button"
+              key={c.id}
+              className="chip"
+              onClick={() =>
+                setChips((all) =>
+                  all.map((x) => (x.id === c.id ? { ...x, open: !x.open } : x)),
+                )
+              }
+            >
+              ⚙ {c.name}
+              {c.outcome ? ` → ${c.outcome}` : ""}
+              {c.open ? (
+                <pre>
+                  {JSON.stringify({ args: c.args, say: c.say }, null, 1)}
+                </pre>
+              ) : null}
+            </button>
+          ))}
       </div>
     </section>
   );
@@ -183,39 +260,98 @@ export default function App() {
   return (
     <main>
       <header>
-        <h1>Simulated voice assistant{speaking ? <span className="-speaking"> ● speaking</span> : null}</h1>
+        <h1>
+          Simulated voice assistant
+          {speaking ? <span className="-speaking"> ● speaking</span> : null}
+        </h1>
         <div className="controls">
-          <select value={mode} onChange={(e) => setMode(e.target.value as typeof mode)}>
+          <select
+            value={mode}
+            onChange={(e) => setMode(e.target.value as typeof mode)}
+          >
             <option value="ab">A/B</option>
             <option value="forge">Forge only</option>
             <option value="replay">Replay</option>
           </select>
-          <button type="button" onClick={() => { setMuted(!muted); if (!muted) voice.cancel(); }}>{muted ? "🔇 muted" : "🔊 voice"}</button>
-          <select value={fault} onChange={(e) => void changeFault(e.target.value)}>
-            {FAULTS.map((f) => <option key={f} value={f}>chaos: {f}</option>)}
+          <button
+            type="button"
+            onClick={() => {
+              setMuted(!muted);
+              if (!muted) voice.cancel();
+            }}
+          >
+            {muted ? "🔇 muted" : "🔊 voice"}
+          </button>
+          <select
+            value={fault}
+            onChange={(e) => void changeFault(e.target.value)}
+          >
+            {FAULTS.map((f) => (
+              <option key={f} value={f}>
+                chaos: {f}
+              </option>
+            ))}
           </select>
           {mode === "replay" && (
             <>
-              <input value={replayName} onChange={(e) => setReplayName(e.target.value)} size={18} />
-              <button type="button" onClick={() => void playReplay()} disabled={busy}>Play</button>
+              <input
+                value={replayName}
+                onChange={(e) => setReplayName(e.target.value)}
+                size={18}
+              />
+              <button
+                type="button"
+                onClick={() => void playReplay()}
+                disabled={busy}
+              >
+                Play
+              </button>
             </>
           )}
         </div>
       </header>
       <div className="cols">
-        {col("baseline", "WITHOUT guard + verification", "memory only, raw acks")}
+        {col(
+          "baseline",
+          "WITHOUT guard + verification",
+          "memory only, raw acks",
+        )}
         {col("forge", "WITH ContextForge", "guard + verify + receipts")}
       </div>
       <section className="panel truth">
-        <h2>GROUND TRUTH <span className="sub">independent of the assistants</span></h2>
+        <h2>
+          GROUND TRUTH{" "}
+          <span className="sub">independent of the assistants</span>
+        </h2>
         <pre>{JSON.stringify(ground, null, 1)}</pre>
       </section>
       <div className="scenarios">
-        {SCENARIOS.map((s) => <button type="button" key={s} onClick={() => void send(s)} disabled={busy}>{s}</button>)}
+        {SCENARIOS.map((s) => (
+          <button
+            type="button"
+            key={s}
+            onClick={() => void send(s)}
+            disabled={busy}
+          >
+            {s}
+          </button>
+        ))}
       </div>
-      <form className="input" onSubmit={(e) => { e.preventDefault(); void send(input); }}>
-        <input value={input} onChange={(e) => setInput(e.target.value)} placeholder="type a request…" />
-        <button type="submit" disabled={busy}>Send</button>
+      <form
+        className="input"
+        onSubmit={(e) => {
+          e.preventDefault();
+          void send(input);
+        }}
+      >
+        <input
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          placeholder="type a request…"
+        />
+        <button type="submit" disabled={busy}>
+          Send
+        </button>
       </form>
     </main>
   );

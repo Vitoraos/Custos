@@ -107,8 +107,7 @@ export function memoryTools(deps: Deps) {
         rc.authorized?.tool === "forget_memory" &&
         rc.authorized?.argsHash === argsHash;
       if (
-        (!presented ||
-          presented.tool !== "forget_memory" ||
+        (presented?.tool !== "forget_memory" ||
           presented.argsHash !== argsHash) &&
         !preAuth
       ) {

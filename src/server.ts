@@ -1,9 +1,10 @@
 // ContextForge v3 MCP server: LLM-free, authenticated, guarded + verified.
 // One process serves /mcp, /health, /health/deep; /sim/* + static land in Phase 5.
-import { createClient } from "@supabase/supabase-js";
-import { serveStatic } from "@hono/node-server/serve-static";
-import { FastMCP } from "fastmcp";
+
 import { existsSync } from "node:fs";
+import { serveStatic } from "@hono/node-server/serve-static";
+import { createClient } from "@supabase/supabase-js";
+import { FastMCP } from "fastmcp";
 import { mountSim } from "../simulator/api/routes.js";
 import {
   createAuthenticator,
@@ -39,7 +40,10 @@ export function resolveStore(): {
   return { store: new MemoryStore(), backend: "memory" };
 }
 
-export function createServer(store?: Store, opts?: { port?: number; webDir?: string }) {
+export function createServer(
+  store?: Store,
+  opts?: { port?: number; webDir?: string },
+) {
   const active = store ?? resolveStore().store;
   const lookup: KeyLookup = async (hash) => {
     const k = await active.getKey(hash);

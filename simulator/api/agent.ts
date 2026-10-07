@@ -32,12 +32,20 @@ interface ColumnAgent {
 }
 const agents = new Map<string, ColumnAgent>();
 
-async function columnAgent(mcpUrl: string, key: string, guestId: string, col: Column): Promise<Agent> {
+async function columnAgent(
+  mcpUrl: string,
+  key: string,
+  guestId: string,
+  col: Column,
+): Promise<Agent> {
   const id = `${guestId}:${col}`;
   const hit = agents.get(id);
   if (hit) return hit.ready;
   const ready = (async () => {
-    const client = new McpClient({ url: mcpUrl, headers: { Authorization: `Bearer ${key}` } });
+    const client = new McpClient({
+      url: mcpUrl,
+      headers: { Authorization: `Bearer ${key}` },
+    });
     const tools = await client.listTools({ prefix: "" });
     return new Agent({ model: model(), tools, systemPrompt: SYSTEM_PROMPT });
   })();
@@ -51,7 +59,10 @@ function deltaText(ev: { event?: unknown }): string {
   while (stack.length > 0) {
     const cur = stack.pop() as Record<string, unknown> | null;
     if (!cur || typeof cur !== "object") continue;
-    if (typeof cur.text === "string" && (cur.type === undefined || /delta/i.test(String(cur.type)))) {
+    if (
+      typeof cur.text === "string" &&
+      (cur.type === undefined || /delta/i.test(String(cur.type)))
+    ) {
       // Only bare text deltas; completed blocks come via final AgentResult.
       return cur.text as string;
     }
@@ -64,7 +75,11 @@ function deltaText(ev: { event?: unknown }): string {
   return "";
 }
 
-function toolResultOutcome(result: unknown): { outcome?: string; say?: string; text: string } {
+function toolResultOutcome(result: unknown): {
+  outcome?: string;
+  say?: string;
+  text: string;
+} {
   // McpTool result blocks carry MCP content (+ structuredContent when present).
   try {
     const r = result as {
@@ -72,7 +87,11 @@ function toolResultOutcome(result: unknown): { outcome?: string; say?: string; t
       structuredContent?: { outcome?: string; say?: string };
     };
     if (r?.structuredContent?.outcome) {
-      return { outcome: r.structuredContent.outcome, say: r.structuredContent.say, text: JSON.stringify(r.structuredContent).slice(0, 500) };
+      return {
+        outcome: r.structuredContent.outcome,
+        say: r.structuredContent.say,
+        text: JSON.stringify(r.structuredContent).slice(0, 500),
+      };
     }
     const text = (r?.content ?? [])
       .map((b) => (b.type === "text" ? (b.text ?? "") : ""))
@@ -101,26 +120,51 @@ export async function* runColumn(
   try {
     agent = await columnAgent(mcpUrl, key, guestId, col);
   } catch (e) {
-    yield { col, type: "error", text: `agent setup failed: ${(e as Error).message}` };
+    yield {
+      col,
+      type: "error",
+      text: `agent setup failed: ${(e as Error).message}`,
+    };
     return;
   }
   try {
-    for await (const ev of agent.stream(text) as AsyncGenerator<{ type?: string } & Record<string, unknown>, unknown, void>) {
+    for await (const ev of agent.stream(text) as AsyncGenerator<
+      { type?: string } & Record<string, unknown>,
+      unknown,
+      void
+    >) {
       const t = (ev as { type?: string }).type ?? "";
       if (t === "modelStreamUpdateEvent") {
         const tok = deltaText(ev as { event?: unknown });
         if (tok) yield { col, type: "token", text: tok };
       } else if (t === "beforeToolCallEvent") {
-        const use = (ev as { toolUse?: { name?: string; input?: unknown } }).toolUse;
-        yield { col, type: "tool_call", name: use?.name ?? "?", args: use?.input };
+        const use = (ev as { toolUse?: { name?: string; input?: unknown } })
+          .toolUse;
+        yield {
+          col,
+          type: "tool_call",
+          name: use?.name ?? "?",
+          args: use?.input,
+        };
       } else if (t === "toolResultEvent" || t === "afterToolCallEvent") {
         const raw = (ev as { result?: unknown }).result;
         const { outcome, say, text: full } = toolResultOutcome(raw);
         const use = (ev as { toolUse?: { name?: string } }).toolUse;
-        yield { col, type: "tool_result", name: use?.name, outcome, say, text: full };
+        yield {
+          col,
+          type: "tool_result",
+          name: use?.name,
+          outcome,
+          say,
+          text: full,
+        };
       } else if (t === "agentResultEvent") {
         const res = (ev as { result?: { toString(): string } }).result;
-        yield { col, type: "final", text: String(res?.toString?.() ?? res ?? "") };
+        yield {
+          col,
+          type: "final",
+          text: String(res?.toString?.() ?? res ?? ""),
+        };
       }
     }
   } catch (e) {

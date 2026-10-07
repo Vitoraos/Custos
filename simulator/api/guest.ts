@@ -13,21 +13,35 @@ const TTL_MS = 24 * 3600 * 1000;
 const guests = new Map<string, Guest>();
 const keys = new Map<string, { forgeKey: string; baselineKey: string }>();
 
-export async function issueGuest(store: Store): Promise<Guest & { forgeKey: string; baselineKey: string }> {
+export async function issueGuest(
+  store: Store,
+): Promise<Guest & { forgeKey: string; baselineKey: string }> {
   purge();
   const id = randomBytes(8).toString("hex");
   const userId = `guest_${id}`;
   const forgeKey = newKey();
   const baselineKey = newKey();
-  await store.insertKey(sha256Hex(forgeKey), { userId, mode: "forge", label: "guest", revokedAt: null });
-  await store.insertKey(sha256Hex(baselineKey), { userId, mode: "baseline", label: "guest", revokedAt: null });
+  await store.insertKey(sha256Hex(forgeKey), {
+    userId,
+    mode: "forge",
+    label: "guest",
+    revokedAt: null,
+  });
+  await store.insertKey(sha256Hex(baselineKey), {
+    userId,
+    mode: "baseline",
+    label: "guest",
+    revokedAt: null,
+  });
   const g: Guest = { id, userId, createdAt: Date.now() };
   guests.set(id, g);
   keys.set(id, { forgeKey, baselineKey });
   return { ...g, forgeKey, baselineKey };
 }
 
-export function guestKeys(id: string): { forgeKey: string; baselineKey: string } | null {
+export function guestKeys(
+  id: string,
+): { forgeKey: string; baselineKey: string } | null {
   purge();
   return keys.get(id) ?? null;
 }
@@ -62,8 +76,10 @@ export function budgetCheck(guestId: string): { ok: boolean; reason?: string } {
     day = today;
     dailyCalls = 0;
   }
-  if (dailyCalls >= DAILY_MAX) return { ok: false, reason: "daily budget exhausted" };
-  if ((turns.get(guestId) ?? 0) >= TURNS_MAX) return { ok: false, reason: "session turn cap reached" };
+  if (dailyCalls >= DAILY_MAX)
+    return { ok: false, reason: "daily budget exhausted" };
+  if ((turns.get(guestId) ?? 0) >= TURNS_MAX)
+    return { ok: false, reason: "session turn cap reached" };
   return { ok: true };
 }
 export function budgetSpend(guestId: string): void {
