@@ -32,6 +32,7 @@
     "check": "tsc --noEmit && biome check . && vitest run --passWithNoTests",
     "test": "vitest run",
     "demo": "npx serve demo/public -l 3001",
-    "db:seed": "tsx infra/seed.ts"
+    "db:seed": "tsx infra/seed.ts",
+    "keys:create": "tsx scripts/keys-create.ts"
   }
 }
