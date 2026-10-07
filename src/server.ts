@@ -1,7 +1,10 @@
 // ContextForge v3 MCP server: LLM-free, authenticated, guarded + verified.
 // One process serves /mcp, /health, /health/deep; /sim/* + static land in Phase 5.
 import { createClient } from "@supabase/supabase-js";
+import { serveStatic } from "@hono/node-server/serve-static";
 import { FastMCP } from "fastmcp";
+import { existsSync } from "node:fs";
+import { mountSim } from "../simulator/api/routes.js";
 import {
   createAuthenticator,
   type KeyLookup,
@@ -36,7 +39,7 @@ export function resolveStore(): {
   return { store: new MemoryStore(), backend: "memory" };
 }
 
-export function createServer(store?: Store) {
+export function createServer(store?: Store, opts?: { port?: number; webDir?: string }) {
   const active = store ?? resolveStore().store;
   const lookup: KeyLookup = async (hash) => {
     const k = await active.getKey(hash);
@@ -75,5 +78,13 @@ export function createServer(store?: Store) {
       return c.json({ ok: false }, 500);
     }
   });
+  // Simulator window (thin interface; same /mcp product underneath).
+  const port = opts?.port ?? Number(process.env.PORT ?? 3000);
+  mountSim(app, active, deps, `http://localhost:${port}/mcp`);
+  // Built simulator frontend, when present (Phase 5 web build).
+  const webDir = opts?.webDir ?? "simulator/web/dist";
+  if (existsSync(webDir)) {
+    app.use("/*", serveStatic({ root: `./${webDir}` }));
+  }
   return { server, deps, runners, sha256Hex };
 }

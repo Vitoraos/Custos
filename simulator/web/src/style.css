@@ -1,0 +1,24 @@
+:root { color-scheme: light dark; }
+body { font-family: system-ui, sans-serif; margin: 0; padding: 0 16px 32px; }
+main { max-width: 1400px; margin: 0 auto; }
+.start { max-width: 640px; margin: 15vh auto; text-align: center; }
+header { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; }
+.controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.cols { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 900px) { .cols { grid-template-columns: 1fr; } }
+.panel { border: 1px solid #8884; border-radius: 10px; padding: 12px; margin-top: 12px; }
+.panel h2 { font-size: 1rem; margin: 0 0 8px; }
+.sub { opacity: 0.65; font-weight: normal; font-size: 0.85rem; margin-left: 8px; }
+.feed { display: flex; flex-direction: column; gap: 8px; min-height: 100px; max-height: 46vh; overflow: auto; }
+.bubble { border-radius: 10px; padding: 8px 12px; max-width: 95%; }
+.bubble.you { background: #2f6fed22; align-self: flex-end; }
+.bubble.asst { background: #8882; align-self: flex-start; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.chip { font-family: monospace; font-size: 0.8rem; background: #146c2e18; border: 1px solid #146c2e; border-radius: 6px; padding: 4px 8px; cursor: pointer; }
+.chip pre { text-align: left; white-space: pre-wrap; word-break: break-all; }
+.truth pre { white-space: pre-wrap; font-size: 0.8rem; max-height: 30vh; overflow: auto; }
+.scenarios { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+.scenarios button { font-size: 0.8rem; }
+.input { display: flex; gap: 8px; margin-top: 12px; }
+.input input { flex: 1; font-size: 1rem; padding: 8px; }
+.speaking { color: #146c2e; font-size: 0.85rem; }

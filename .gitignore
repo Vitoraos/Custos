@@ -1,5 +1,7 @@
 node_modules/
+simulator/web/node_modules/
 dist/
+simulator/web/dist/
 .env
 *.log
 .DS_Store

@@ -32,6 +32,9 @@
     "check": "tsc --noEmit && biome check . && vitest run --passWithNoTests",
     "test": "vitest run",
     "db:seed": "tsx infra/seed.ts",
-    "keys:create": "tsx scripts/keys-create.ts"
+    "keys:create": "tsx scripts/keys-create.ts",
+    "web:dev": "npm --prefix simulator/web run dev",
+    "web:build": "npm --prefix simulator/web run build",
+    "sim:record": "tsx scripts/sim-record.ts"
   }
 }
