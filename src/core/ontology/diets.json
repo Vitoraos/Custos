@@ -1,0 +1,47 @@
+{
+  "meat": [
+    "meat",
+    "beef",
+    "pork",
+    "chicken",
+    "turkey",
+    "duck",
+    "lamb",
+    "veal",
+    "bacon",
+    "ham",
+    "sausage",
+    "salami",
+    "pepperoni",
+    "prosciutto",
+    "chorizo",
+    "venison",
+    "goat",
+    "rabbit",
+    "gelatin",
+    "lard",
+    "tallow",
+    "broth",
+    "stock"
+  ],
+  "vegan": {
+    "excludeGroups": ["meat", "milk", "egg", "fish"],
+    "extraTerms": ["honey", "beeswax", "gelatin", "lard"]
+  },
+  "vegetarian": {
+    "excludeGroups": ["meat", "fish"],
+    "extraTerms": ["gelatin", "lard"]
+  },
+  "pescatarian": {
+    "excludeGroups": ["meat"],
+    "extraTerms": []
+  },
+  "gluten_free": {
+    "excludeGroups": ["gluten"],
+    "extraTerms": []
+  },
+  "dairy_free": {
+    "excludeGroups": ["milk"],
+    "extraTerms": []
+  }
+}
