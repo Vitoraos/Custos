@@ -134,14 +134,16 @@ export async function cancelReminder(
 }
 
 export interface ReminderCmd extends ScheduleRequest {
-  requestedAtMs: number;
+  requestedAtMs?: number;
 }
 export interface ReminderState {
   confirmation: ScheduleConfirmation | null;
   delivered: { id: string; text: string; timeMs: number }[];
 }
 
-// Acceptance attestations, keyed by verify idempotency key (bounded).
+// Acceptance attestations, keyed by topic+text (the verify target).
+// Topic is already user-bound (topicFor); identical text redelivers nothing
+// new, matching runAction's idempotency.
 const confirmations = new Map<string, ScheduleConfirmation>();
 
 export class NtfyReminders
@@ -151,18 +153,17 @@ export class NtfyReminders
   async write(
     _userId: string,
     cmd: ReminderCmd,
-    idemKey: string,
+    _idemKey: string,
   ): Promise<{ ackId?: string }> {
     const c = await scheduleReminder(cmd);
     if (confirmations.size > 200)
       confirmations.delete(confirmations.keys().next().value as string);
-    confirmations.set(idemKey, c);
+    confirmations.set(`${cmd.topic}|${cmd.text}`, c);
     return { ackId: c.id };
   }
   async read(_userId: string, target: string): Promise<ReminderState> {
-    // target = `${topic}|${idemKey}`
-    const [topic, idemKey] = target.split("|");
-    const confirmation = confirmations.get(idemKey) ?? null;
+    const [topic] = target.split("|");
+    const confirmation = confirmations.get(target) ?? null;
     let delivered: ReminderState["delivered"] = [];
     try {
       delivered = await pollTopic(topic, Date.now() - 10 * 60 * 1000);

@@ -26,7 +26,7 @@ export interface ActionAdapter<Cmd, State> {
 
 export interface ActionSpec<Args, Cmd, State> {
   name: string;
-  risk: "low" | "high";
+  risk: "low" | "high" | ((a: Args) => "low" | "high");
   adapter: ActionAdapter<Cmd, State>;
   toPolicyAction(a: Args): ProposedAction;
   toCommand(a: Args): Cmd;
@@ -46,6 +46,8 @@ export interface RunContext {
   receipts?: ReceiptStore;
   confirms?: ConfirmStore;
   confirmToken?: string;
+  // Proof from confirm_action: a just-consumed token binding for this call.
+  authorized?: { tool: string; argsHash: string };
   minuteBucket?: string; // override for tests; default = current UTC minute
 }
 
@@ -55,39 +57,41 @@ export interface ConfirmStore {
     userId: string,
     tool: string,
     argsHash: string,
+    args?: unknown,
     ttlMs?: number,
   ): Promise<string>;
   consume(
     userId: string,
     token: string,
-  ): Promise<{ tool: string; argsHash: string } | null>;
+  ): Promise<{ tool: string; argsHash: string; args: unknown } | null>;
 }
 
 export class MemoryConfirms implements ConfirmStore {
   private tokens = new Map<
     string,
-    { userId: string; tool: string; argsHash: string; exp: number }
+    { userId: string; tool: string; argsHash: string; args: unknown; exp: number }
   >();
   async mint(
     userId: string,
     tool: string,
     argsHash: string,
+    args: unknown = null,
     ttlMs = 120_000,
   ): Promise<string> {
     const t = randomBytes(16).toString("hex");
-    this.tokens.set(t, { userId, tool, argsHash, exp: Date.now() + ttlMs });
+    this.tokens.set(t, { userId, tool, argsHash, args, exp: Date.now() + ttlMs });
     return t;
   }
   async consume(
     userId: string,
     token: string,
-  ): Promise<{ tool: string; argsHash: string } | null> {
+  ): Promise<{ tool: string; argsHash: string; args: unknown } | null> {
     const rec = this.tokens.get(token);
     if (!rec) return null;
     this.tokens.delete(token);
     if (rec.userId !== userId || rec.exp < Date.now()) return null;
     if (token.length !== 32) return null;
-    return { tool: rec.tool, argsHash: rec.argsHash };
+    return { tool: rec.tool, argsHash: rec.argsHash, args: rec.args };
   }
 }
 
@@ -107,12 +111,13 @@ function canonical(v: unknown): string {
 
 function idemKey(
   userId: string,
+  mode: string,
   tool: string,
   args: unknown,
   bucket: string,
 ): string {
   return createHash("sha256")
-    .update(`${userId}|${tool}|${canonical(args)}|${bucket}`)
+    .update(`${userId}|${mode}|${tool}|${canonical(args)}|${bucket}`)
     .digest("hex");
 }
 
@@ -134,17 +139,25 @@ export async function runAction<Args, Cmd, State>(
   const receipts = ctx.receipts ?? new MemoryReceipts();
   const confirms = ctx.confirms ?? new MemoryConfirms();
   const bucket = ctx.minuteBucket ?? minuteBucket(ctx.now);
-  const key = idemKey(ctx.userId, spec.name, args, bucket);
+  const key = idemKey(ctx.userId, ctx.mode, spec.name, args, bucket);
 
-  // Safe retry: an identical completed call returns the same receipt.
+  // Safe retry: an identical completed call returns the same receipt,
+  // reconstructed so it still validates against the tool output schema.
   const prior = await receipts.findByIdempotencyKey(ctx.userId, spec.name, key);
   if (prior) {
-    return {
-      outcome: prior.outcome,
-      say: prior.say,
-      evidence: prior.observed as Evidence | undefined,
-      receiptId: prior.id,
-    };
+    const exp = prior.expectation as { target?: unknown; source?: string } | null;
+    const dec = prior.decision as { reasons?: { constraintId: string; text: string }[] } | null;
+    const replay: ToolResult = { outcome: prior.outcome, say: prior.say, receiptId: prior.id };
+    if (exp) {
+      replay.evidence = {
+        expected: exp.target,
+        observed: prior.observed,
+        source: exp.source ?? "unknown",
+        checkedAt: prior.createdAt,
+      };
+    }
+    if (dec?.reasons?.length) replay.reasons = dec.reasons;
+    return replay;
   }
   const running = inFlight.get(key);
   if (running) return running;
@@ -233,16 +246,21 @@ async function execute<Args, Cmd, State>(
       receiptId: saved.id,
     };
   }
-  if (evaled.verdict === "confirm" || spec.risk === "high") {
+  if (evaled.verdict === "confirm" || (typeof spec.risk === "function" ? spec.risk(args) : spec.risk) === "high") {
     const presented = ctx.confirmToken
       ? await confirms.consume(ctx.userId, ctx.confirmToken)
       : null;
+    const preAuth =
+      ctx.authorized &&
+      ctx.authorized.tool === spec.name &&
+      ctx.authorized.argsHash === argsHash;
     if (
-      !presented ||
-      presented.tool !== spec.name ||
-      presented.argsHash !== argsHash
+      (!presented ||
+        presented.tool !== spec.name ||
+        presented.argsHash !== argsHash) &&
+      !preAuth
     ) {
-      const token = await confirms.mint(ctx.userId, spec.name, argsHash);
+      const token = await confirms.mint(ctx.userId, spec.name, argsHash, args);
       const say = sayNeedsConfirmation(spec.confirmWhat(args));
       return { outcome: "needs_confirmation", say, confirmToken: token };
     }
@@ -282,7 +300,7 @@ async function execute<Args, Cmd, State>(
       idempotencyKey: key,
       args,
       decision,
-      expectation: { target },
+      expectation: { target, source: spec.adapter.name },
       observed,
       outcome,
       say,

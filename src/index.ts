@@ -1,13 +1,22 @@
-// Entry point — starts FastMCP server (Streamable HTTP, stateless).
-import { createServer } from "./server.js";
+// Entry point: binds $PORT (Render injects it).
+import { createServer, resolveStore } from "./server.js";
 
 const port = Number(process.env.PORT ?? 3000);
+const host = process.env.HOST ?? "0.0.0.0";
+const { server, deps } = createServer();
+void deps;
 
-await createServer().start({
+await server.start({
   transportType: "httpStream",
-  httpStream: { port, endpoint: "/mcp", stateless: true },
+  httpStream: {
+    port,
+    host,
+    endpoint: "/mcp",
+    stateless: true,
+    cors: process.env.ALLOWED_ORIGINS
+      ? { origin: process.env.ALLOWED_ORIGINS.split(",").map((s) => s.trim()) }
+      : true,
+  },
 });
-// eslint-disable-next-line no-console
-console.log(
-  `ContextForge MCP listening on :${port}/mcp (health :${port}/health)`,
-);
+const backend = resolveStore().backend;
+console.log(`ContextForge v3 on ${host}:${port}/mcp (store: ${backend})`);

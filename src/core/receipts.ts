@@ -16,6 +16,7 @@ export interface Receipt {
   say: string; // stored so idempotent replays return the identical response
   attempts: number;
   latencyMs: number;
+  createdAt: string;
 }
 
 export interface ReceiptStore {
@@ -24,7 +25,7 @@ export interface ReceiptStore {
     tool: string,
     key: string,
   ): Promise<Receipt | null>;
-  insert(r: Receipt): Promise<Receipt>;
+  insert(r: Omit<Receipt, "id" | "createdAt"> & { id?: string }): Promise<Receipt>;
   latest(userId: string, tool?: string): Promise<Receipt | null>;
 }
 
@@ -42,8 +43,12 @@ export class MemoryReceipts implements ReceiptStore {
       ) ?? null
     );
   }
-  async insert(r: Receipt): Promise<Receipt> {
-    const saved = { ...r, id: r.id ?? `rcpt_${this.rows.length + 1}` };
+  async insert(r: Omit<Receipt, "id" | "createdAt"> & { id?: string }): Promise<Receipt> {
+    const saved: Receipt = {
+      ...r,
+      id: r.id ?? `rcpt_${this.rows.length + 1}`,
+      createdAt: new Date().toISOString(),
+    };
     this.rows.push(saved);
     return saved;
   }

@@ -7,6 +7,7 @@ export type KeyMode = "forge" | "baseline";
 export interface Session {
   userId: string;
   mode: KeyMode;
+  [k: string]: unknown; // satisfies FastMCP's SessionData record bound
 }
 export interface KeyRow {
   user_id: string;
