@@ -1,8 +1,8 @@
 // Memory repository: typed constraints for the policy engine + provenance
 // for get_standing_rules. Payloads validated with the same Zod schemas.
 import {
-  constraintSchema,
   type Constraint,
+  constraintSchema,
   type Fact,
   type Instruction,
 } from "../core/constraints.js";
@@ -22,15 +22,21 @@ export interface StandingRule {
 function summarize(recordKind: string, payload: unknown): string {
   const p = payload as Record<string, unknown>;
   const kind = (p.kind as string) ?? recordKind;
-  if (kind === "allergen") return `${String(p.allergen)} allergy (${String(p.severity)})`;
+  if (kind === "allergen")
+    return `${String(p.allergen)} allergy (${String(p.severity)})`;
   if (kind === "diet") return `${String(p.value)} diet`;
-  if (kind === "quiet_hours") return `quiet hours ${String(p.start)}–${String(p.end)} ${String(p.tz)}`;
-  if (kind === "device_limit") return `${String(p.device)} ${String(p.attr)} range`;
+  if (kind === "quiet_hours")
+    return `quiet hours ${String(p.start)}–${String(p.end)} ${String(p.tz)}`;
+  if (kind === "device_limit")
+    return `${String(p.device)} ${String(p.attr)} range`;
   if (kind === "confirm_required") return `confirm before ${String(p.action)}`;
   return String((p as { text?: unknown }).text ?? kind);
 }
 
-export async function loadConstraints(store: Store, userId: string): Promise<Constraint[]> {
+export async function loadConstraints(
+  store: Store,
+  userId: string,
+): Promise<Constraint[]> {
   const out: Constraint[] = [];
   for (const m of await store.listMemories(userId)) {
     if (m.kind !== "constraint" || m.status !== "active") continue;
@@ -47,7 +53,10 @@ export async function loadConstraints(store: Store, userId: string): Promise<Con
   return out;
 }
 
-export async function listStandingRules(store: Store, userId: string): Promise<StandingRule[]> {
+export async function listStandingRules(
+  store: Store,
+  userId: string,
+): Promise<StandingRule[]> {
   const out: StandingRule[] = [];
   for (const m of await store.listMemories(userId)) {
     if (m.status !== "active") continue;
@@ -78,7 +87,10 @@ export async function remember(
   },
 ): Promise<MemoryRecord> {
   // external-source constraints land dormant until the user confirms them.
-  const status = input.source === "external" && input.kind === "constraint" ? "pending_confirmation" : "active";
+  const status =
+    input.source === "external" && input.kind === "constraint"
+      ? "pending_confirmation"
+      : "active";
   return store.insertMemory({
     userId,
     profile: input.profile,
@@ -91,13 +103,18 @@ export async function remember(
   });
 }
 
-export async function findByQuery(store: Store, userId: string, query: string): Promise<MemoryRecord[]> {
+export async function findByQuery(
+  store: Store,
+  userId: string,
+  query: string,
+): Promise<MemoryRecord[]> {
   const q = query.toLowerCase().trim();
   if (!q) return [];
   const hits: MemoryRecord[] = [];
   for (const m of await store.listMemories(userId)) {
     if (m.status !== "active") continue;
-    const hay = `${summarize(m.kind, m.payload)} ${m.profile} ${m.evidence ?? ""}`.toLowerCase();
+    const hay =
+      `${summarize(m.kind, m.payload)} ${m.profile} ${m.evidence ?? ""}`.toLowerCase();
     if (q.split(/\s+/).every((w) => hay.includes(w))) hits.push(m);
   }
   return hits;

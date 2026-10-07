@@ -2,9 +2,13 @@
 import { UserError } from "fastmcp";
 import { z } from "zod";
 import type { Session } from "../auth.js";
-import { MemoryConfirms, type ConfirmStore, type RunContext } from "../core/verify.js";
 import { MemoryReceipts, type ReceiptStore } from "../core/receipts.js";
 import { outcomeSchema, type ToolResult } from "../core/result.js";
+import {
+  type ConfirmStore,
+  MemoryConfirms,
+  type RunContext,
+} from "../core/verify.js";
 import { loadConstraints } from "../storage/memories.js";
 import type { Store } from "../storage/store.js";
 
@@ -14,7 +18,11 @@ export interface Deps {
   confirms: ConfirmStore;
 }
 export function createDeps(store: Store): Deps {
-  return { store, receipts: new MemoryReceipts(), confirms: new MemoryConfirms() };
+  return {
+    store,
+    receipts: new MemoryReceipts(),
+    confirms: new MemoryConfirms(),
+  };
 }
 
 // user_id is NEVER a tool parameter — it comes from the Bearer session.
@@ -48,9 +56,16 @@ export const envelopeSchema = z.object({
   say: z.string(),
   data: z.unknown().optional(),
   evidence: z
-    .object({ expected: z.unknown(), observed: z.unknown(), source: z.string(), checkedAt: z.string() })
+    .object({
+      expected: z.unknown(),
+      observed: z.unknown(),
+      source: z.string(),
+      checkedAt: z.string(),
+    })
     .optional(),
-  reasons: z.array(z.object({ constraintId: z.string(), text: z.string() })).optional(),
+  reasons: z
+    .array(z.object({ constraintId: z.string(), text: z.string() }))
+    .optional(),
   receiptId: z.string().optional(),
   confirmToken: z.string().optional(),
   untrusted: z.boolean().optional(),
@@ -58,7 +73,10 @@ export const envelopeSchema = z.object({
 export type Envelope = z.infer<typeof envelopeSchema>;
 
 // FastMCP return shape: explicit text (the say) + structured envelope.
-export function envelope(r: ToolResult): { content: { type: "text"; text: string }[]; structuredContent: Envelope } {
+export function envelope(r: ToolResult): {
+  content: { type: "text"; text: string }[];
+  structuredContent: Envelope;
+} {
   return {
     content: [{ type: "text", text: r.say }],
     structuredContent: {

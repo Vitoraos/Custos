@@ -69,7 +69,13 @@ export interface ConfirmStore {
 export class MemoryConfirms implements ConfirmStore {
   private tokens = new Map<
     string,
-    { userId: string; tool: string; argsHash: string; args: unknown; exp: number }
+    {
+      userId: string;
+      tool: string;
+      argsHash: string;
+      args: unknown;
+      exp: number;
+    }
   >();
   async mint(
     userId: string,
@@ -79,7 +85,13 @@ export class MemoryConfirms implements ConfirmStore {
     ttlMs = 120_000,
   ): Promise<string> {
     const t = randomBytes(16).toString("hex");
-    this.tokens.set(t, { userId, tool, argsHash, args, exp: Date.now() + ttlMs });
+    this.tokens.set(t, {
+      userId,
+      tool,
+      argsHash,
+      args,
+      exp: Date.now() + ttlMs,
+    });
     return t;
   }
   async consume(
@@ -145,9 +157,18 @@ export async function runAction<Args, Cmd, State>(
   // reconstructed so it still validates against the tool output schema.
   const prior = await receipts.findByIdempotencyKey(ctx.userId, spec.name, key);
   if (prior) {
-    const exp = prior.expectation as { target?: unknown; source?: string } | null;
-    const dec = prior.decision as { reasons?: { constraintId: string; text: string }[] } | null;
-    const replay: ToolResult = { outcome: prior.outcome, say: prior.say, receiptId: prior.id };
+    const exp = prior.expectation as {
+      target?: unknown;
+      source?: string;
+    } | null;
+    const dec = prior.decision as {
+      reasons?: { constraintId: string; text: string }[];
+    } | null;
+    const replay: ToolResult = {
+      outcome: prior.outcome,
+      say: prior.say,
+      receiptId: prior.id,
+    };
     if (exp) {
       replay.evidence = {
         expected: exp.target,
@@ -246,7 +267,10 @@ async function execute<Args, Cmd, State>(
       receiptId: saved.id,
     };
   }
-  if (evaled.verdict === "confirm" || (typeof spec.risk === "function" ? spec.risk(args) : spec.risk) === "high") {
+  if (
+    evaled.verdict === "confirm" ||
+    (typeof spec.risk === "function" ? spec.risk(args) : spec.risk) === "high"
+  ) {
     const presented = ctx.confirmToken
       ? await confirms.consume(ctx.userId, ctx.confirmToken)
       : null;

@@ -48,7 +48,9 @@ export interface Store {
   setFaults(userId: string, row: FaultRow): Promise<void>;
   listItems(userId: string, list: string): Promise<string[]>;
   applyListOps(userId: string, list: string, ops: ListOp[]): Promise<string[]>;
-  insertMemory(r: Omit<MemoryRecord, "id" | "createdAt" | "lastUsedAt" | "revokedAt">): Promise<MemoryRecord>;
+  insertMemory(
+    r: Omit<MemoryRecord, "id" | "createdAt" | "lastUsedAt" | "revokedAt">,
+  ): Promise<MemoryRecord>;
   listMemories(userId: string): Promise<MemoryRecord[]>;
   getMemory(userId: string, id: string): Promise<MemoryRecord | null>;
   revokeMemory(userId: string, id: string): Promise<MemoryRecord | null>;
@@ -125,7 +127,9 @@ export class MemoryStore implements Store {
     this.lists.set(key, out);
     return [...out];
   }
-  async insertMemory(r: Omit<MemoryRecord, "id" | "createdAt" | "lastUsedAt" | "revokedAt">): Promise<MemoryRecord> {
+  async insertMemory(
+    r: Omit<MemoryRecord, "id" | "createdAt" | "lastUsedAt" | "revokedAt">,
+  ): Promise<MemoryRecord> {
     this.seq++;
     const rec: MemoryRecord = {
       ...r,
@@ -147,7 +151,11 @@ export class MemoryStore implements Store {
   async revokeMemory(userId: string, id: string): Promise<MemoryRecord | null> {
     const m = await this.getMemory(userId, id);
     if (!m || m.status === "revoked") return m;
-    const next: MemoryRecord = { ...m, status: "revoked", revokedAt: new Date().toISOString() };
+    const next: MemoryRecord = {
+      ...m,
+      status: "revoked",
+      revokedAt: new Date().toISOString(),
+    };
     this.memories.set(`${userId}|${id}`, next);
     return next;
   }
@@ -156,9 +164,15 @@ export class MemoryStore implements Store {
   }
   async touchMemory(userId: string, id: string): Promise<void> {
     const m = await this.getMemory(userId, id);
-    if (m) this.memories.set(`${userId}|${id}`, { ...m, lastUsedAt: new Date().toISOString() });
+    if (m)
+      this.memories.set(`${userId}|${id}`, {
+        ...m,
+        lastUsedAt: new Date().toISOString(),
+      });
   }
-  async getKey(keyHash: string): Promise<(KeyRecord & { keyHash: string }) | null> {
+  async getKey(
+    keyHash: string,
+  ): Promise<(KeyRecord & { keyHash: string }) | null> {
     const k = this.keys.get(keyHash);
     return k ? { ...k, keyHash } : null;
   }

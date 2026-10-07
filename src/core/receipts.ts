@@ -25,7 +25,9 @@ export interface ReceiptStore {
     tool: string,
     key: string,
   ): Promise<Receipt | null>;
-  insert(r: Omit<Receipt, "id" | "createdAt"> & { id?: string }): Promise<Receipt>;
+  insert(
+    r: Omit<Receipt, "id" | "createdAt"> & { id?: string },
+  ): Promise<Receipt>;
   latest(userId: string, tool?: string): Promise<Receipt | null>;
 }
 
@@ -43,7 +45,9 @@ export class MemoryReceipts implements ReceiptStore {
       ) ?? null
     );
   }
-  async insert(r: Omit<Receipt, "id" | "createdAt"> & { id?: string }): Promise<Receipt> {
+  async insert(
+    r: Omit<Receipt, "id" | "createdAt"> & { id?: string },
+  ): Promise<Receipt> {
     const saved: Receipt = {
       ...r,
       id: r.id ?? `rcpt_${this.rows.length + 1}`,
