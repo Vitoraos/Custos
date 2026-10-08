@@ -3,6 +3,37 @@
 > A running diary of everything that slowed this build down, written for humans: what we expected,
 > what actually happened, and how we got past it. Newest entries first. This log doubles as the draft
 > for the submission's "product feedback for every tool/API/SDK used" section.
+>
+> Structured index (Amazon submission format) — narrative entries follow below.
+>
+> | Date | Product | Task attempted | Expected vs actual | Severity | Workaround | Suggestion |
+> |---|---|---|---|---|---|---|
+> | Oct 8 | ntfy.sh (poll API) | Read back a published message for verification | Expected the JSON API from the publishing docs; `GET /:topic/json?since=&poll=1` returns `application/x-ndjson` (one object per line), so `res.json()` fails on multi-message streams | minor | Parse NDJSON line-by-line with per-line Zod validation; skip `message_delete` events | Document the NDJSON shape + `poll=1` close-after-message behavior on the publishing page |
+> | Oct 8 | FastMCP 4.22.1 (positive) | `outputSchema` validation on tool returns | Expected silent schema drift; instead got precise errors (`evidence.expected: Invalid input…`) that caught a real bug (raw state stuffed into the evidence slot) on first run | n/a (praise) | Kept strict `outputSchema` on all 11 tools | Product feedback: validation messages are excellent; keep them this specific |
+> | Oct 5 | FastMCP 4.22.1 | Boot spike server on Windows, call over Streamable HTTP | Expected `127.0.0.1:4123` to accept; server binds IPv6 `localhost` only, `127.0.0.1` → ECONNREFUSED while `localhost` → 200 | minor | Use `http://localhost:<port>` in all dev/test clients; set `httpStream.host` explicitly for Render | Document default bind host; consider dual-binding or a startup log line showing the resolved address |
+> | Oct 2 | `npx serve` (npm cache) | Preview replay page on :3001 | Expected static server; got `ERR_MODULE_NOT_FOUND eastasianwidth` from corrupted cache | minor | Verified via Node built-in static server | (env-side, no upstream action) |
+> | Oct 2 | FastMCP (Streamable HTTP) | Raw-HTTP smoke test of MCP server | Expected JSON; got `4002/-32000 Not Acceptable` — missing `Accept` header (my bug) | minor | Always send `Accept: application/json, text/event-stream`, parse SSE `data:` lines | Keep the strict check; example raw-curl in docs would save 5 min |
+> | Oct 2 | Zod v4 | Port v2 spec idioms | Expected v3 idioms to compile; `z.record(z.any())` is v3 style | minor | Write v4 style throughout | n/a (our migration debt) |
+> | Oct 2 | OpenRouter free tier | Live workflow volume | 20/min, 50/day caps constrain retakes | major | One provider + quota-free replay mode; ~25 live runs/day budget | n/a (known free-tier limit) |
+
+---
+
+## Oct 5 — Spike results: FastMCP binds IPv6 localhost on Windows (minor, real friction)
+
+Booting a FastMCP 4.22.1 spike server (`httpStream`, `stateless: true`) on Windows and calling
+it via raw fetch: `http://127.0.0.1:4123/mcp` → `ECONNREFUSED`, while `http://localhost:4123/mcp`
+→ `200` on the same process. The server binds IPv6 `localhost` only by default; nothing in the
+startup line (`Starting server in stateless mode on HTTP Stream at http://localhost:4123/mcp`)
+says which interface won. Ten minutes lost to suspecting my own code before trying `localhost`.
+Going forward every dev/test client uses `localhost`, and Render gets an explicit `httpStream.host`.
+Upstream ask: log the resolved bind address at startup, or dual-bind by default.
+
+Same spike run closed S1–S5 (details in `docs/BUILD_ORDER.md` Phase 0): stateless `authenticate`
+→ per-request session readable in `execute`; `outputSchema` → `structuredContent` + text fallback;
+`getApp()` serves JSON + `streamSSE` + `serveStatic` alongside `/mcp`; Strands `McpClient`
+accepts `headers` (incl. `Authorization`); ntfy publish → id → `since=`+`poll=1` match → `DELETE`
+cancel all verified live. Blocked: S6/S7 need Supabase/OpenRouter keys (no `.env` yet) and the
+recording machine (browser TTS).
 
 ---
 

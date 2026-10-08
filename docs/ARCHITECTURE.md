@@ -1,121 +1,62 @@
-# ContextForge Architecture
+# Architecture — ContextForge v3 ("Verified Actions")
 
-Companion to [`README.md`](./README.md) (start there) and [`API.md`](./API.md) (tool reference).
-Spec: `docs/spec/ContextForge v2.md` (canonical; v1 archived beside it).
-
----
-
-## 1. System overview
-
-```
-┌──────────────────────────────────────────────────────────────────┐
-│ USER: "Remember I'm vegan, plan dinner for 4, check weather,    │
-│        add groceries" → Alexa+ → POST /mcp (Streamable HTTP)      │
-└──────────────────────────────┬───────────────────────────────────┘
-                               ▼
-┌──────────────────────────────────────────────────────────────────┐
-│ CONTEXTFORGE (FastMCP, stateless, Render)                        │
-│                                                                  │
-│  6 MCP tools: store_preference · get_preferences · store_context │
-│               get_context · execute_workflow · get_memory_summary│
-│                          │                                       │
-│      ┌───────────────────┼───────────────────┐                   │
-│      ▼                   ▼                   ▼                   │
-│  MEMORY (Supabase)   AGENT PIPELINE      TOOL REGISTRY           │
-│  preferences         Planner (LLM #1)    7 executor tools:       │
-│  conversation_ctx    Executor (code!)    weather, calendar,      │
-│  user_instructions   Rule check          shopping, recipe,       │
-│  workflow_execs      Verifier (LLM #2)    home, reminder, news   │
-└──────────────────────────────────────────────────────────────────┘
-                               │
-              ┌────────────────┼────────────────┐
-              ▼                ▼                ▼
-         OpenRouter (`openrouter/free`, sole LLM provider)
+```mermaid
+flowchart LR
+  subgraph Window["Simulator (thin interface)"]
+    UI["Web UI: text in, voice out"] -->|SSE| SIM["Sim API + agent<br/>Strands + OpenRouter"]
+  end
+  SIM -->|"MCP Streamable HTTP + Bearer key"| MCP
+  ALX["Real Alexa+ (future)"] -.->|same endpoint| MCP
+  subgraph Server["MCP server (LLM-free)"]
+    MCP["/mcp (FastMCP)"] --> AUTH["Auth: key to user_id"]
+    AUTH --> POL["Policy engine<br/>constraints + ontology"]
+    POL --> EXE["runAction:<br/>act, read back, retry"]
+    EXE --> AD["Adapters"]
+    EXE --> REC[("Receipts")]
+  end
+  AD --> TW["Device twin (Supabase)"]
+  AD --> NT["ntfy.sh (real push)"]
+  AD --> OM["Open-Meteo"]
+  AD --> ML["TheMealDB"]
+  AD --> RS["News RSS"]
+  AD --> LS[("Shopping list (Supabase)")]
+  MCP --> DB[("Supabase: memories, receipts, ...")]
 ```
 
-Three layers, one direction of dependence: **MCP tools → agent pipeline → (memory + LLM pool)**.
-The executor tools never touch the network except `get_weather` (live `wttr.in`); everything else is
-local logic or Supabase.
+One Node process serves `/mcp`, `/health`, `/health/deep`, `/sim/*`, and the
+static frontend (`server.getApp()` = Hono; proven in spikes S1–S3). Folders
+stay separate (`src/` vs `simulator/`); only the process is shared.
 
-## 2. Request lifecycle (worked example)
+## Request lifecycle (action tool)
 
-User: *"Remember I'm vegan, plan dinner for 4, check weather, add groceries."*
+1. `authenticate`: Bearer `cf_…` -> sha256 -> `api_keys` -> `{ userId, mode }`.
+   Null -> 401. Tools fail closed on missing session.
+2. `runAction`: idempotency check (sha256 of user|mode|tool|args|minute) ->
+   policy `evaluate()` (block -> `blocked` + reasons; confirm/high-risk ->
+   `needs_confirmation` + single-use arg-bound token) -> `adapter.write()` ->
+   bounded read-back poll -> one idempotent retry -> `say` template -> receipt
+   (`decision`, `expectation`, `observed`, `outcome`, `attempts`, latency).
+3. Baseline mode returns the raw ack (`ok`) — the control for the A/B.
 
-1. `store_preference {user_id, key: diet, value: vegan, category: diet}` → upserted; future plans treat it as a hard constraint.
-2. `execute_workflow {user_id, task}`:
-   - **Load** (no LLM): preferences + active instructions + non-expired context, in parallel.
-   - **Plan** (LLM call #1): Strands `Agent` + `OpenAIModel` receives task + prefs + instructions + context + tool names; returns a Zod-validated `[{order, description, required_tool, expected_input}]`, sliced to `maxSteps`.
-   - **Execute** (no LLM): for each step, validate input against the tool's Zod schema, run it, retry transient errors (`maxRetries`, 800ms × attempt backoff). Unknown tool names (free-model hallucinations) become error traces, not crashes.
-   - **Rule check** (no LLM): `checkPreferences` scans `find_recipe` outputs' `contains` lists against `diet`/`allergies`. Violations trigger one remediation pass: re-run the offending step with an `exclude` hint (e.g. `['meat','dairy','eggs','fish']`).
-   - **Verify** (LLM call #2): Strands verifier receives task + plan + trace + rule violations, returns `{overall_status, gaps_found, retry_suggestions, summary}`. If rule violations survive remediation, status is forced to `failed`.
-   - **Persist**: execution log to `workflow_executions`; on success, a 72h follow-up context so "Yes, and…" follow-ups resolve.
-3. Alexa+ speaks the summary. Next session, `get_memory_summary` recalls everything.
+## Key files
 
-Typical cost: **2 LLM calls**. Worst case with remediation: still 2 (the retry is code).
+- `src/core/`: `constraints.ts` (Zod union) · `policy.ts` (`evaluate()`) ·
+  `matcher.ts` + `ontology/` (EU-14, diets, negation/compounds/qualifiers,
+  severe fail-closed) · `verify.ts` (`runAction`) · `say.ts` · `result.ts` ·
+  `receipts.ts`
+- `src/adapters/`: `devices/twin.ts` (faults: none/lost_ack/delayed/offline/flaky,
+  seeded) · `ntfy.ts` · `openmeteo.ts` · `mealdb.ts` (+ fallback) · `rss.ts` ·
+  `lists.ts` · `http.ts` (timeout/retry/Zod)
+- `src/tools/`: `memory.ts` · `accountability.ts` · `actions.ts` · `reads.ts` ·
+  `context.ts` (session, envelope)
+- `src/storage/`: `store.ts` (interface + `MemoryStore`) · `supabaseStore.ts` ·
+  `memories.ts` (typed loads, poisoning guard)
+- `simulator/api/`: `guest.ts` (keys + budget) · `agent.ts` (Strands, SSE event
+  map) · `routes.ts` (`/sim/guest|chat|truth|faults`)
+- `bench/`: `run.ts` (L1 oracle) · `llm.ts` (L2 scaffold) · `report.ts` ·
+  `data/recipes.labeled.json` (60, hand-labelled)
 
-## 3. Memory model
-
-| Table | Rows | Expiry | Read path |
-|-------|------|--------|-----------|
-| `preferences` | One per `(user_id, key, category)` (upsert) | Never | `get_preferences`, loaded into every plan |
-| `conversation_context` | Append-only notes with `priority` + generated `priority_rank` (high=3) | Optional `expires_at` TTL; reads filter `expires_at IS NULL OR > now()` | `get_context`, newest `limit` |
-| `user_instructions` | Standing rules (`critical`/`important`/`nice_to_have`), `active` flag | Until deactivated | `getActiveInstructions`, into every plan |
-| `workflow_executions` | Append-only run log (`steps` JSONB, `completed`/`failed`) | Never | `get_memory_summary` (latest 5) |
-
-`store_context` with `kind: 'instruction'` is the only write path for standing rules (maps
-low/medium/high → nice_to_have/important/critical). RLS is enabled on all four tables; the server uses
-the `service_role` key server-side, which bypasses RLS — no per-user policies needed for this architecture.
-
-## 4. LLM provider (OpenRouter)
-
-The single LLM endpoint is OpenRouter's OpenAI-compatible API, reached through Strands' OpenAI provider:
-
-```ts
-new OpenAIModel({ api: 'chat', apiKey: process.env.OPENROUTER_API_KEY,
-  clientConfig: { baseURL: 'https://openrouter.ai/api/v1' },
-  modelId: process.env.OPENROUTER_MODEL ?? 'openrouter/free' })
-```
-
-`runWithFallback(systemPrompt, prompt)` keeps its historic name and `{ text, provider, fallbacks }` shape
-so `workflow.ts` is untouched, but makes exactly one attempt (`provider: 'openrouter'`). Quota reality:
-20 req/min, 50/day free (1,000/day after a $10 lifetime purchase), failures count — roughly 25 live
-workflows a day. Without `OPENROUTER_API_KEY` it throws immediately (verified — imports never throw).
-
-`AgentResult.toString()` is the confirmed text accessor on SDK 1.19.0 (interrupts → structuredOutput →
-text blocks joined).
-
-## 5. Failure handling
-
-| Failure | Layer | Behavior |
-|---------|-------|----------|
-| Tool 503 / transient | Executor | Retry to `maxRetries` with backoff; error trace recorded |
-| Hallucinated tool name | Executor | Error trace (`unknown tool`), plan continues |
-| Non-vegan / allergen recipe | Rule check | Remediation re-run with `exclude`, then re-checked |
-| Planner 429 | OpenRouter | Error propagates; retry after UTC reset or top-up ($10 → 1,000/day) |
-| Bad JSON from LLM | `parse()` | Zod throws → surfaces as tool error (retried at MCP layer) |
-| Missing env keys | Config/storage | Clean `Missing X (see .env.example)`; server still boots |
-| Missing `Accept: …text/event-stream` | Transport | FastMCP 4002 — clients must send both Accept values |
-
-## 6. Decision records (v1 → v2)
-
-| # | Decision | Why |
-|---|----------|-----|
-| 1 | OpenRouter-only (pool removed after v2) | Single key, zero key-management overhead; accepted trade: 50/day cap, ~25 live workflows/day |
-| 2 | Deterministic TS executor, LLM only plans/verifies | 2 calls/workflow, deterministic tool calls, reliable on weak free models |
-| 3 | `Agent` + `OpenAIModel`, no `createHarness`/`litellm` | LiteLLM is Python-only; OpenAI provider with `baseURL` is the documented TS route |
-| 4 | Static fixture replay instead of Express + live LLM demo | Recordings immune to quotas and Render cold starts |
-| 5 | In-memory sessions, no S3 | S3 needs a paid AWS account — contradicts the $0 claim |
-| 6 | `priority_rank` generated column; `started_at` index | Text priority mis-sorts; v1 index referenced a non-existent column |
-| 7 | `storeInstruction` + `store_context.kind` | `user_instructions` had no write path at all |
-| 8 | Zod v4 (`z.record(z.string(), …)`) | Strands 1.19 requires `zod@^4`; two-arg record is the v4 form |
-
-Strands-vs-Vercel-AI-SDK was decided for Strands: the Vercel SDK would be marginally quicker to learn but
-likely forfeits the AWS Builder prize, and with 2 LLM calls per workflow the framework choice barely
-affects build time.
-
-## 7. Limits and non-goals
-
-- OpenRouter free quota binds throughput (~25 live workflows/day); the replay demo never touches it.
-- Sessions are in-memory: a Render restart drops Strands session state (Supabase memory survives — that is the durable layer).
-- Single-region, single-instance; no auth on the MCP endpoint yet (Alexa+ auth story unverified — see spec changelog).
-- Voice I/O, Alexa+ skill packaging, and multi-user tenancy beyond `user_id` scoping are out of scope for the hackathon slice.
+Honest limits: the server controls what the *tool* says and records, not what
+Alexa+ says after — hence verbatim `say`, server `instructions`, and receipts.
+Twin devices are simulated; the verification pipeline is real and works
+against any adapter. Ingredient matching is heuristics, not medical advice.
