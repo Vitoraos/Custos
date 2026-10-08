@@ -38,6 +38,7 @@
     "sim:record": "tsx scripts/sim-record.ts",
     "bench": "tsx bench/run.ts",
     "bench:report": "tsx bench/report.ts",
-    "bench:llm": "tsx bench/llm.ts"
+    "bench:llm": "tsx bench/llm.ts",
+    "smoke": "tsx scripts/smoke.ts"
   }
 }
