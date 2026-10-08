@@ -1,0 +1,464 @@
+[
+  {
+    "name": "Peanut satay noodles",
+    "ingredients": [
+      "rice noodles",
+      "peanut butter",
+      "soy sauce",
+      "lime",
+      "chili"
+    ],
+    "allergens": ["peanut", "soy", "gluten"],
+    "violates": ["gluten_free"]
+  },
+  {
+    "name": "Vegan lentil soup",
+    "ingredients": [
+      "red lentils",
+      "onion",
+      "carrots",
+      "olive oil",
+      "cumin",
+      "vegetable broth"
+    ],
+    "allergens": [],
+    "violates": []
+  },
+  {
+    "name": "Cheese omelette",
+    "ingredients": ["eggs", "cheddar", "butter", "salt"],
+    "allergens": ["egg", "milk"],
+    "violates": ["vegan", "dairy_free"]
+  },
+  {
+    "name": "Grilled salmon",
+    "ingredients": ["salmon", "lemon", "olive oil", "dill"],
+    "allergens": ["fish"],
+    "violates": ["vegan", "vegetarian"]
+  },
+  {
+    "name": "Chicken alfredo",
+    "ingredients": [
+      "fettuccine",
+      "chicken breast",
+      "heavy cream",
+      "parmesan",
+      "garlic",
+      "butter"
+    ],
+    "allergens": ["milk", "gluten"],
+    "violates": [
+      "vegan",
+      "vegetarian",
+      "pescatarian",
+      "gluten_free",
+      "dairy_free"
+    ]
+  },
+  {
+    "name": "Beef stew",
+    "ingredients": ["beef", "potatoes", "carrots", "onion", "beef broth"],
+    "allergens": [],
+    "violates": ["vegan", "vegetarian", "pescatarian"]
+  },
+  {
+    "name": "Tuna mayo sandwich",
+    "ingredients": ["tuna", "bread", "mayonnaise", "lettuce"],
+    "allergens": ["fish", "egg", "gluten"],
+    "violates": ["vegan", "vegetarian", "gluten_free"]
+  },
+  {
+    "name": "Garlic shrimp pasta",
+    "ingredients": ["shrimp", "pasta", "garlic", "olive oil", "parsley"],
+    "allergens": ["crustaceans", "gluten"],
+    "violates": ["vegan", "vegetarian", "gluten_free"]
+  },
+  {
+    "name": "Miso soup with tofu",
+    "ingredients": ["miso", "tofu", "seaweed", "spring onions"],
+    "allergens": ["soy"],
+    "violates": []
+  },
+  {
+    "name": "Tahini dip",
+    "ingredients": ["tahini", "lemon", "garlic", "olive oil"],
+    "allergens": ["sesame"],
+    "violates": []
+  },
+  {
+    "name": "Almond cake",
+    "ingredients": ["almonds", "flour", "sugar", "eggs", "butter"],
+    "allergens": ["tree_nuts", "gluten", "egg", "milk"],
+    "violates": ["vegan", "gluten_free", "dairy_free"]
+  },
+  {
+    "name": "Dijon chicken",
+    "ingredients": ["chicken breast", "dijon mustard", "cream", "thyme"],
+    "allergens": ["mustard", "milk"],
+    "violates": ["vegan", "vegetarian", "pescatarian", "dairy_free"]
+  },
+  {
+    "name": "Fried calamari",
+    "ingredients": ["squid", "flour", "lemon", "vegetable oil"],
+    "allergens": ["molluscs", "gluten"],
+    "violates": ["vegan", "vegetarian", "gluten_free"]
+  },
+  {
+    "name": "Celery soup",
+    "ingredients": [
+      "celery",
+      "potatoes",
+      "onion",
+      "vegetable broth",
+      "olive oil"
+    ],
+    "allergens": ["celery"],
+    "violates": []
+  },
+  {
+    "name": "Lupin pancakes",
+    "ingredients": ["lupin flour", "oat milk", "banana", "baking powder"],
+    "allergens": ["lupin"],
+    "violates": []
+  },
+  {
+    "name": "Dried apricot snack",
+    "ingredients": ["dried apricots", "sulphur dioxide"],
+    "allergens": ["sulphites"],
+    "violates": []
+  },
+  {
+    "name": "Coconut curry",
+    "ingredients": ["chickpeas", "coconut milk", "onion", "tomatoes", "rice"],
+    "allergens": ["tree_nuts"],
+    "violates": []
+  },
+  {
+    "name": "Peanut butter sandwich",
+    "ingredients": ["peanut butter", "bread"],
+    "allergens": ["peanut", "gluten"],
+    "violates": ["gluten_free"]
+  },
+  {
+    "name": "Cocoa cake",
+    "ingredients": ["cocoa butter", "flour", "sugar", "eggs"],
+    "allergens": ["gluten", "egg"],
+    "violates": ["vegan", "gluten_free"]
+  },
+  {
+    "name": "Rice noodle stir fry",
+    "ingredients": [
+      "rice noodles",
+      "broccoli",
+      "carrots",
+      "soy sauce",
+      "sesame oil"
+    ],
+    "allergens": ["soy", "gluten", "sesame"],
+    "violates": ["gluten_free"]
+  },
+  {
+    "name": "Honey cake",
+    "ingredients": ["flour", "honey", "eggs", "butter"],
+    "allergens": ["gluten", "egg", "milk"],
+    "violates": ["vegan", "gluten_free", "dairy_free"]
+  },
+  {
+    "name": "Pork ribs",
+    "ingredients": ["pork ribs", "barbecue sauce", "honey", "garlic"],
+    "allergens": [],
+    "violates": ["vegan", "vegetarian", "pescatarian"]
+  },
+  {
+    "name": "Barley soup",
+    "ingredients": ["barley", "mushrooms", "onion", "vegetable broth"],
+    "allergens": ["gluten"],
+    "violates": ["gluten_free"]
+  },
+  {
+    "name": "Cream pasta",
+    "ingredients": ["pasta", "cream", "parmesan", "pepper"],
+    "allergens": ["gluten", "milk"],
+    "violates": ["vegan", "gluten_free", "dairy_free"]
+  },
+  {
+    "name": "Egg fried rice",
+    "ingredients": ["rice", "eggs", "soy sauce", "peas", "sesame oil"],
+    "allergens": ["egg", "soy", "gluten", "sesame"],
+    "violates": ["vegan", "gluten_free"]
+  },
+  {
+    "name": "Fish tacos",
+    "ingredients": ["cod", "corn tortillas", "cabbage", "lime", "mayonnaise"],
+    "allergens": ["fish", "egg"],
+    "violates": ["vegan", "vegetarian"]
+  },
+  {
+    "name": "Lobster roll",
+    "ingredients": ["lobster", "hot dog bun", "butter", "lemon", "celery"],
+    "allergens": ["crustaceans", "gluten", "milk", "celery"],
+    "violates": ["vegan", "vegetarian", "gluten_free", "dairy_free"]
+  },
+  {
+    "name": "Clam chowder",
+    "ingredients": ["clams", "potatoes", "cream", "bacon", "onion"],
+    "allergens": ["molluscs", "milk"],
+    "violates": ["vegan", "vegetarian", "pescatarian", "dairy_free"]
+  },
+  {
+    "name": "Waldorf salad",
+    "ingredients": ["apples", "celery", "walnuts", "mayonnaise", "grapes"],
+    "allergens": ["celery", "tree_nuts", "egg"],
+    "violates": ["vegan"]
+  },
+  {
+    "name": "Pad thai",
+    "ingredients": [
+      "rice noodles",
+      "shrimp",
+      "peanuts",
+      "eggs",
+      "fish sauce",
+      "lime"
+    ],
+    "allergens": ["crustaceans", "peanut", "egg", "fish"],
+    "violates": ["vegan", "vegetarian"]
+  },
+  {
+    "name": "Hummus plate",
+    "ingredients": [
+      "chickpeas",
+      "tahini",
+      "lemon",
+      "garlic",
+      "olive oil",
+      "pita"
+    ],
+    "allergens": ["sesame", "gluten"],
+    "violates": ["gluten_free"]
+  },
+  {
+    "name": "Greek salad",
+    "ingredients": [
+      "cucumber",
+      "tomatoes",
+      "red onion",
+      "feta",
+      "olives",
+      "olive oil"
+    ],
+    "allergens": ["milk"],
+    "violates": ["vegan", "dairy_free"]
+  },
+  {
+    "name": "Margherita pizza",
+    "ingredients": ["pizza dough", "tomatoes", "mozzarella", "basil"],
+    "allergens": ["gluten", "milk"],
+    "violates": ["vegan", "gluten_free", "dairy_free"]
+  },
+  {
+    "name": "Pancakes",
+    "ingredients": ["flour", "milk", "eggs", "butter", "sugar"],
+    "allergens": ["gluten", "milk", "egg"],
+    "violates": ["vegan", "gluten_free", "dairy_free"]
+  },
+  {
+    "name": "Tomato soup",
+    "ingredients": ["tomatoes", "onion", "garlic", "vegetable broth", "basil"],
+    "allergens": [],
+    "violates": []
+  },
+  {
+    "name": "Black bean tacos",
+    "ingredients": [
+      "black beans",
+      "corn tortillas",
+      "avocado",
+      "lime",
+      "cilantro"
+    ],
+    "allergens": [],
+    "violates": []
+  },
+  {
+    "name": "Chickpea curry",
+    "ingredients": ["chickpeas", "tomatoes", "onion", "curry powder", "rice"],
+    "allergens": [],
+    "violates": []
+  },
+  {
+    "name": "Vegetable broth bowl",
+    "ingredients": [
+      "vegetable broth",
+      "rice noodles",
+      "bok choy",
+      "ginger",
+      "soy sauce"
+    ],
+    "allergens": ["soy", "gluten"],
+    "violates": ["gluten_free"]
+  },
+  {
+    "name": "Oat porridge",
+    "ingredients": ["oats", "oat milk", "banana", "cinnamon"],
+    "allergens": ["gluten"],
+    "violates": ["gluten_free"]
+  },
+  {
+    "name": "Rye sandwich",
+    "ingredients": ["rye bread", "cheese", "pickles"],
+    "allergens": ["gluten", "milk"],
+    "violates": ["vegan", "gluten_free", "dairy_free"]
+  },
+  {
+    "name": "Spelt salad",
+    "ingredients": ["spelt", "roasted vegetables", "olive oil", "lemon"],
+    "allergens": ["gluten"],
+    "violates": ["gluten_free"]
+  },
+  {
+    "name": "Couscous bowl",
+    "ingredients": [
+      "couscous",
+      "chickpeas",
+      "tomatoes",
+      "parsley",
+      "olive oil"
+    ],
+    "allergens": ["gluten"],
+    "violates": ["gluten_free"]
+  },
+  {
+    "name": "Malt smoothie",
+    "ingredients": ["malt powder", "banana", "oat milk"],
+    "allergens": ["gluten"],
+    "violates": ["gluten_free"]
+  },
+  {
+    "name": "Anchovy pasta",
+    "ingredients": ["pasta", "anchovies", "garlic", "olive oil", "breadcrumbs"],
+    "allergens": ["fish", "gluten"],
+    "violates": ["vegan", "vegetarian", "gluten_free"]
+  },
+  {
+    "name": "Worcestershire wings",
+    "ingredients": ["chicken wings", "worcestershire sauce", "butter"],
+    "allergens": ["fish", "milk"],
+    "violates": ["vegan", "vegetarian", "pescatarian", "dairy_free"]
+  },
+  {
+    "name": "Caesar salad",
+    "ingredients": [
+      "romaine",
+      "parmesan",
+      "croutons",
+      "anchovies",
+      "mayonnaise"
+    ],
+    "allergens": ["milk", "gluten", "fish", "egg"],
+    "violates": ["vegan", "vegetarian", "gluten_free", "dairy_free"]
+  },
+  {
+    "name": "Pesto pasta",
+    "ingredients": [
+      "pasta",
+      "basil",
+      "pine nuts",
+      "parmesan",
+      "olive oil",
+      "garlic"
+    ],
+    "allergens": ["gluten", "tree_nuts", "milk"],
+    "violates": ["vegan", "gluten_free", "dairy_free"]
+  },
+  {
+    "name": "Baklava",
+    "ingredients": ["filo pastry", "walnuts", "pistachios", "honey", "butter"],
+    "allergens": ["gluten", "tree_nuts", "milk"],
+    "violates": ["vegan", "gluten_free", "dairy_free"]
+  },
+  {
+    "name": "Marzipan treats",
+    "ingredients": ["marzipan", "dark chocolate"],
+    "allergens": ["tree_nuts"],
+    "violates": []
+  },
+  {
+    "name": "Prawn crackers",
+    "ingredients": ["prawns", "tapioca starch", "vegetable oil", "salt"],
+    "allergens": ["crustaceans"],
+    "violates": ["vegan", "vegetarian"]
+  },
+  {
+    "name": "Oyster sauce greens",
+    "ingredients": ["bok choy", "oyster sauce", "garlic", "sesame oil"],
+    "allergens": ["molluscs", "sesame"],
+    "violates": ["vegan", "vegetarian"]
+  },
+  {
+    "name": "Mussel pot",
+    "ingredients": ["mussels", "white wine", "garlic", "parsley", "cream"],
+    "allergens": ["molluscs", "milk", "sulphites"],
+    "violates": ["vegan", "vegetarian", "dairy_free"]
+  },
+  {
+    "name": "Wine poached pears",
+    "ingredients": ["pears", "red wine", "sugar", "cinnamon"],
+    "allergens": ["sulphites"],
+    "violates": []
+  },
+  {
+    "name": "Egg salad",
+    "ingredients": ["eggs", "mayonnaise", "mustard", "celery", "bread"],
+    "allergens": ["egg", "mustard", "celery", "gluten"],
+    "violates": ["vegan", "gluten_free"]
+  },
+  {
+    "name": "Sesame chicken",
+    "ingredients": ["chicken", "sesame seeds", "soy sauce", "honey", "rice"],
+    "allergens": ["sesame", "soy", "gluten"],
+    "violates": ["vegan", "vegetarian", "pescatarian", "gluten_free"]
+  },
+  {
+    "name": "Falafel wrap",
+    "ingredients": [
+      "chickpeas",
+      "tahini",
+      "flatbread",
+      "salad",
+      "garlic sauce"
+    ],
+    "allergens": ["sesame", "gluten"],
+    "violates": ["gluten_free"]
+  },
+  {
+    "name": "Tofu scramble",
+    "ingredients": [
+      "tofu",
+      "turmeric",
+      "nutritional yeast",
+      "vegetables",
+      "olive oil"
+    ],
+    "allergens": ["soy"],
+    "violates": []
+  },
+  {
+    "name": "Tempeh bacon",
+    "ingredients": ["tempeh", "soy sauce", "maple syrup", "smoked paprika"],
+    "allergens": ["soy", "gluten"],
+    "violates": ["gluten_free"]
+  },
+  {
+    "name": "Edamame snack",
+    "ingredients": ["edamame", "sea salt"],
+    "allergens": ["soy"],
+    "violates": []
+  },
+  {
+    "name": "Buttered toast",
+    "ingredients": ["bread", "butter"],
+    "allergens": ["gluten", "milk"],
+    "violates": ["vegan", "gluten_free", "dairy_free"]
+  }
+]

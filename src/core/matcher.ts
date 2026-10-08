@@ -100,7 +100,7 @@ const NEGATION_EXEMPTS: Record<string, Allergen[]> = {
   sulfites: ["sulphites"],
   sulphite: ["sulphites"],
 };
-// "rice noodles" / "rice flour": qualified staples that are gluten-free.
+// "rice noodles" / "rice flour" / "corn tortilla": qualified staples that are gluten-free.
 const QUALIFIED_CLEAN: Record<string, string[]> = {
   noodles: [
     "rice",
@@ -120,7 +120,12 @@ const QUALIFIED_CLEAN: Record<string, string[]> = {
     "tapioca",
     "potato",
     "corn",
+    "lupin",
   ],
+  tortilla: ["corn"],
+  broth: ["vegetable", "mushroom"],
+  stock: ["vegetable", "mushroom"],
+  milk: ["oat", "almond", "soy", "rice", "coconut", "cashew", "hemp", "pea"],
 };
 
 function exemptAllergens(haystack: string): Set<Allergen> {
@@ -132,12 +137,10 @@ function exemptAllergens(haystack: string): Set<Allergen> {
 }
 
 function qualifiedClean(haystack: string, term: string): boolean {
+  // The qualifier must directly modify the staple ("rice flour", "corn tortilla")
+  // — mere co-occurrence ("almonds ... flour") does NOT exempt.
   const quals = QUALIFIED_CLEAN[term];
-  return (
-    !!quals &&
-    termHit(haystack, term) &&
-    quals.some((q) => termHit(haystack, q))
-  );
+  return !!quals && quals.some((q) => termHit(haystack, `${q} ${term}`));
 }
 
 export interface IngredientHit {
@@ -183,6 +186,7 @@ export function matchAllergens(
 
 const DIETS = dietsJson as {
   meat: string[];
+  shellfish: string[];
   vegan: { excludeGroups: string[]; extraTerms: string[] };
   vegetarian: { excludeGroups: string[]; extraTerms: string[] };
   pescatarian: { excludeGroups: string[]; extraTerms: string[] };
@@ -192,6 +196,7 @@ const DIETS = dietsJson as {
 
 function groupTerms(group: string): string[] {
   if (group === "meat") return DIETS.meat;
+  if (group === "shellfish") return DIETS.shellfish;
   return ALLERGENS[group as Allergen] ?? [];
 }
 

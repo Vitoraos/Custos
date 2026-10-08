@@ -24,12 +24,33 @@
     "broth",
     "stock"
   ],
+  "shellfish": [
+    "shellfish",
+    "seafood",
+    "shrimp",
+    "prawn",
+    "prawns",
+    "crab",
+    "lobster",
+    "crayfish",
+    "mussel",
+    "mussels",
+    "oyster",
+    "oysters",
+    "clam",
+    "clams",
+    "scallop",
+    "scallops",
+    "squid",
+    "calamari",
+    "octopus"
+  ],
   "vegan": {
-    "excludeGroups": ["meat", "milk", "egg", "fish"],
+    "excludeGroups": ["meat", "shellfish", "milk", "egg", "fish"],
     "extraTerms": ["honey", "beeswax", "gelatin", "lard"]
   },
   "vegetarian": {
-    "excludeGroups": ["meat", "fish"],
+    "excludeGroups": ["meat", "shellfish", "fish"],
     "extraTerms": ["gelatin", "lard"]
   },
   "pescatarian": {
