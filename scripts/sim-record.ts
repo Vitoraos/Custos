@@ -1,12 +1,13 @@
 // npm run sim:record -- --base http://localhost:3000 --out dinner-ab -- 'text one' 'text two'
 // Captures REAL live /sim/chat SSE streams (events + timings) to
 // simulator/web/public/replays/<out>.json. Needs a running server + model key.
-const base = (
-  process.argv.find((a) => a.startsWith("--base="))?.slice(7) ??
-  "http://localhost:3000"
-).replace(/\/$/, "");
-const out =
-  process.argv.find((a) => a.startsWith("--out="))?.slice(6) ?? "session";
+import { arg } from "./args.js";
+
+const base = (arg("base", "http://localhost:3000") as string).replace(
+  /\/$/,
+  "",
+);
+const out = arg("out", "session") as string;
 const texts = process.argv
   .filter(
     (a) =>

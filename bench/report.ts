@@ -2,8 +2,9 @@
 // bench/results/report.md (README table) + bench/results/chart.svg.
 // Usage: npx tsx bench/report.ts [--file <path>]
 import { readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { arg } from "../scripts/args.js";
 
-const fileArg = process.argv.find((a) => a.startsWith("--file="))?.slice(7);
+const fileArg = arg("file");
 const files = readdirSync("bench/results")
   .filter((f) => f.endsWith(".json"))
   .sort();

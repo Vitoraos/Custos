@@ -1,14 +1,12 @@
 // npm run smoke -- --base <url> [--key cf_...]
 // Under 60s: health, deep health, 401-without-key, tools/list + one guarded
 // action with key. Exit non-zero on any failure.
+import { arg } from "./args.js";
+
 const base = (
-  process.argv.find((a) => a.startsWith("--base="))?.slice(7) ??
-  process.env.BASE_URL ??
-  "http://localhost:3000"
+  arg("base", process.env.BASE_URL ?? "http://localhost:3000") as string
 ).replace(/\/$/, "");
-const key =
-  process.argv.find((a) => a.startsWith("--key="))?.slice(6) ??
-  process.env.SMOKE_KEY;
+const key = arg("key", process.env.SMOKE_KEY);
 let failures = 0;
 const check = (name: string, ok: boolean, extra = ""): void => {
   console.log(`${ok ? "ok" : "FAIL"} - ${name}${extra ? ` (${extra})` : ""}`);

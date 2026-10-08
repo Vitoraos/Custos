@@ -2,6 +2,7 @@
 // Usage: npx tsx bench/run.ts [--quick] [--seed N] [--live]
 // Writes bench/results/YYYY-MM-DD.json. See docs/BENCHMARK.md for metric defs.
 import { mkdirSync, writeFileSync } from "node:fs";
+import { arg, flag } from "../scripts/args.js";
 import { DeviceTwin } from "../src/adapters/devices/twin.js";
 import { NtfyReminders, topicFor } from "../src/adapters/ntfy.js";
 import type { Allergen, Constraint } from "../src/core/constraints.js";
@@ -17,10 +18,9 @@ import { loadConstraints, remember } from "../src/storage/memories.js";
 import { MemoryStore } from "../src/storage/store.js";
 import labeled from "./data/recipes.labeled.json" with { type: "json" };
 
-const args = process.argv.slice(2);
-const QUICK = args.includes("--quick");
-const LIVE = args.includes("--live");
-const SEED = Number(args.find((a) => a.startsWith("--seed="))?.slice(7) ?? 7);
+const QUICK = flag("quick");
+const LIVE = flag("live");
+const SEED = Number(arg("seed", "7"));
 
 interface Tallies {
   runs: number;
