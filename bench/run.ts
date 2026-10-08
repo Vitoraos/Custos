@@ -1,18 +1,21 @@
 // L1 deterministic harness (no LLM): oracle agent + seeded faults.
 // Usage: npx tsx bench/run.ts [--quick] [--seed N] [--live]
 // Writes bench/results/YYYY-MM-DD.json. See docs/BENCHMARK.md for metric defs.
-import { writeFileSync, mkdirSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { DeviceTwin } from "../src/adapters/devices/twin.js";
 import { NtfyReminders, topicFor } from "../src/adapters/ntfy.js";
 import type { Allergen, Constraint } from "../src/core/constraints.js";
+import type { DietValue } from "../src/core/matcher.js";
 import { evaluate } from "../src/core/policy.js";
-import { MemoryConfirms, runAction, type RunContext } from "../src/core/verify.js";
 import { MemoryReceipts } from "../src/core/receipts.js";
-import { loadConstraints } from "../src/storage/memories.js";
-import { remember } from "../src/storage/memories.js";
+import {
+  MemoryConfirms,
+  type RunContext,
+  runAction,
+} from "../src/core/verify.js";
+import { loadConstraints, remember } from "../src/storage/memories.js";
 import { MemoryStore } from "../src/storage/store.js";
 import labeled from "./data/recipes.labeled.json" with { type: "json" };
-import type { DietValue } from "../src/core/matcher.js";
 
 const args = process.argv.slice(2);
 const QUICK = args.includes("--quick");
@@ -36,29 +39,71 @@ interface Tallies {
   latencies: number[];
 }
 const fresh = (): Tallies => ({
-  runs: 0, successClaimed: 0, silentFailures: 0, violatingOpportunities: 0,
-  violationsExecuted: 0, compliantOpportunities: 0, falseBlocks: 0, faultsInjected: 0,
-  faultsRecovered: 0, unverified: 0, unverifiedHonest: 0, injectionAttempts: 0,
-  injectionSuccess: 0, latencies: [],
+  runs: 0,
+  successClaimed: 0,
+  silentFailures: 0,
+  violatingOpportunities: 0,
+  violationsExecuted: 0,
+  compliantOpportunities: 0,
+  falseBlocks: 0,
+  faultsInjected: 0,
+  faultsRecovered: 0,
+  unverified: 0,
+  unverifiedHonest: 0,
+  injectionAttempts: 0,
+  injectionSuccess: 0,
+  latencies: [],
 });
 const CLAIMED = new Set(["ok", "verified", "verified_after_retry"]);
 
 type Mode = "forge" | "baseline";
-function mkctx(store: MemoryStore, mode: Mode, rules: Constraint[], userId: string): RunContext & { receipts: MemoryReceipts; confirms: MemoryConfirms } {
+function mkctx(
+  mode: Mode,
+  rules: Constraint[],
+  userId: string,
+): RunContext & { receipts: MemoryReceipts; confirms: MemoryConfirms } {
   return {
-    userId, mode, rules, profiles: ["household"], now: new Date(),
-    receipts: new MemoryReceipts(), confirms: new MemoryConfirms(),
+    userId,
+    mode,
+    rules,
+    profiles: ["household"],
+    now: new Date(),
+    receipts: new MemoryReceipts(),
+    confirms: new MemoryConfirms(),
   };
 }
 let cid = 0;
-type RuleInput = DistributiveOmit<Constraint, "id" | "profile" | "source" | "createdAt">;
-type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never;
+type RuleInput = DistributiveOmit<
+  Constraint,
+  "id" | "profile" | "source" | "createdAt"
+>;
+type DistributiveOmit<T, K extends PropertyKey> = T extends unknown
+  ? Omit<T, K>
+  : never;
 const rule = (c: RuleInput & { profile?: string }): Constraint =>
-  ({ ...c, id: `bench${++cid}`, profile: (c as { profile?: string }).profile ?? "household", source: "user_voice", createdAt: new Date().toISOString() }) as Constraint;
+  ({
+    ...c,
+    id: `bench${++cid}`,
+    profile: (c as { profile?: string }).profile ?? "household",
+    source: "user_voice",
+    createdAt: new Date().toISOString(),
+  }) as Constraint;
 
-const DEVICES = QUICK ? ["kitchen_light", "thermostat", "front_door_lock"] : ["kitchen_light", "hall_light", "thermostat", "front_door_lock", "coffee_maker"];
+const DEVICES = QUICK
+  ? ["kitchen_light", "thermostat", "front_door_lock"]
+  : [
+      "kitchen_light",
+      "hall_light",
+      "thermostat",
+      "front_door_lock",
+      "coffee_maker",
+    ];
 const FAULTS: { profile: string; params: Record<string, unknown> }[] = QUICK
-  ? [{ profile: "none", params: {} }, { profile: "lost_ack", params: { p: 0.3, seed: 11 } }, { profile: "offline", params: { p: 0.2, seed: 12 } }]
+  ? [
+      { profile: "none", params: {} },
+      { profile: "lost_ack", params: { p: 0.3, seed: 11 } },
+      { profile: "offline", params: { p: 0.2, seed: 12 } },
+    ]
   : [
       { profile: "none", params: {} },
       { profile: "lost_ack", params: { p: 0.3, seed: 11 } },
@@ -74,17 +119,36 @@ async function s1(t: Tallies, mode: Mode): Promise<void> {
       for (const seed of SEEDS) {
         const store = new MemoryStore();
         const user = `s1_${mode}_${seed}`;
-        await store.setFaults(user, { ...fault, params: { ...fault.params, seed: (fault.params.seed as number) + seed } });
+        await store.setFaults(user, {
+          ...fault,
+          params: {
+            ...fault.params,
+            seed: (fault.params.seed as number) + seed,
+          },
+        });
         const twin = new DeviceTwin(store);
-        const ctx = mkctx(store, mode, [], user);
+        const ctx = mkctx(mode, [], user);
         const t0 = Date.now();
         const r = await runAction(
           {
-            name: "set_device_state", risk: "low", adapter: twin,
-            toPolicyAction: (a: { v: string }) => ({ type: "device_set", device, attr: "power", value: a.v, at: new Date() }),
-            toCommand: (a: { v: string }) => ({ device, attr: "power", value: a.v }),
+            name: "set_device_state",
+            risk: "low",
+            adapter: twin,
+            toPolicyAction: (a: { v: string }) => ({
+              type: "device_set",
+              device,
+              attr: "power",
+              value: a.v,
+              at: new Date(),
+            }),
+            toCommand: (a: { v: string }) => ({
+              device,
+              attr: "power",
+              value: a.v,
+            }),
             target: () => device,
-            expected: (a: { v: string }) => (s: Record<string, unknown>) => s.power === a.v,
+            expected: (a: { v: string }) => (s: Record<string, unknown>) =>
+              s.power === a.v,
             verifiedWhat: () => `${device} on`,
             unverifiedObserved: () => `${device} unchanged`,
             confirmWhat: () => `${device} on`,
@@ -126,8 +190,23 @@ async function s2(t: Tallies, mode: Mode): Promise<void> {
   // every violating opportunity executes and nothing is ever blocked.
   // This measures the tool layer; L2 measures the agent layer (see BENCHMARK.md).
   const data = labeled as Labeled[];
-  const diets: DietValue[] = ["vegan", "vegetarian", "pescatarian", "gluten_free", "dairy_free"];
-  const allergens: Allergen[] = ["peanut", "milk", "egg", "soy", "gluten", "tree_nuts", "fish", "sesame"];
+  const diets: DietValue[] = [
+    "vegan",
+    "vegetarian",
+    "pescatarian",
+    "gluten_free",
+    "dairy_free",
+  ];
+  const allergens: Allergen[] = [
+    "peanut",
+    "milk",
+    "egg",
+    "soy",
+    "gluten",
+    "tree_nuts",
+    "fish",
+    "sesame",
+  ];
   const check = (violates: boolean, blocked: boolean) => {
     if (violates) {
       t.violatingOpportunities++;
@@ -139,11 +218,29 @@ async function s2(t: Tallies, mode: Mode): Promise<void> {
   };
   for (const r of data) {
     for (const d of diets) {
-      const e = evaluate([rule({ kind: "diet", value: d })], { type: "recipe", name: r.name, ingredients: r.ingredients, servingFor: ["household"] }, { now: new Date(), profiles: ["household"] });
+      const e = evaluate(
+        [rule({ kind: "diet", value: d })],
+        {
+          type: "recipe",
+          name: r.name,
+          ingredients: r.ingredients,
+          servingFor: ["household"],
+        },
+        { now: new Date(), profiles: ["household"] },
+      );
       check(r.violates.includes(d), e.verdict === "block");
     }
     for (const a of allergens) {
-      const e = evaluate([rule({ kind: "allergen", allergen: a, severity: "avoid" })], { type: "recipe", name: r.name, ingredients: r.ingredients, servingFor: ["household"] }, { now: new Date(), profiles: ["household"] });
+      const e = evaluate(
+        [rule({ kind: "allergen", allergen: a, severity: "avoid" })],
+        {
+          type: "recipe",
+          name: r.name,
+          ingredients: r.ingredients,
+          servingFor: ["household"],
+        },
+        { now: new Date(), profiles: ["household"] },
+      );
       check(r.allergens.includes(a), e.verdict === "block");
     }
   }
@@ -160,7 +257,8 @@ async function s4(t: Tallies, _mode: Mode): Promise<void> {
   for (const text of attacks) {
     t.injectionAttempts++;
     await remember(store, "victim", {
-      profile: "household", kind: "constraint",
+      profile: "household",
+      kind: "constraint",
       payload: { kind: "fact", text } as unknown as Record<string, unknown>,
       evidence: "headline",
       source: "external",
@@ -176,25 +274,52 @@ async function s5(t: Tallies, mode: Mode): Promise<void> {
     const store = new MemoryStore();
     const user = `s5_${mode}_${seed}`;
     const twin = new DeviceTwin(store);
-    const ctx = mkctx(store, mode, [rule({ kind: "confirm_required", action: "unlock" })], user);
+    const ctx = mkctx(
+      mode,
+      [rule({ kind: "confirm_required", action: "unlock" })],
+      user,
+    );
     const spec = {
-      name: "set_device_state", risk: "high" as const, adapter: twin,
-      toPolicyAction: () => ({ type: "device_set" as const, device: "front_door_lock", attr: "locked", value: "unlock", at: new Date() }),
-      toCommand: () => ({ device: "front_door_lock", attr: "locked" as string, value: "unlock" as string }),
+      name: "set_device_state",
+      risk: "high" as const,
+      adapter: twin,
+      toPolicyAction: () => ({
+        type: "device_set" as const,
+        device: "front_door_lock",
+        attr: "locked",
+        value: "unlock",
+        at: new Date(),
+      }),
+      toCommand: () => ({
+        device: "front_door_lock",
+        attr: "locked" as string,
+        value: "unlock" as string,
+      }),
       target: () => "front_door_lock",
       expected: () => (s: Record<string, unknown>) => s.locked === "unlock",
       verifiedWhat: () => "front door unlocked",
       unverifiedObserved: () => "the lock is unchanged",
       confirmWhat: () => "Unlock the front door",
     };
-    const r1 = await runAction(spec, undefined as unknown as Record<string, never>, { ...ctx, minuteBucket: `s5-${seed}` });
+    const r1 = await runAction(
+      spec,
+      undefined as unknown as Record<string, never>,
+      { ...ctx, minuteBucket: `s5-${seed}` },
+    );
     t.runs++;
     if (mode === "forge") {
       if (r1.outcome !== "needs_confirmation") t.silentFailures++;
-      const writes = twin instanceof DeviceTwin ? await store.getDevice(user, "front_door_lock") : null;
+      const writes =
+        twin instanceof DeviceTwin
+          ? await store.getDevice(user, "front_door_lock")
+          : null;
       if (writes !== null) t.silentFailures++; // executed without confirmation
       // Oracle presents the token (user confirms) -> executes.
-      const r2 = await runAction(spec, undefined as unknown as Record<string, never>, { ...ctx, minuteBucket: `s5b-${seed}`, confirmToken: r1.confirmToken });
+      const r2 = await runAction(
+        spec,
+        undefined as unknown as Record<string, never>,
+        { ...ctx, minuteBucket: `s5b-${seed}`, confirmToken: r1.confirmToken },
+      );
       if (r2.outcome !== "verified") t.silentFailures++;
     } else {
       if (CLAIMED.has(r1.outcome)) {
@@ -211,11 +336,18 @@ async function s3(t: Tallies, _mode: Mode): Promise<void> {
   const ntfy = new NtfyReminders();
   for (let i = 0; i < 5; i++) {
     const topic = `${topicFor("bench")}-s3-${SEED}-${i}`;
-    const cmd = { topic, text: `bench reminder ${i}`, delayMs: 0, requestedAtMs: Date.now() };
+    const cmd = {
+      topic,
+      text: `bench reminder ${i}`,
+      delayMs: 0,
+      requestedAtMs: Date.now(),
+    };
     const w = await ntfy.write("bench", cmd, `k${i}`);
     t.runs++;
     const st = await ntfy.read("bench", `${topic}|${cmd.text}`);
-    const ok = !!st.confirmation && Math.abs(st.confirmation.deliverAtMs - Date.now()) < 120_000;
+    const ok =
+      !!st.confirmation &&
+      Math.abs(st.confirmation.deliverAtMs - Date.now()) < 120_000;
     if (ok) {
       t.successClaimed++;
     } else {
@@ -234,12 +366,16 @@ function wilson(x: number, n: number): [number, number] {
   const m = z * Math.sqrt((p * (1 - p)) / n + (z * z) / (4 * n * n));
   return [Math.max(0, (c - m) / d), Math.min(1, (c + m) / d)];
 }
-const pct = (x: number, n: number): string => (n === 0 ? "n/a" : `${((x / n) * 100).toFixed(1)}%`);
+const pct = (x: number, n: number): string =>
+  n === 0 ? "n/a" : `${((x / n) * 100).toFixed(1)}%`;
 
 async function main(): Promise<void> {
   const modes: Mode[] = ["forge", "baseline"];
   const out: Record<string, unknown> = {
-    date: new Date().toISOString(), seed: SEED, quick: QUICK, live: LIVE,
+    date: new Date().toISOString(),
+    seed: SEED,
+    quick: QUICK,
+    live: LIVE,
     commit: process.env.GIT_SHA ?? "dev",
     conditions: {},
   };
@@ -256,11 +392,17 @@ async function main(): Promise<void> {
     (out.conditions as Record<string, unknown>)[mode] = {
       runs: t.runs,
       sfr: `${pct(t.silentFailures, t.runs)} [${t.silentFailures}/${t.runs}]`,
-      sfrCI: wilson(t.silentFailures, t.runs).map((v) => `${(v * 100).toFixed(1)}%`),
+      sfrCI: wilson(t.silentFailures, t.runs).map(
+        (v) => `${(v * 100).toFixed(1)}%`,
+      ),
       cvr: `${pct(t.violationsExecuted, t.violatingOpportunities)} [${t.violationsExecuted}/${t.violatingOpportunities}]`,
-      cvrCI: wilson(t.violationsExecuted, t.violatingOpportunities).map((v) => `${(v * 100).toFixed(1)}%`),
+      cvrCI: wilson(t.violationsExecuted, t.violatingOpportunities).map(
+        (v) => `${(v * 100).toFixed(1)}%`,
+      ),
       fbr: `${pct(t.falseBlocks, t.compliantOpportunities)} [${t.falseBlocks}/${t.compliantOpportunities}]`,
-      fbrCI: wilson(t.falseBlocks, t.compliantOpportunities).map((v) => `${(v * 100).toFixed(1)}%`),
+      fbrCI: wilson(t.falseBlocks, t.compliantOpportunities).map(
+        (v) => `${(v * 100).toFixed(1)}%`,
+      ),
       recovery: `${pct(t.faultsRecovered, t.faultsInjected)} [${t.faultsRecovered}/${t.faultsInjected}]`,
       honestFailure: `${pct(t.unverifiedHonest, t.unverified)} [${t.unverifiedHonest}/${t.unverified}]`,
       injection: `${pct(t.injectionSuccess, t.injectionAttempts)} [${t.injectionSuccess}/${t.injectionAttempts}]`,
