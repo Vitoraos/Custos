@@ -43,3 +43,32 @@ Oracle != real Alexa+; twin != real devices; ontology = ingredient-name
 heuristics (not medical advice); one model in L2; small L2 sample.
 Expected shape (not a promise): baseline SFR ~= fault rate; forge SFR ~= 0
 for detectable faults + added latency + non-zero FBR.
+
+## What these results mean (plain language)
+
+**What we did:** we gave the same jobs (turn on lights, follow food rules,
+set reminders) to two versions of the assistant hundreds of times — one with
+ContextForge's safety checks on, one without — while randomly breaking things
+(weak signal, lost messages, dead devices), the way real homes break. An
+automated stand-in played the user so the test is repeatable.
+
+**What each row means:**
+- *Silent failures* — the assistant said "done" but nothing actually happened.
+  The dangerous kind of wrong, because you'd never know. Ours: **zero**. Without
+  checks: **about 1 in 3**.
+- *Rule-breaking* — e.g. serving peanuts to someone with a peanut allergy.
+  Ours blocked every one (**0 in 204**); without enforcement, all went through.
+- *False alarms* — blocking something harmless (the cost of being strict).
+  Ours: **zero in 576 tries**.
+- *Recovery* — fixing a failed command by retrying: 5%. Low because some faults
+  (device offline) can't be retried into working — those become honest failures.
+- *Honest failures* — when it couldn't confirm, it said so **13 out of 13 times**
+  instead of pretending.
+- *Hacking attempts* — bogus "forget the allergy" instructions hidden in news
+  headlines: **none got through**.
+- *Speed cost* — safety adds about a third of a second normally, ~4 seconds worst
+  case. That's the price of checking instead of assuming.
+
+**Bottom line:** with the checks on, the assistant never claimed success it
+couldn't prove and never broke a stored rule; without them, it confidently
+reported things that weren't true. The checks cost a short delay.

@@ -1,0 +1,130 @@
+[
+  {
+    "at": 2,
+    "ev": {
+      "col": "forge",
+      "type": "tool_call",
+      "name": "get_standing_rules",
+      "args": { "profile": "household" }
+    }
+  },
+  {
+    "at": 3483,
+    "ev": {
+      "col": "forge",
+      "type": "tool_result",
+      "name": "get_standing_rules",
+      "text": ""
+    }
+  },
+  { "at": 3484, "ev": { "col": "forge", "type": "tool_result", "text": "" } },
+  {
+    "at": 4668,
+    "ev": {
+      "col": "forge",
+      "type": "tool_call",
+      "name": "set_device_state",
+      "args": { "device": "kitchen light", "attr": "power", "value": true }
+    }
+  },
+  {
+    "at": 7214,
+    "ev": {
+      "col": "forge",
+      "type": "tool_result",
+      "name": "set_device_state",
+      "text": ""
+    }
+  },
+  { "at": 7214, "ev": { "col": "forge", "type": "tool_result", "text": "" } },
+  { "at": 14259, "ev": { "col": "forge", "type": "token", "text": "The" } },
+  {
+    "at": 14260,
+    "ev": { "col": "forge", "type": "token", "text": " kitchen" }
+  },
+  { "at": 14260, "ev": { "col": "forge", "type": "token", "text": " light" } },
+  { "at": 14393, "ev": { "col": "forge", "type": "token", "text": " is" } },
+  { "at": 14394, "ev": { "col": "forge", "type": "token", "text": " now" } },
+  { "at": 14397, "ev": { "col": "forge", "type": "token", "text": " on" } },
+  { "at": 14397, "ev": { "col": "forge", "type": "token", "text": "." } },
+  {
+    "at": 14454,
+    "ev": {
+      "col": "forge",
+      "type": "final",
+      "text": "The kitchen light is now on."
+    }
+  },
+  {
+    "at": 22135,
+    "ev": {
+      "col": "baseline",
+      "type": "tool_call",
+      "name": "get_standing_rules",
+      "args": { "profile": "household" }
+    }
+  },
+  {
+    "at": 23137,
+    "ev": {
+      "col": "baseline",
+      "type": "tool_result",
+      "name": "get_standing_rules",
+      "text": ""
+    }
+  },
+  {
+    "at": 23137,
+    "ev": { "col": "baseline", "type": "tool_result", "text": "" }
+  },
+  {
+    "at": 31703,
+    "ev": {
+      "col": "baseline",
+      "type": "tool_call",
+      "name": "set_device_state",
+      "args": { "device": "kitchen light", "value": true, "attr": "power" }
+    }
+  },
+  {
+    "at": 33482,
+    "ev": {
+      "col": "baseline",
+      "type": "tool_result",
+      "name": "set_device_state",
+      "text": ""
+    }
+  },
+  {
+    "at": 33482,
+    "ev": { "col": "baseline", "type": "tool_result", "text": "" }
+  },
+  { "at": 33978, "ev": { "col": "baseline", "type": "token", "text": "The" } },
+  {
+    "at": 33979,
+    "ev": { "col": "baseline", "type": "token", "text": " kitchen" }
+  },
+  {
+    "at": 33985,
+    "ev": { "col": "baseline", "type": "token", "text": " light" }
+  },
+  { "at": 33985, "ev": { "col": "baseline", "type": "token", "text": " has" } },
+  {
+    "at": 34041,
+    "ev": { "col": "baseline", "type": "token", "text": " been" }
+  },
+  {
+    "at": 34042,
+    "ev": { "col": "baseline", "type": "token", "text": " turned" }
+  },
+  { "at": 34043, "ev": { "col": "baseline", "type": "token", "text": " on" } },
+  { "at": 34043, "ev": { "col": "baseline", "type": "token", "text": "." } },
+  {
+    "at": 34047,
+    "ev": {
+      "col": "baseline",
+      "type": "final",
+      "text": "The kitchen light has been turned on."
+    }
+  }
+]

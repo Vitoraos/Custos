@@ -48,7 +48,10 @@
 - Use: `Agent({ model: OpenAIModel-compatible, tools: McpClient tools })`,
   system prompt = plan §5.G verbatim, temperature 0, max 8 iterations/turn,
   per-session (30 turns) + daily budget caps → Replay mode on exhaustion.
-- ⚑ live-spike: event streaming shape + `Authorization` header forwarding.
+- Proven live (Oct 9, L2): `McpClient({ url, headers: { Authorization } })`
+  forwards the key; `agent.stream()` yields token/tool/final events. Caveat
+  found: McpClient drops `structuredContent` — agent-layer tool results carry
+  text (`say`) only, so L2 scores finals + ground truth, not outcomes.
 - Cost: free SDK; model calls on OpenRouter free tier (20/min, 50/day).
 
 ## 5. LLM — OpenRouter free models only (no Bedrock)

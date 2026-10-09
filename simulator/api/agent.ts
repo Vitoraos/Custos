@@ -80,7 +80,9 @@ function toolResultOutcome(result: unknown): {
   say?: string;
   text: string;
 } {
-  // McpTool result blocks carry MCP content (+ structuredContent when present).
+  // McpTool maps MCP content[] to SDK blocks and DROPS structuredContent —
+  // at the agent layer only text survives (our `say`). Outcome is therefore
+  // unavailable here; L2 scores finals + ground truth instead.
   try {
     const r = result as {
       content?: { type?: string; text?: string }[];
@@ -94,16 +96,16 @@ function toolResultOutcome(result: unknown): {
       };
     }
     const text = (r?.content ?? [])
-      .map((b) => (b.type === "text" ? (b.text ?? "") : ""))
+      .map((b) => (typeof b?.text === "string" ? b.text : ""))
       .join(" ")
       .slice(0, 500);
     try {
       const env = JSON.parse(text) as { outcome?: string; say?: string };
       if (env.outcome) return { outcome: env.outcome, say: env.say, text };
     } catch {
-      // Not an envelope — plain text ack (baseline).
+      // Not an envelope — plain text (say-only, or baseline ack).
     }
-    return { text };
+    return { say: text || undefined, text };
   } catch {
     return { text: "" };
   }

@@ -3,7 +3,7 @@ import "dotenv/config";
 import { createServer, resolveStore } from "./server.js";
 
 const port = Number(process.env.PORT ?? 3000);
- 
+
 const host = process.env.HOST ?? "0.0.0.0";
 const { server, deps } = createServer(undefined, { port });
 void deps;
@@ -22,4 +22,3 @@ await server.start({
 });
 const backend = resolveStore().backend;
 console.log(`ContextForge v3 on ${host}:${port}/mcp (store: ${backend})`);
-

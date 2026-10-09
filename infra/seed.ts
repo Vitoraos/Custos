@@ -27,7 +27,9 @@ for (const [t, col] of tables) {
     .from(t)
     .select(col, { count: "exact", head: true });
   if (error) {
-    console.error(`db:seed: table ${t}: ${error.message || JSON.stringify(error)}`);
+    console.error(
+      `db:seed: table ${t}: ${error.message || JSON.stringify(error)}`,
+    );
     ok = false;
   } else {
     console.log(`db:seed: table ${t}: ok`);

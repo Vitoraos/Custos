@@ -8,14 +8,11 @@ const base = (arg("base", "http://localhost:3000") as string).replace(
   "",
 );
 const out = arg("out", "session") as string;
-const texts = process.argv
-  .filter(
-    (a) =>
-      !a.startsWith("--") &&
-      !a.endsWith("sim-record.ts") &&
-      a !== process.argv[1],
-  )
-  .slice(1);
+// Scenario texts come after a literal `--` separator (npm passes it through).
+const dash = process.argv.indexOf("--");
+const texts = (dash >= 0 ? process.argv.slice(dash + 1) : []).filter(
+  (a) => a.length > 0,
+);
 if (texts.length === 0) {
   console.error("sim:record: pass scenario texts after --");
   process.exit(1);
