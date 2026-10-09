@@ -2,6 +2,7 @@
 // each turn against ground truth. Skips cleanly without OPENROUTER_API_KEY.
 // Usage: npx tsx bench/llm.ts --base http://localhost:3000 [--tasks S1,S2]
 // Full L2 batch (40-60 tasks/condition) runs when the model key exists.
+import "dotenv/config";
 import { arg } from "../scripts/args.js";
 
 const base = (arg("base", "http://localhost:3000") as string).replace(

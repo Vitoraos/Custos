@@ -29,19 +29,31 @@ function mulberry(seed: number): () => number {
   };
 }
 
+// Per-write-call draw counters: retries draw fresh values (so recovery is
+// possible), while the same (seed, call) always draws the same value —
+// reproducible across bench runs. Keyed by idempotency key, which includes
+// user + mode + args, so forge/baseline draws stay independent.
+const draws = new Map<string, number>();
+function draw(seed: number, key: string): number {
+  const n = draws.get(key) ?? 0;
+  draws.set(key, n + 1);
+  const rand = mulberry((seed ^ Math.imul(n + 1, 0x9e3779b1)) | 0);
+  return rand();
+}
+
 export class DeviceTwin implements ActionAdapter<TwinCmd, TwinState> {
   name = "device-twin";
   constructor(private store: Store) {}
   async write(
     userId: string,
     cmd: TwinCmd,
-    _idemKey: string,
+    idemKey: string,
   ): Promise<{ ackId?: string }> {
     const fault = await this.store.getFaults(userId);
     const p = Number(fault.params.p ?? 0.3);
     const seed = Number(fault.params.seed ?? 1);
     const ms = Number(fault.params.ms ?? 2000);
-    const rand = mulberry(seed + cmd.device.length);
+    const rand = (): number => draw(seed + cmd.device.length, idemKey);
     const apply = async (): Promise<void> => {
       const cur = (await this.store.getDevice(userId, cmd.device)) ?? {};
       await this.store.setDevice(userId, cmd.device, {

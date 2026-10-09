@@ -58,7 +58,7 @@ export default function App() {
   const [muted, setMuted] = useState(false);
   const [fault, setFault] = useState("none");
   const [mode, setMode] = useState<"ab" | "forge" | "replay">("ab");
-  const [replayName, setReplayName] = useState("dinner-ab.json");
+  const [replayName, setReplayName] = useState("dinner.json");
   const [speaking, setSpeaking] = useState(false);
   const partial = useRef<{ forge: string; baseline: string }>({
     forge: "",

@@ -1,0 +1,155 @@
+[
+  {
+    "at": 1,
+    "ev": {
+      "col": "forge",
+      "type": "tool_call",
+      "name": "find_recipe",
+      "args": { "max": 5, "servingFor": ["4"], "query": "dinner" }
+    }
+  },
+  {
+    "at": 1669,
+    "ev": {
+      "col": "forge",
+      "type": "tool_result",
+      "name": "find_recipe",
+      "text": ""
+    }
+  },
+  { "at": 1669, "ev": { "col": "forge", "type": "tool_result", "text": "" } },
+  {
+    "at": 6323,
+    "ev": {
+      "col": "forge",
+      "type": "tool_call",
+      "name": "find_recipe",
+      "args": { "query": "Jiggs Dinner", "servingFor": ["4"] }
+    }
+  },
+  {
+    "at": 7604,
+    "ev": {
+      "col": "forge",
+      "type": "tool_result",
+      "name": "find_recipe",
+      "text": ""
+    }
+  },
+  { "at": 7604, "ev": { "col": "forge", "type": "tool_result", "text": "" } },
+  { "at": 11691, "ev": { "col": "forge", "type": "token", "text": "I" } },
+  {
+    "at": 11693,
+    "ev": { "col": "forge", "type": "token", "text": " found Jiggs" }
+  },
+  {
+    "at": 11693,
+    "ev": { "col": "forge", "type": "token", "text": " Dinner, which serves" }
+  },
+  {
+    "at": 11735,
+    "ev": { "col": "forge", "type": "token", "text": " four and fits your" }
+  },
+  {
+    "at": 11741,
+    "ev": { "col": "forge", "type": "token", "text": " current rules. Would" }
+  },
+  {
+    "at": 11741,
+    "ev": { "col": "forge", "type": "token", "text": " you like the" }
+  },
+  {
+    "at": 11741,
+    "ev": {
+      "col": "forge",
+      "type": "token",
+      "text": " ingredient list or instructions"
+    }
+  },
+  { "at": 11779, "ev": { "col": "forge", "type": "token", "text": "?" } },
+  {
+    "at": 11791,
+    "ev": {
+      "col": "forge",
+      "type": "final",
+      "text": "I found Jiggs Dinner, which serves four and fits your current rules. Would you like the ingredient list or instructions?"
+    }
+  },
+  { "at": 13979, "ev": { "col": "baseline", "type": "token", "text": "\n\n" } },
+  {
+    "at": 13988,
+    "ev": {
+      "col": "baseline",
+      "type": "tool_call",
+      "name": "find_recipe",
+      "args": {
+        "query": "dinner for four",
+        "servingFor": ["household"],
+        "max": 5
+      }
+    }
+  },
+  {
+    "at": 14757,
+    "ev": {
+      "col": "baseline",
+      "type": "tool_result",
+      "name": "find_recipe",
+      "text": ""
+    }
+  },
+  {
+    "at": 14757,
+    "ev": { "col": "baseline", "type": "tool_result", "text": "" }
+  },
+  { "at": 15490, "ev": { "col": "baseline", "type": "token", "text": "I" } },
+  {
+    "at": 15490,
+    "ev": { "col": "baseline", "type": "token", "text": " found" }
+  },
+  { "at": 15514, "ev": { "col": "baseline", "type": "token", "text": " one" } },
+  {
+    "at": 15514,
+    "ev": { "col": "baseline", "type": "token", "text": " recipe" }
+  },
+  {
+    "at": 15515,
+    "ev": { "col": "baseline", "type": "token", "text": " that" }
+  },
+  {
+    "at": 15538,
+    "ev": { "col": "baseline", "type": "token", "text": " matches" }
+  },
+  {
+    "at": 15539,
+    "ev": { "col": "baseline", "type": "token", "text": " your" }
+  },
+  {
+    "at": 15539,
+    "ev": { "col": "baseline", "type": "token", "text": " dietary" }
+  },
+  {
+    "at": 15566,
+    "ev": { "col": "baseline", "type": "token", "text": " preferences" }
+  },
+  { "at": 15566, "ev": { "col": "baseline", "type": "token", "text": ":" } },
+  { "at": 15566, "ev": { "col": "baseline", "type": "token", "text": " V" } },
+  { "at": 15586, "ev": { "col": "baseline", "type": "token", "text": "egan" } },
+  { "at": 15586, "ev": { "col": "baseline", "type": "token", "text": " P" } },
+  { "at": 15586, "ev": { "col": "baseline", "type": "token", "text": "asta" } },
+  {
+    "at": 15612,
+    "ev": { "col": "baseline", "type": "token", "text": " Prim" }
+  },
+  { "at": 15612, "ev": { "col": "baseline", "type": "token", "text": "aver" } },
+  { "at": 15612, "ev": { "col": "baseline", "type": "token", "text": "a" } },
+  { "at": 15643, "ev": { "col": "baseline", "type": "token", "text": "." } },
+  {
+    "at": 15645,
+    "ev": {
+      "col": "baseline",
+      "type": "final",
+      "text": "I found one recipe that matches your dietary preferences: Vegan Pasta Primavera."
+    }
+  }
+]

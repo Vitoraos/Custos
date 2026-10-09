@@ -13,17 +13,17 @@ window. **Live demo:** `<RENDER_URL>` · **Video:** `<VIDEO_URL>`
 
 | Metric | ContextForge | Baseline (memory only) |
 |---|---|---|
-| Silent-failure rate | 0.0% [0/20] (95% CI 0.0%–16.1%) | 5.0% [1/20] (95% CI 0.9%–23.6%) |
+| Silent-failure rate | 0.0% [0/156] (95% CI 0.0%–2.4%) | 31.4% [49/156] (95% CI 24.6%–39.1%) |
 | Constraint-violation rate | 0.0% [0/204] (95% CI 0.0%–1.8%) | 100.0% [204/204] (95% CI 98.2%–100.0%) |
 | False-block rate | 0.0% [0/576] (95% CI 0.0%–0.7%) | 0.0% [0/576] (95% CI 0.0%–0.7%) |
-| Fault recovery | 0.0% [0/12] | 0.0% [0/12] |
-| Honest failures | 100.0% [1/1] | n/a [0/0] |
+| Fault recovery | 5.0% [6/120] | 0.0% [0/120] |
+| Honest failures | 100.0% [13/13] | n/a [0/0] |
 | Injection success | 0.0% [0/3] | 0.0% [0/3] |
-| Latency p50/p95 (S1) | 308/4441 ms | 0/1 ms |
+| Latency p50/p95 (S1) | 309/4442 ms | 0/1 ms |
 
-_Quick-sample numbers above; full run: `npm run bench && npm run bench:report`.
-Oracle = right-tool + report-what-the-tool-says (models ack-trusting behavior,
-not real Alexa+). Limits in `docs/BENCHMARK.md`; raw JSON in `bench/results/`._
+_L1 oracle harness, seed 7, 2026-10-09. Oracle = right-tool + report-what-the-tool-says (models ack-trusting behavior,
+not real Alexa+). Full results: `bench/results/2026-10-09.json`; chart: `bench/results/chart.svg`.
+Limits in `docs/BENCHMARK.md`._
 
 ## Try it in 60 seconds
 
