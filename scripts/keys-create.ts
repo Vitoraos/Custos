@@ -1,5 +1,6 @@
 // npm run keys:create -- --user <user_id> [--mode forge|baseline] [--label ...]
 // Prints the key ONCE (only its sha256 is stored). Needs Supabase creds.
+import "dotenv/config";
 import { createClient } from "@supabase/supabase-js";
 import { newKey, sha256Hex } from "../src/auth.js";
 import { arg } from "./args.js";
