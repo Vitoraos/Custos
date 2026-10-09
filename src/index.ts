@@ -1,4 +1,5 @@
 // Entry point: binds $PORT (Render injects it).
+import "dotenv/config";
 import { createServer, resolveStore } from "./server.js";
 
 const port = Number(process.env.PORT ?? 3000);
