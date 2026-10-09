@@ -21,13 +21,4 @@ await server.start({
 });
 const backend = resolveStore().backend;
 console.log(`ContextForge v3 on ${host}:${port}/mcp (store: ${backend})`);
-=======
-const host = process.env.HOST ?? '0.0.0.0';
-
-await createServer().start({
-  transportType: 'httpStream',
-  httpStream: { host, port, endpoint: '/mcp', stateless: true },
-});
-// eslint-disable-next-line no-console
-console.log(`ContextForge MCP listening on ${host}:${port}/mcp (health ${host}:${port}/health)`);
 
