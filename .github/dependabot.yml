@@ -4,3 +4,12 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    # Majors broke the build twice (openai 7 vs Strands peer, TS 7 vs node
+    # globals). Revisit majors by hand only.
+    ignore:
+      - dependency-name: "openai"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
