@@ -19,7 +19,10 @@
   temp session; nothing persists).
 - Custom routes (simulator + static in one process): **no `addRoute`** —
   use `server.getApp()` (Hono). SSE via Hono `streamSSE`; static via Hono
-  `serveStatic`. ⚑ live-spike.
+  `serveStatic`. Proven live, including that FastMCP's CORS headers apply to
+  custom routes (preflight script `scripts/preflight.ts`).
+- Abuse control: `src/rateLimit.ts` sliding-window buckets (`/sim/guest`
+  10/min/IP, chat/faults 60, truth 120, `/mcp` 300); unit-tested + live-proven.
 - Tool output: `outputSchema` (any Standard-Schema lib) → MCP
   `structuredContent` + JSON text fallback, validated (violations → tool error).
 - Errors/timeouts: throw `UserError` for user-facing errors; `timeoutMs` +

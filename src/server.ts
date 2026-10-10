@@ -12,6 +12,7 @@ import {
   type Session,
   sha256Hex,
 } from "./auth.js";
+import { rateLimit } from "./rateLimit.js";
 import { MemoryStore, type Store } from "./storage/store.js";
 import { SupabaseStore } from "./storage/supabaseStore.js";
 import { accountabilityTools, type Runner } from "./tools/accountability.js";
@@ -74,6 +75,15 @@ export function createServer(
 
   // Liveness that also exercises the store (cron pings this to keep Supabase awake).
   const app = server.getApp();
+  // Abuse control first (registration order = execution order): /sim/guest
+  // mints keys + DB rows unauthenticated, so it gets the strictest bucket.
+  // CORS alone never stops non-browser callers.
+  const MIN = 60_000;
+  app.use("/sim/guest", rateLimit({ windowMs: MIN, max: 10 }));
+  app.use("/sim/chat", rateLimit({ windowMs: MIN, max: 60 }));
+  app.use("/sim/faults", rateLimit({ windowMs: MIN, max: 60 }));
+  app.use("/sim/truth", rateLimit({ windowMs: MIN, max: 120 }));
+  app.use("/mcp", rateLimit({ windowMs: MIN, max: 300 }));
   app.get("/health/deep", async (c) => {
     try {
       const ping = await active.ping();
