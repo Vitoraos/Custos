@@ -1,13 +1,13 @@
 # ContextForge — the accountability layer for Alexa+
 
-![check](https://github.com/Vitoraos/contextforge/actions/workflows/check.yml/badge.svg)
+![check](https://github.com/Vitoraos/Custos/actions/workflows/check.yml/badge.svg)
 ![license](https://img.shields.io/badge/license-MIT-green)
 
 Alexa+ remembers — but nothing **enforces** a remembered rule, **verifies** an
 action, or **receipts** a decision. ContextForge is that layer: standing rules
 enforced in code at the tool boundary, every action verified against real
 state, every decision receipted. One process: LLM-free MCP server + simulator
-window. **Live demo:** `<RENDER_URL>` · **Video:** `<VIDEO_URL>`
+window. **Live demo:** https://contextforge-8ssj.onrender.com · **Video:** `<VIDEO_URL>`
 
 ## Results (L1 oracle harness, seeded, CIs)
 
@@ -56,10 +56,10 @@ reported things that weren't true. The checks cost a short delay.
 
 ## Try it in 60 seconds
 
-1. Open `<RENDER_URL>`, press **Start** (guest key issued, 24h TTL).
+1. Open https://contextforge-8ssj.onrender.com, press **Start** (guest key issued, 24h TTL).
 2. Type "I'm vegan and Maya has a peanut allergy" → hear the readback.
 3. "Plan dinner for four" → watch the columns diverge; check Ground Truth.
-4. Same server, any client: point MCP Inspector at `<RENDER_URL>/mcp` with
+4. Same server, any client: point MCP Inspector at `https://contextforge-8ssj.onrender.com/mcp` with
    `Authorization: Bearer <key>` (mint one: `npm run keys:create -- --user demo
    --mode forge` against your deploy). Same tools the simulator uses.
 
