@@ -1,4 +1,12 @@
 // API client: guest issue, A/B chat SSE, truth poll, faults.
+// Same-origin by default (served from the main process). Split deployments
+// (frontend on Vercel, backend on Render) set VITE_API_BASE to the backend.
+// Replays stay relative (served with the frontend).
+const API: string =
+  (
+    import.meta as unknown as { env?: { VITE_API_BASE?: string } }
+  ).env?.VITE_API_BASE?.replace(/\/$/, "") ?? "";
+
 export interface SimEvent {
   col: "forge" | "baseline";
   type: "token" | "tool_call" | "tool_result" | "final" | "error";
@@ -10,7 +18,7 @@ export interface SimEvent {
 }
 
 export async function issueGuest(): Promise<{ guestId: string }> {
-  const r = await fetch("/sim/guest", { method: "POST" });
+  const r = await fetch(`${API}/sim/guest`, { method: "POST" });
   if (!r.ok) throw new Error("guest issue failed");
   return r.json();
 }
@@ -19,7 +27,7 @@ export async function* chat(
   guestId: string,
   text: string,
 ): AsyncGenerator<SimEvent, void, void> {
-  const r = await fetch("/sim/chat", {
+  const r = await fetch(`${API}/sim/chat`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ guestId, text }),
@@ -57,7 +65,9 @@ export async function* chat(
 }
 
 export async function truth(guestId: string): Promise<Record<string, unknown>> {
-  const r = await fetch(`/sim/truth?guestId=${encodeURIComponent(guestId)}`);
+  const r = await fetch(
+    `${API}/sim/truth?guestId=${encodeURIComponent(guestId)}`,
+  );
   return r.json();
 }
 
@@ -66,7 +76,7 @@ export async function setFaults(
   profile: string,
   params: Record<string, unknown> = {},
 ): Promise<void> {
-  await fetch("/sim/faults", {
+  await fetch(`${API}/sim/faults`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ guestId, profile, params }),
