@@ -6,8 +6,11 @@ const base = z.object({
   id: z.string().min(1).max(100),
   profile: z.string().min(1).max(60), // 'household' or a person's name
   source: z.enum(["user_voice", "explicit", "inferred", "external"]),
-  createdAt: z.string().datetime(),
-  expiresAt: z.string().datetime().optional(),
+  // offset: true — Postgres timestamptz comes back "+00:00", not "Z".
+  // Without this, EVERY row from Supabase fails validation and the policy
+  // engine silently sees zero rules (production enforcement off).
+  createdAt: z.string().datetime({ offset: true }),
+  expiresAt: z.string().datetime({ offset: true }).optional(),
 });
 
 export const dietConstraint = base.extend({
