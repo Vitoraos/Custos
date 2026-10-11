@@ -1,0 +1,443 @@
+/* Custos simulator theme — token system (source of truth).
+ *
+ * RULE: every margin, padding, gap, font-size, radius, and breakpoint in this
+ * app MUST reference a token below. Raw px/rem literals outside :root are a
+ * bug (enforced by `npm run web:tokens`). Two roots only: the base unit and
+ * the 1.125 type ratio. Six type tiers, two radii, three breakpoints max.
+ */
+:root {
+  color-scheme: light dark;
+
+  /* ——— base ——— */
+  --base: 4px;
+
+  /* ——— spacing (base multiples) ——— */
+  --s1: 4px;
+  --s2: 8px;
+  --s3: 12px;
+  --s4: 16px;
+  --s6: 24px;
+  --s8: 32px;
+  --s12: 48px;
+  --s16: 64px;
+
+  /* ——— type tiers (fluid; step ~= x1.125) ——— */
+  --t-caption: 0.75rem;
+  --t-body-s: clamp(0.8rem, 0.78rem + 0.1vw, 0.85rem);
+  --t-body: clamp(0.95rem, 0.93rem + 0.1vw, 1rem);
+  --t-h3: 1rem;
+  --t-h2: clamp(1.05rem, 1rem + 0.25vw, 1.25rem);
+  --t-h1: clamp(1.25rem, 1rem + 1vw, 1.75rem);
+  --lh-body: 1.5;
+  --lh-head: 1.2;
+  --lh-mono: 1.45;
+
+  /* ——— radii (two only) ——— */
+  --r2: 6px;
+  --r3: 12px;
+
+  /* ——— hairlines ——— */
+  --bw: 1px;
+  --bw2: 2px;
+
+  /* ——— layout ——— */
+  --content-max: 1400px;
+  --measure: 640px;
+  --tile-min: 220px;
+  --bp-stack: 900px;
+  --bp-wide: 1400px;
+  --feed-h: 46vh;
+  --card-h: 30vh;
+  --touch: 40px;
+
+  /* ——— colour: page + text ——— */
+  --bg: #f7f6f3;
+  --panel: #ffffff;
+  --ink: #1c1a17;
+  --ink-dim: #6b655a;
+  --line: #e2ddd2;
+
+  /* ——— colour: columns ——— */
+  --custos: #146c2e;
+  --custos-ink: #0d4d20;
+  --custos-tint: #146c2e18;
+  --baseline: #9a3412;
+  --baseline-ink: #7c2d12;
+  --baseline-tint: #9a341218;
+
+  /* ——— colour: verdicts ——— */
+  --ok: #146c2e;
+  --ok-bg: #e6f4ea;
+  --warn: #8a5a00;
+  --warn-bg: #fef3c7;
+  --danger: #b3261e;
+  --danger-bg: #fdecea;
+  --neutral: #475569;
+  --neutral-bg: #e8edf3;
+
+  /* ——— colour: bubbles + chips ——— */
+  --bubble-you: #e8eefc;
+  --bubble-asst: #efede8;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #141311;
+    --panel: #1e1c19;
+    --ink: #ece7dd;
+    --ink-dim: #a39c8e;
+    --line: #35322b;
+    --custos: #4cc38a;
+    --custos-ink: #a7e8c7;
+    --custos-tint: #4cc38a1f;
+    --baseline: #f59e0b;
+    --baseline-ink: #fcd34d;
+    --baseline-tint: #f59e0b1f;
+    --ok: #4cc38a;
+    --ok-bg: #0d2b1a;
+    --warn: #fbbf24;
+    --warn-bg: #3a2c00;
+    --danger: #ff8a80;
+    --danger-bg: #3a0d0b;
+    --neutral: #94a3b8;
+    --neutral-bg: #232b36;
+    --bubble-you: #2b3a55;
+    --bubble-asst: #262420;
+  }
+}
+
+/* ——— base ——— */
+body {
+  font-family:
+    ui-sans-serif, system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-size: var(--t-body);
+  line-height: var(--lh-body);
+  background: var(--bg);
+  color: var(--ink);
+  margin: 0;
+  padding: 0 var(--s4) var(--s8);
+}
+@media (min-width: 1400px) {
+  /* mirrors --bp-wide (var() forbidden in media conditions) */
+  body {
+    padding-left: var(--s8);
+    padding-right: var(--s8);
+  }
+}
+main {
+  max-width: var(--content-max);
+  margin: 0 auto;
+}
+
+/* ——— start screen ——— */
+.start {
+  max-width: var(--measure);
+  margin: 15vh auto;
+  text-align: center;
+}
+.start h1 {
+  font-size: var(--t-h1);
+  line-height: var(--lh-head);
+}
+.start button {
+  min-height: var(--touch);
+  padding: 0 var(--s6);
+  font-size: var(--t-body);
+}
+
+/* ——— header (sticky) ——— */
+header.app {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--bg);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s3);
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--s3) 0;
+  border-bottom: var(--bw) solid var(--line);
+}
+header.app h1 {
+  font-size: var(--t-h1);
+  line-height: var(--lh-head);
+  margin: 0;
+}
+.controls {
+  display: flex;
+  gap: var(--s2);
+  align-items: center;
+  flex-wrap: wrap;
+}
+.controls button,
+.controls select,
+.controls input {
+  min-height: var(--touch);
+  font-size: var(--t-body-s);
+}
+.speaking {
+  color: var(--ok);
+  font-size: var(--t-caption);
+}
+
+/* ——— columns ——— */
+.cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--s3);
+  margin-top: var(--s4);
+}
+@media (max-width: 900px) {
+  /* mirrors --bp-stack (var() forbidden in media conditions) */
+  .cols {
+    grid-template-columns: 1fr;
+  }
+  .col-forge {
+    order: -1;
+  }
+}
+.panel {
+  border: var(--bw) solid var(--line);
+  border-radius: var(--r3);
+  padding: var(--s4);
+  margin-top: var(--s4);
+  background: var(--panel);
+}
+.panel > h2,
+.col-head h2 {
+  font-size: var(--t-h3);
+  line-height: var(--lh-head);
+  margin: 0 0 var(--s2);
+}
+.sub {
+  color: var(--ink-dim);
+  font-weight: normal;
+  font-size: var(--t-caption);
+  margin-left: var(--s2);
+}
+.col-head {
+  border-bottom: var(--bw2) solid var(--line);
+  padding-bottom: var(--s2);
+  margin-bottom: var(--s2);
+}
+.col-forge .col-head {
+  border-color: var(--custos);
+}
+.col-baseline .col-head {
+  border-color: var(--baseline);
+}
+.tally {
+  font-size: var(--t-caption);
+  color: var(--ink-dim);
+  margin-left: var(--s2);
+}
+
+/* ——— transcript ——— */
+.feed {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+  max-height: var(--feed-h);
+  overflow: auto;
+}
+.bubble {
+  border-radius: var(--r3);
+  padding: var(--s2) var(--s3);
+  max-width: 95%;
+  font-size: var(--t-body);
+  line-height: var(--lh-body);
+}
+.bubble.you {
+  background: var(--bubble-you);
+  align-self: flex-end;
+}
+.bubble.asst {
+  background: var(--bubble-asst);
+  align-self: flex-start;
+}
+.bubble .who {
+  font-size: var(--t-caption);
+  color: var(--ink-dim);
+}
+
+/* ——— verdict badges (text + icon, never colour-alone) ——— */
+.badge {
+  display: inline-block;
+  font-size: var(--t-caption);
+  font-weight: 600;
+  border-radius: var(--r2);
+  padding: 0 var(--s2);
+  margin-left: var(--s2);
+  white-space: nowrap;
+}
+.badge.ok {
+  color: var(--ok);
+  background: var(--ok-bg);
+}
+.badge.warn {
+  color: var(--warn);
+  background: var(--warn-bg);
+}
+.badge.bad {
+  color: var(--danger);
+  background: var(--danger-bg);
+}
+.badge.info {
+  color: var(--neutral);
+  background: var(--neutral-bg);
+}
+.badge.pending {
+  color: var(--ink-dim);
+  border: var(--bw) solid var(--line);
+  animation: pulse 1.2s ease-in-out infinite;
+}
+@keyframes pulse {
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* ——— per-turn tool timeline ——— */
+.turn {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+}
+.trace {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s1);
+  margin-left: var(--s3);
+  padding-left: var(--s3);
+  border-left: var(--bw2) solid var(--line);
+  font-size: var(--t-body-s);
+}
+.col-forge .trace {
+  border-color: var(--custos-tint);
+}
+.trace summary {
+  cursor: pointer;
+  font-family: var(--mono);
+  font-size: var(--t-body-s);
+  line-height: var(--lh-mono);
+}
+.trace pre {
+  font-family: var(--mono);
+  font-size: var(--t-body-s);
+  line-height: var(--lh-mono);
+  white-space: pre-wrap;
+  word-break: break-all;
+  margin: var(--s1) 0 0;
+}
+
+/* ——— truth panel ——— */
+.truth-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(var(--tile-min), 1fr));
+  gap: var(--s3);
+}
+.truth h2 {
+  font-size: var(--t-h2);
+  line-height: var(--lh-head);
+}
+.tiles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+}
+.tile {
+  border: var(--bw) solid var(--line);
+  border-radius: var(--r2);
+  padding: var(--s2) var(--s3);
+  font-size: var(--t-body-s);
+  min-width: calc(var(--s8) * 4);
+}
+.tile .state {
+  font-weight: 700;
+}
+.tile.on {
+  border-color: var(--ok);
+}
+.tile.on .state {
+  color: var(--ok);
+}
+.tile.off .state {
+  color: var(--ink-dim);
+}
+.tile.unknown {
+  opacity: 0.7;
+}
+.pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+}
+.pill {
+  border-radius: var(--r2);
+  background: var(--neutral-bg);
+  color: var(--neutral);
+  padding: var(--s1) var(--s2);
+  font-size: var(--t-body-s);
+}
+.receipt {
+  border: var(--bw) solid var(--line);
+  border-radius: var(--r2);
+  padding: var(--s3);
+  font-size: var(--t-body-s);
+  max-height: var(--card-h);
+  overflow: auto;
+}
+.truth details {
+  margin-top: var(--s3);
+  font-size: var(--t-body-s);
+  color: var(--ink-dim);
+}
+.truth details pre {
+  font-size: var(--t-caption);
+  max-height: var(--card-h);
+  overflow: auto;
+}
+
+/* ——— scenarios + composer ——— */
+.scenarios {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+  margin-top: var(--s4);
+}
+.scenarios button {
+  font-size: var(--t-body-s);
+  min-height: var(--touch);
+  padding: 0 var(--s3);
+}
+.input {
+  display: flex;
+  gap: var(--s2);
+  margin-top: var(--s4);
+  position: sticky;
+  bottom: 0;
+  background: var(--bg);
+  padding: var(--s2) 0;
+}
+.input input {
+  flex: 1;
+  font-size: var(--t-body);
+  padding: var(--s2) var(--s3);
+  min-height: var(--touch);
+}
+.input button {
+  min-height: var(--touch);
+  padding: 0 var(--s4);
+}
+
+/* Last block wins: reduced-motion override needs no !important. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none;
+    transition: none;
+  }
+}

@@ -36,6 +36,7 @@
     "keys:create": "tsx scripts/keys-create.ts",
     "web:dev": "npm --prefix simulator/web run dev",
     "web:build": "npm --prefix simulator/web run build",
+    "web:tokens": "node scripts/check-tokens.mjs",
     "sim:record": "tsx scripts/sim-record.ts",
     "bench": "tsx bench/run.ts",
     "bench:report": "tsx bench/report.ts",
