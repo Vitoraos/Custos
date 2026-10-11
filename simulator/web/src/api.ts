@@ -23,6 +23,28 @@ export async function issueGuest(): Promise<{ guestId: string }> {
   return r.json();
 }
 
+export interface DemoSummary {
+  userId: string;
+  rules: number;
+  constraintsLoaded: number;
+}
+
+export async function loadDemo(): Promise<{
+  guestId: string;
+  summary: DemoSummary;
+}> {
+  const r = await fetch(`${API}/sim/demo`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({}),
+  });
+  if (!r.ok) {
+    const err = (await r.json().catch(() => ({}))) as { error?: string };
+    throw new Error(err.error ?? "demo load failed");
+  }
+  return r.json();
+}
+
 export async function* chat(
   guestId: string,
   text: string,
@@ -69,16 +91,4 @@ export async function truth(guestId: string): Promise<Record<string, unknown>> {
     `${API}/sim/truth?guestId=${encodeURIComponent(guestId)}`,
   );
   return r.json();
-}
-
-export async function setFaults(
-  guestId: string,
-  profile: string,
-  params: Record<string, unknown> = {},
-): Promise<void> {
-  await fetch(`${API}/sim/faults`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ guestId, profile, params }),
-  });
 }

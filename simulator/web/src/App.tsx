@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import { chat, issueGuest, type SimEvent, setFaults, truth } from "./api";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { chat, loadDemo, type SimEvent, truth } from "./api";
 import Column, { type Turn, type UserMsg } from "./components/Column";
 import TruthPanel from "./components/TruthPanel";
 import type { ToolTrace } from "./verdict";
@@ -8,51 +8,17 @@ import { voice } from "./voice";
 let nextId = 1;
 const nid = (): number => nextId++;
 
-const SCENARIOS: { label: string; text: string }[] = [
-  {
-    label: "Vegan + allergy",
-    text: "I'm vegan and my daughter Maya is allergic to peanuts. Remember that.",
-  },
-  { label: "Dinner ×4", text: "Plan dinner for four." },
-  { label: "Kitchen light", text: "Turn on the kitchen light." },
-  {
-    label: "Oven reminder",
-    text: "Remind me in 20 seconds to check the oven.",
-  },
-  { label: "Why?", text: "Why did you pick that?" },
-  { label: "Forget allergy", text: "Forget Maya's peanut allergy." },
-  { label: "News", text: "What's in the news?" },
-  { label: "Hall light", text: "Turn on the hall light." },
-];
-const FAULTS = ["none", "lost_ack:30%", "delayed:2s", "offline:20%", "flaky"];
-
-function faultParams(f: string): {
-  profile: string;
-  params: Record<string, unknown>;
-} {
-  const [profile] = f.split(":");
-  if (profile === "lost_ack")
-    return { profile, params: { p: 0.3, seed: Date.now() % 100000 } };
-  if (profile === "delayed") return { profile, params: { ms: 2000 } };
-  if (profile === "offline")
-    return { profile, params: { p: 0.2, seed: Date.now() % 100000 } };
-  if (profile === "flaky")
-    return { profile, params: { seed: Date.now() % 100000 } };
-  return { profile: "none", params: {} };
-}
-
 type Col = "forge" | "baseline";
 
 export default function App() {
   const [guestId, setGuestId] = useState("");
-  const [started, setStarted] = useState(false);
+  const [loadError, setLoadError] = useState("");
   const [userMsgs, setUserMsgs] = useState<UserMsg[]>([]);
   const [turns, setTurns] = useState<Turn[]>([]);
   const [ground, setGround] = useState<Record<string, unknown>>({});
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [muted, setMuted] = useState(false);
-  const [fault, setFault] = useState("none");
   const [mode, setMode] = useState<"ab" | "forge" | "replay">("ab");
   const [replayName, setReplayName] = useState("dinner.json");
   const [speaking, setSpeaking] = useState(false);
@@ -62,6 +28,30 @@ export default function App() {
     baseline: null,
   });
   const timer = useRef(0);
+
+  const boot = useCallback(async () => {
+    setLoadError("");
+    try {
+      const d = await loadDemo();
+      setGuestId(d.guestId);
+      setUserMsgs([]);
+      setTurns([]);
+      partial.current = { forge: "", baseline: "" };
+      turnId.current = { forge: null, baseline: null };
+      setGround(await truth(d.guestId));
+    } catch (e) {
+      setLoadError(
+        `Could not load the demo household: ${(e as Error).message}. Is the backend running?`,
+      );
+    }
+  }, []);
+
+  // Recording build: no guest flow, the demo household loads itself.
+  useEffect(() => {
+    void boot();
+    const t = window.setInterval(() => setSpeaking(voice.speaking), 500);
+    return () => window.clearInterval(t);
+  }, [boot]);
 
   useEffect(() => {
     if (!guestId) return;
@@ -75,17 +65,6 @@ export default function App() {
     }, 1000);
     return () => window.clearInterval(timer.current);
   }, [guestId]);
-
-  useEffect(() => {
-    const t = window.setInterval(() => setSpeaking(voice.speaking), 500);
-    return () => window.clearInterval(t);
-  }, []);
-
-  async function start() {
-    const g = await issueGuest();
-    setGuestId(g.guestId);
-    setStarted(true);
-  }
 
   function ensureTurn(col: Col): number {
     if (turnId.current[col] == null) {
@@ -195,28 +174,6 @@ export default function App() {
     }
   }
 
-  async function changeFault(f: string) {
-    setFault(f);
-    if (!guestId) return;
-    const { profile, params } = faultParams(f);
-    await setFaults(guestId, profile, params);
-  }
-
-  if (!started) {
-    return (
-      <main className="start">
-        <h1>Custos simulator</h1>
-        <p>
-          Text in, agent works, voice out. One input feeds two columns: without
-          and with Custos guard + verification.
-        </p>
-        <button type="button" onClick={start}>
-          Start
-        </button>
-      </main>
-    );
-  }
-
   const devices = (ground.devices as Record<string, unknown> | undefined) ?? {};
   const show: Col[] = mode === "forge" ? ["forge"] : ["forge", "baseline"];
 
@@ -246,17 +203,14 @@ export default function App() {
           >
             {muted ? "🔇 muted" : "🔊 voice"}
           </button>
-          <select
-            value={fault}
-            onChange={(e) => void changeFault(e.target.value)}
-            aria-label="Chaos"
+          <button
+            type="button"
+            onClick={() => void boot()}
+            disabled={busy || !guestId}
+            title="Re-seed the demo household"
           >
-            {FAULTS.map((f) => (
-              <option key={f} value={f}>
-                chaos: {f}
-              </option>
-            ))}
-          </select>
+            Reset demo data
+          </button>
           {mode === "replay" && (
             <>
               <input
@@ -276,57 +230,59 @@ export default function App() {
           )}
         </div>
       </header>
-      <div className="cols">
-        {show.includes("baseline") && (
-          <Column
-            name="baseline"
-            title="WITHOUT guard + verification"
-            sub="memory only, raw acks"
-            userMsgs={mode === "forge" ? [] : userMsgs}
-            turns={turns.filter((t) => t.col === "baseline")}
-            truthDevices={devices}
-          />
-        )}
-        <Column
-          name="forge"
-          title="WITH Custos"
-          sub="guard + verify + receipts"
-          userMsgs={userMsgs}
-          turns={turns.filter((t) => t.col === "forge")}
-          truthDevices={devices}
-        />
-      </div>
-      <TruthPanel ground={ground} />
-      <div className="scenarios">
-        {SCENARIOS.map((s) => (
-          <button
-            type="button"
-            key={s.label}
-            title={s.text}
-            onClick={() => void send(s.text)}
-            disabled={busy}
+      {loadError ? (
+        <section className="panel" role="alert">
+          {loadError}
+        </section>
+      ) : null}
+      {!guestId && !loadError ? (
+        <section className="start" aria-label="Loading">
+          <h1>Custos simulator</h1>
+          <p>Loading the demo household…</p>
+        </section>
+      ) : null}
+      {guestId ? (
+        <>
+          <div className="cols">
+            {show.includes("baseline") && (
+              <Column
+                name="baseline"
+                title="WITHOUT guard + verification"
+                sub="memory only, raw acks"
+                userMsgs={userMsgs}
+                turns={turns.filter((t) => t.col === "baseline")}
+                truthDevices={devices}
+              />
+            )}
+            <Column
+              name="forge"
+              title="WITH Custos"
+              sub="guard + verify + receipts"
+              userMsgs={userMsgs}
+              turns={turns.filter((t) => t.col === "forge")}
+              truthDevices={devices}
+            />
+          </div>
+          <TruthPanel ground={ground} />
+          <form
+            className="input"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void send(input);
+            }}
           >
-            {s.label}
-          </button>
-        ))}
-      </div>
-      <form
-        className="input"
-        onSubmit={(e) => {
-          e.preventDefault();
-          void send(input);
-        }}
-      >
-        <input
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder="type a request…"
-          aria-label="Message"
-        />
-        <button type="submit" disabled={busy}>
-          Send
-        </button>
-      </form>
+            <input
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="type a request…"
+              aria-label="Message"
+            />
+            <button type="submit" disabled={busy}>
+              Send
+            </button>
+          </form>
+        </>
+      ) : null}
     </main>
   );
 }

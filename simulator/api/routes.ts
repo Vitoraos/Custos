@@ -6,9 +6,11 @@ import { listStandingRules } from "../../src/storage/memories.js";
 import type { Store } from "../../src/storage/store.js";
 import type { Deps } from "../../src/tools/context.js";
 import { runAB } from "./agent.js";
+import { seedDemoHousehold } from "./demo.js";
 import {
   budgetCheck,
   budgetSpend,
+  demoSession,
   getGuest,
   guestKeys,
   issueGuest,
@@ -83,5 +85,24 @@ export function mountSim(
       params: body.params ?? {},
     });
     return c.json({ ok: true });
+  });
+
+  // Demo session: reset + seed the fixed household, bind keys. Recording only.
+  app.post("/sim/demo", async (c) => {
+    const body = (await c.req.json().catch(() => null)) as {
+      user?: string;
+    } | null;
+    const userId = (body?.user ?? "demo").slice(0, 60);
+    const summary = await seedDemoHousehold(store, userId);
+    if (summary.constraintsLoaded !== summary.rules) {
+      return c.json(
+        {
+          error: `seeded ${summary.rules} rules but policy loads ${summary.constraintsLoaded} — bundle drifted from schema`,
+        },
+        500,
+      );
+    }
+    const s = await demoSession(store, userId);
+    return c.json({ guestId: s.id, userId: s.userId, summary });
   });
 }
