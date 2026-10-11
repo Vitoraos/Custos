@@ -46,6 +46,35 @@ export function guestKeys(
   return keys.get(id) ?? null;
 }
 
+// Fixed-user demo session (recording only — no guest-facing flow).
+// Re-mints keys on every call; old demo keys linger labelled in api_keys.
+export async function demoSession(
+  store: Store,
+  userId: string,
+): Promise<Guest & { forgeKey: string; baselineKey: string }> {
+  purge();
+  const forgeKey = newKey();
+  const baselineKey = newKey();
+  await store.insertKey(sha256Hex(forgeKey), {
+    userId,
+    mode: "forge",
+    label: "demo",
+    revokedAt: null,
+  });
+  await store.insertKey(sha256Hex(baselineKey), {
+    userId,
+    mode: "baseline",
+    label: "demo",
+    revokedAt: null,
+  });
+  const id = `demo-${userId}`;
+  const g: Guest = { id, userId, createdAt: Date.now() };
+  guests.set(id, g);
+  keys.set(id, { forgeKey, baselineKey });
+  turns.delete(id);
+  return { ...g, forgeKey, baselineKey };
+}
+
 export function getGuest(id: string): Guest | null {
   purge();
   const g = guests.get(id);

@@ -1,0 +1,75 @@
+{
+  "userId": "demo",
+  "description": "Fixed demo household for video recording. Applied by npm run demo:seed and POST /sim/demo. Idempotent: re-running wipes and rewrites this user's rows.",
+  "rules": [
+    {
+      "profile": "Maya",
+      "kind": "allergen",
+      "allergen": "peanut",
+      "severity": "severe",
+      "evidence": "Maya has a severe peanut allergy"
+    },
+    {
+      "profile": "household",
+      "kind": "diet",
+      "value": "vegan",
+      "evidence": "The household eats vegan"
+    },
+    {
+      "profile": "household",
+      "kind": "quiet_hours",
+      "start": "22:00",
+      "end": "07:00",
+      "tz": "Africa/Lagos",
+      "applies": ["lights", "notifications"],
+      "evidence": "Quiet hours 10pm to 7am Lagos time"
+    },
+    {
+      "profile": "household",
+      "kind": "device_limit",
+      "device": "thermostat",
+      "attr": "temp_c",
+      "min": 18,
+      "max": 26,
+      "evidence": "Thermostat stays between 18 and 26 degrees"
+    },
+    {
+      "profile": "household",
+      "kind": "confirm_required",
+      "action": "unlock",
+      "evidence": "Unlocking doors needs confirmation"
+    },
+    {
+      "profile": "household",
+      "kind": "confirm_required",
+      "action": "purchase",
+      "evidence": "Purchases need confirmation"
+    }
+  ],
+  "facts": [
+    {
+      "profile": "household",
+      "text": "Home city is Lagos, Nigeria",
+      "evidence": "Demo household setup"
+    },
+    {
+      "profile": "household",
+      "text": "Home timezone is Africa/Lagos",
+      "evidence": "Demo household setup"
+    },
+    {
+      "profile": "Maya",
+      "text": "Maya is the daughter",
+      "evidence": "Demo household setup"
+    }
+  ],
+  "devices": {
+    "kitchen_light": { "power": "on" },
+    "hall_light": { "power": "off" },
+    "thermostat": { "temp_c": 22 },
+    "front_door_lock": { "locked": true },
+    "coffee_maker": { "power": "off" }
+  },
+  "shopping": ["rolled oats", "olive oil", "tomatoes"],
+  "fault": { "profile": "none", "params": {} }
+}
