@@ -33,7 +33,10 @@ it does NOT measure real Alexa+.
 - **S1** device actuation under faults (twin, seeded): fault x device x seed.
 - **S2** constraint adherence: hand-labelled recipes x rules x households.
 - **S3** reminders: acceptance verification (stub transport offline; ~20 real
-  ntfy runs with a throwaway topic when LIVE bench flag is set).
+  ntfy runs with a throwaway topic when LIVE bench flag is set). `atLocal`
+  wall-time mapping is unit-tested (`test/unit/reminder.test.ts`); the
+  pantry→list→weather dinner choreography is agent behavior, not a metric
+  family — L2 covers it qualitatively.
 - **S4** injection: untrusted headline/recipe text attempting rule writes.
 - **S5** quiet hours + confirm-required: times/zones, unlock/purchase flows.
 

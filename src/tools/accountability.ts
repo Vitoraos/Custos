@@ -8,6 +8,7 @@ import {
   type Deps,
   envelope,
   envelopeSchema,
+  requestContextFor,
   runCtx,
   sessionOf,
 } from "./context.js";
@@ -62,14 +63,21 @@ export function accountabilityTools(
       outputSchema: envelopeSchema,
       execute: async (args: { tool?: string }, ctx: unknown) => {
         const s = sessionOf(ctx);
+        const c = await requestContextFor(deps, s);
         // MemoryReceipts is the store here; Supabase receipts expose latest() too.
         const latest = await (
           deps.receipts as { latest(u: string, t?: string): Promise<unknown> }
         ).latest(s.userId, args.tool);
         if (!latest)
-          return envelope({ outcome: "ok", say: "No actions recorded yet." });
+          return envelope(
+            { outcome: "ok", say: "No actions recorded yet." },
+            c,
+          );
         const r = latest as Parameters<typeof summarizeReceipt>[0];
-        return envelope({ outcome: "ok", say: summarizeReceipt(r), data: r });
+        return envelope(
+          { outcome: "ok", say: summarizeReceipt(r), data: r },
+          c,
+        );
       },
     },
     {
@@ -85,22 +93,29 @@ export function accountabilityTools(
       outputSchema: envelopeSchema,
       execute: async (args: { confirmToken: string }, ctx: unknown) => {
         const s = sessionOf(ctx);
+        const c = await requestContextFor(deps, s);
         const binding = await deps.confirms.consume(
           s.userId,
           args.confirmToken,
         );
         if (!binding) {
-          return envelope({
-            outcome: "error",
-            say: "That confirmation has expired. Please start over.",
-          });
+          return envelope(
+            {
+              outcome: "error",
+              say: "That confirmation has expired. Please start over.",
+            },
+            c,
+          );
         }
         const runner = runners[binding.tool];
         if (!runner) {
-          return envelope({
-            outcome: "error",
-            say: "That confirmation is not valid here. Please start over.",
-          });
+          return envelope(
+            {
+              outcome: "error",
+              say: "That confirmation is not valid here. Please start over.",
+            },
+            c,
+          );
         }
         const rc = await runCtx(deps, s);
         return envelope(
@@ -108,6 +123,7 @@ export function accountabilityTools(
             ...rc,
             authorized: { tool: binding.tool, argsHash: binding.argsHash },
           }),
+          c,
         );
       },
     },

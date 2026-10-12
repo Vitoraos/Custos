@@ -2,6 +2,7 @@
 // honest report -> receipt. Idempotent per (user, tool, args, minute).
 import { createHash, randomBytes } from "node:crypto";
 import type { Constraint } from "./constraints.js";
+import { DEFAULT_LOCALE, type Locale } from "./locale.js";
 import { evaluate, type ProposedAction } from "./policy.js";
 import { MemoryReceipts, type ReceiptStore } from "./receipts.js";
 import { type Evidence, type ToolResult, toolError } from "./result.js";
@@ -43,6 +44,7 @@ export interface RunContext {
   rules: Constraint[];
   profiles: string[];
   now: Date;
+  locale?: Locale;
   receipts?: ReceiptStore;
   confirms?: ConfirmStore;
   confirmToken?: string;
@@ -294,6 +296,18 @@ async function execute<Args, Cmd, State>(
   const target = spec.target(args);
   const match = spec.expected(args);
   const checkedAt = () => new Date().toISOString();
+  const localCheckedAt = () => {
+    const tz = ctx.locale?.tz ?? DEFAULT_LOCALE.tz;
+    try {
+      return new Intl.DateTimeFormat("en-GB", {
+        dateStyle: "full",
+        timeStyle: "short",
+        timeZone: tz,
+      }).format(new Date());
+    } catch {
+      return new Date().toISOString();
+    }
+  };
   let attempts = 0;
   const observe = async (): Promise<{ ok: boolean; state: State | null }> => {
     for (const wait of [300, 700, 1200]) {
@@ -336,6 +350,7 @@ async function execute<Args, Cmd, State>(
       observed,
       source: spec.adapter.name,
       checkedAt: checkedAt(),
+      localCheckedAt: localCheckedAt(),
     };
     return { outcome, say, evidence, receiptId: saved.id };
   };

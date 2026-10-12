@@ -102,6 +102,9 @@
 
 - Use: geocoding → forecast, Zod-validate, attach `source` + `fetchedAt`,
   10-min cache; failure → `outcome: "error"` + honest `say`.
+- `at` (ISO) returns that hour's forecast (`hourly=…&timezone=UTC`,
+  nearest-hour match) for e.g. the daily 3pm shopping trip; city omitted →
+  home city from household locale.
 - Cost: free non-commercial.
 
 ## 10. Recipes — TheMealDB (free test key `1`)

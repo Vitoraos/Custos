@@ -11,6 +11,7 @@ import {
   instructionSchema,
   quietHoursConstraint,
 } from "../core/constraints.js";
+import { getLocale } from "../core/locale.js";
 import type { ToolResult } from "../core/result.js";
 import { sayReadback } from "../core/say.js";
 import type { RunContext } from "../core/verify.js";
@@ -24,6 +25,7 @@ import {
   type Deps,
   envelope,
   envelopeSchema,
+  requestContextFor,
   runCtx,
   sessionOf,
 } from "./context.js";
@@ -44,12 +46,15 @@ const ruleInput = z.discriminatedUnion("kind", [
     source: true,
     createdAt: true,
   }),
-  quietHoursConstraint.omit({
-    id: true,
-    profile: true,
-    source: true,
-    createdAt: true,
-  }),
+  quietHoursConstraint
+    .omit({
+      id: true,
+      profile: true,
+      source: true,
+      createdAt: true,
+    })
+    // tz defaults to the home timezone when omitted.
+    .extend({ tz: z.string().min(1).max(60).optional() }),
   deviceLimitConstraint.omit({
     id: true,
     profile: true,
@@ -147,6 +152,7 @@ export function memoryTools(deps: Deps) {
       outputSchema: envelopeSchema,
       execute: async (args: { profile?: string }, ctx: unknown) => {
         const s = sessionOf(ctx);
+        const c = await requestContextFor(deps, s);
         const rules = await listStandingRules(deps.store, s.userId);
         const filtered = args.profile
           ? rules.filter(
@@ -157,7 +163,7 @@ export function memoryTools(deps: Deps) {
           filtered.length === 0
             ? "No standing rules stored yet."
             : `${filtered.length} standing rules on file.`;
-        return envelope({ outcome: "ok", say, data: filtered });
+        return envelope({ outcome: "ok", say, data: filtered }, c);
       },
     },
     {
@@ -186,13 +192,18 @@ export function memoryTools(deps: Deps) {
         ctx: unknown,
       ) => {
         const s = sessionOf(ctx);
+        const c = await requestContextFor(deps, s);
+        const rule =
+          args.rule.kind === "quiet_hours" && !args.rule.tz
+            ? { ...args.rule, tz: (await getLocale(deps.store, s.userId)).tz }
+            : args.rule;
         const rec = await remember(deps.store, s.userId, {
           profile: args.profile,
           kind:
             args.rule.kind === "fact" || args.rule.kind === "instruction"
               ? args.rule.kind
               : "constraint",
-          payload: args.rule,
+          payload: rule,
           evidence: args.evidence ?? null,
           source: args.source,
         });
@@ -200,11 +211,14 @@ export function memoryTools(deps: Deps) {
           args.rule.kind === "fact" || args.rule.kind === "instruction"
             ? (args.rule as { text: string }).text
             : `${args.rule.kind} rule for ${args.profile}`;
-        return envelope({
-          outcome: "ok",
-          say: sayReadback(label),
-          data: { id: rec.id, status: rec.status },
-        });
+        return envelope(
+          {
+            outcome: "ok",
+            say: sayReadback(label),
+            data: { id: rec.id, status: rec.status },
+          },
+          c,
+        );
       },
     },
     {
@@ -228,7 +242,8 @@ export function memoryTools(deps: Deps) {
         ctx: unknown,
       ) => {
         const s = sessionOf(ctx);
-        return envelope(await forgetRunner(args, await runCtx(deps, s)));
+        const c = await requestContextFor(deps, s);
+        return envelope(await forgetRunner(args, await runCtx(deps, s)), c);
       },
     },
   ];

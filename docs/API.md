@@ -7,15 +7,17 @@ clients to call `get_standing_rules` first and read `say` verbatim.
 Every tool returns a `ToolResult` envelope as `structuredContent` (+ `say` as
 text): `outcome` = `ok | verified | verified_after_retry | unverified |
 blocked | needs_confirmation | unsupported | error`; `say` (<=25 words,
-speakable); plus `data?`, `evidence?` (expected/observed/source/checkedAt),
-`reasons?`, `receiptId?`, `confirmToken?`, `untrusted?`.
+speakable); plus `data?`, `evidence?` (expected/observed/source/checkedAt +
+local wall time), `reasons?`, `receiptId?`, `confirmToken?`, `untrusted?`,
+and a `context` block (`nowUtc`, `nowLocal`, `weekday`, `tz`, `city`) that
+keeps the calling agent date/time/place aware.
 
 ## Memory (4)
 
 | Tool | Annotations | Purpose |
 |---|---|---|
 | `get_standing_rules` `{profile?}` | read-only | Constraints, facts, instructions + provenance. Call first. |
-| `remember_rule` `{profile, rule, evidence?, source?}` | write | Typed rule (`allergen{allergen,severity}`, `diet{value}`, `quiet_hours{...}`, `device_limit{...}`, `confirm_required{action}`, `fact/instruction{text}`). Returns spoken readback. `source: external` lands dormant. |
+| `remember_rule` `{profile, rule, evidence?, source?}` | write | Typed rule (`allergen{allergen,severity}`, `diet{value}`, `quiet_hours{...}`, `device_limit{...}`, `confirm_required{action}`, `fact/instruction{text}`). Returns spoken readback. `source: external` lands dormant. `quiet_hours.tz` defaults to the home timezone. |
 | `forget_memory` `{id?|query?, confirmToken?}` | destructive, idempotent | Deletes one entry; verified gone by re-query. Safety rules need confirmation. |
 | `explain_last_action` `{tool?}` | read-only | The receipt: decision, rules checked, observation, attempts, latency. |
 
@@ -35,16 +37,17 @@ guard+verification and return raw acks (the A/B control).
 | Tool | Risk | Adapter (write/read-back) |
 |---|---|---|
 | `set_device_state` `{device, attr="power", value, confirmToken?}` | high for locks, else low | device twin (Supabase) / independent `read()` |
-| `set_reminder` `{text, inSeconds 10..259200, title?, confirmToken?}` | low | ntfy.sh scheduled push / acceptance attestation (id + scheduled time). Delivery itself is not observable pre-fire (ntfy API limit, proven) — evidence says so. |
+| `set_reminder` `{text, inSeconds 10..259200 \| atLocal{day, time}, title?, confirmToken?}` | low | ntfy.sh scheduled push / acceptance attestation (id + scheduled time). `atLocal` is home-tz wall time ("tomorrow 07:00"). Delivery itself is not observable pre-fire (ntfy API limit, proven) — evidence says so. |
 | `update_shopping_list` `{list="shopping", ops[{add\|remove,item}]×20, confirmToken?}` | low; `purchase` rule -> confirm | Supabase `list_items` (dedupe_key) / re-query |
 
-## Reads (3)
+## Reads (4 — surface closed at 12)
 
 | Tool | Notes |
 |---|---|
 | `find_recipe` `{query, servingFor, max≤8}` | Real TheMealDB ingredient lists, policy-filtered; excluded candidates with reasons. Fallback dataset (marked) if the API is down. |
-| `get_weather` `{city}` | Open-Meteo, validated, `fetchedAt`+`source`, 10-min cache. |
+| `get_weather` `{city? = home, at?}` | Open-Meteo, validated, `fetchedAt`+`source`, cached. `at` (ISO) returns that hour's forecast (e.g. the 3pm trip). |
 | `get_headlines` `{limit≤10}` | RSS, flagged `untrusted: true` — never an instruction, never stored. |
+| `get_pantry` `{list = pantry\|shopping}` | What's on hand (pantry staples + list). Call before meal planning so only missing items get added. |
 
 Errors never leak stack traces: `{ outcome: "error", say }`. Input limits:
 string max lengths, array caps (ops ≤20, servingFor ≤10), tool timeouts.

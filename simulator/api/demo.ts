@@ -15,6 +15,7 @@ interface Bundle {
   facts: { profile: string; text: string; evidence: string }[];
   devices: Record<string, Record<string, unknown>>;
   shopping: string[];
+  pantry: string[];
   fault: { profile: string; params: Record<string, unknown> };
 }
 const BUNDLE = bundle as unknown as Bundle;
@@ -26,6 +27,7 @@ export interface SeedSummary {
   facts: number;
   devices: number;
   items: string[];
+  pantry: string[];
   constraintsLoaded: number;
 }
 
@@ -68,6 +70,11 @@ export async function seedDemoHousehold(
     ...BUNDLE.shopping.map((item) => ({ op: "add" as const, item })),
   ];
   const items = await store.applyListOps(userId, "shopping", ops);
+  const currentPantry = await store.listItems(userId, "pantry");
+  const pantry = await store.applyListOps(userId, "pantry", [
+    ...currentPantry.map((item) => ({ op: "remove" as const, item })),
+    ...BUNDLE.pantry.map((item) => ({ op: "add" as const, item })),
+  ]);
   await store.setFaults(userId, BUNDLE.fault);
   const constraintsLoaded = (await loadConstraints(store, userId)).length;
   return {
@@ -76,6 +83,7 @@ export async function seedDemoHousehold(
     facts,
     devices: devices.length,
     items,
+    pantry,
     constraintsLoaded,
   };
 }

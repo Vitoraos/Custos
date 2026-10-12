@@ -8,7 +8,7 @@ Tagged `v2-baseline` in git; the v2 tree is untouched there.
 
 Everything below was built in the window (branch `v3`, then merged):
 
-- ** product**: LLM-free MCP server (11 tools) — typed rule engine (EU-14
+- ** product**: LLM-free MCP server (12 tools) — typed rule engine (EU-14
   ontology + matcher + `evaluate()`, 62 table tests), closed-loop verifier
   (`runAction`: guard -> act -> read-back -> retry -> receipt, 10 fault-
   injection tests), real adapters (Open-Meteo, TheMealDB, ntfy, RSS, Supabase
