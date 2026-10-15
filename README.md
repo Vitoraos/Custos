@@ -11,6 +11,17 @@ An assistant saying “done” is not proof. Custos moves enforcement out of the
 
 > Previously named ContextForge. Some package names, deployment labels, and older documents still use that name.
 
+## The problem Custos solves
+
+AI assistants can remember a preference without reliably applying it when they act. That leaves four gaps:
+
+- **Rules are remembered but ignored:** a stored vegan preference or severe allergy can be missed when planning a meal.
+- **Acknowledgements are mistaken for outcomes:** an assistant says a light is on because a tool returned an acknowledgement, even if the device state never changed.
+- **Decisions are hard to explain:** users cannot easily see which rules were checked or why an action was allowed or blocked.
+- **Untrusted content can influence behavior:** external text should not be allowed to rewrite standing household rules.
+
+A longer prompt or a larger memory does not structurally solve these problems. Custos puts policy checks at the tool boundary, verifies action results against observed state, and records receipts that explain the decision. The examples above describe failure modes the project is designed to test, not claims that every commercial assistant exhibits each behavior.
+
 ## See it in action
 
 The simulator runs the same request through two paths:
@@ -31,21 +42,13 @@ The Ground Truth panel shows the simulator's device state, standing rules, and l
 
 The hosted demo uses a simulated household and device twin. It demonstrates the enforcement and verification path; it does not control a real Alexa+ device.
 
-## Results at a glance
+## Benchmark
 
-The current published run is the **L1 seeded oracle harness (seed 7, 9 October 2026)**. The oracle calls the intended tool and reports its result; it models acknowledgement-trusting behavior, not a real Alexa+ model.
+Custos is evaluated against a baseline that has access to memory but lacks the Custos policy guard and verification path. The benchmark measures silent failures, rule violations, false blocks, recovery from injected faults, honest reporting of unverified outcomes, injection attempts, and latency overhead.
 
-| Metric | Custos | Baseline |
-|---|---:|---:|
-| Silent-failure rate | 0/156 (0.0%; 95% CI 0.0–2.4%) | 49/156 (31.4%; 95% CI 24.6–39.1%) |
-| Constraint-violation rate | 0/204 (0.0%; 95% CI 0.0–1.8%) | 204/204 (100%; 95% CI 98.2–100%) |
-| False-block rate | 0/576 (0.0%; 95% CI 0.0–0.7%) | 0/576 (0.0%; 95% CI 0.0–0.7%) |
-| Fault recovery | 6/120 (5.0%) | 0/120 (0.0%) |
-| Honest reporting of unverified outcomes | 13/13 (100%) | Not applicable |
-| Prompt-injection rule-write success | 0/3 (0.0%) | 0/3 (0.0%) |
-| S1 latency, p50 / p95 | 309 / 4,442 ms | 0 / 1 ms |
+The current recorded L1 run uses a seeded deterministic oracle, not a real Alexa+ model. Its results demonstrate behavior under the harness's assumptions and should not be treated as proof of real-world safety. The baseline's 100% constraint-violation result is true by construction for that test setup.
 
-These are results from a seeded simulator and a deliberately specified oracle, not proof of performance in real homes. The baseline's constraint-violation rate is 100% by construction in L1 because the oracle executes every violating opportunity when no guard exists. The small injection sample (three attempts) is especially limited. See **[Benchmark methodology, definitions, results and limitations](docs/BENCHMARK.md)** before interpreting the numbers.
+**[Read the benchmark report](docs/BENCHMARK.md)** for metric definitions, confidence intervals, scenario coverage, reproduction steps, raw result links, and limitations.
 
 ## How it works
 
@@ -67,12 +70,12 @@ You need **Node.js 22.19.0 or newer** and npm. A Supabase project and an OpenRou
 git clone https://github.com/Vitoraos/Custos.git
 cd Custos
 npm ci
+npm ci --prefix simulator/web
+npm run web:build
 npm run dev
 ```
 
-Open **http://localhost:3000**. The server serves the API and the built-in simulator UI from one process. If your local environment has no seeded demo household, use **Reset demo data** in the UI.
-
-If the root install does not have the frontend dependencies available, install them once with `npm ci --prefix simulator/web`, then run `npm run web:build` to build the UI assets served by the server. For frontend hot reload during UI development, use a second terminal and run `npm run web:dev` (Vite runs on port 5173 and proxies API calls to port 3000).
+Open **http://localhost:3000**. The server serves the API and the built simulator UI from one process. Use **Reset demo data** in the UI if you want a known starting state. For frontend hot reload during UI development, use a second terminal and run `npm run web:dev` (Vite runs on port 5173 and proxies API calls to port 3000).
 
 ### Optional: enable persistent storage and live model calls
 
@@ -97,9 +100,9 @@ npm run web:tokens  # Check design-token discipline
 
 For an API smoke test against a running server, create a key for the target deployment and use `npm run smoke -- --base http://localhost:3000 --key <cf_...>`. The key-creation command may require database configuration: `npm run keys:create -- --user demo --mode forge`.
 
-### One-command setup: suggested improvement
+### Setup simplification opportunity
 
-The quickest contributor experience would be a documented `npm run setup` that checks the Node version, installs root and frontend dependencies, copies `.env.example` only when `.env` is absent, builds the UI, and prints the local URL. It should **not** silently create credentials, overwrite an existing `.env`, or require Supabase for replay mode. That script is a recommendation, not a command currently provided by this repository.
+A small `npm run setup` script could automate the Node version check, both installs, and the frontend build. It should preserve an existing `.env`, never fabricate credentials, and keep Supabase optional for replay mode. This is a proposed improvement; the command does not exist yet.
 
 ## Architecture
 
@@ -178,7 +181,7 @@ Read the [security notes](docs/SECURITY.md) for implementation details. This is 
 
 ## Judging guide
 
-- **Problem and motivation:** [Problem framing](docs/PROBLEM.md)
+- **Problem and motivation:** [The problem Custos solves](#the-problem-custos-solves)
 - **Core technical contribution:** `src/core/policy.ts`, `src/core/verify.ts`, and tests
 - **Live product:** [Custos simulator](https://custos-one-black.vercel.app)
 - **Evidence:** [Benchmark methodology and results](docs/BENCHMARK.md)
