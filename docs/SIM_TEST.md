@@ -58,3 +58,17 @@ the user to store one ("tell me a rule to remember").
 Production still runs pre-fix code: re-run flows 9–10 via `/mcp` after PR #11
 merges + Render redeploys. `npm run smoke` covers the shape; the blocked-
 thermostat assertion is the proof.
+
+## Addendum — visitor disambiguation live probe (2026-10-15, fixed code)
+
+"I am going to have visitors today. Plan dinner for 4 people." → **both
+columns asked** ("Who is coming, and does anyone have allergies or dietary
+preferences?") instead of bulldozing. Answer ("Ada, vegetarian, shellfish
+allergy") → forge planned an explicitly Ada-safe dinner; rules landed scoped
+to Ada.
+- **Gap found + fixed**: `remember_rule` had no `expiresAt` param, so the
+  agent could not honor "expiring at end of day" (Ada's rows landed
+  `expires_at: null). Param added; instruction now actionable.
+- **Baseline contrast (honest)**: the baseline column stored shellfish rules
+  on the *household* profile — memory pollution the forge column avoided.
+  Good demo material, documented as model behavior, not product behavior.
