@@ -17,7 +17,7 @@ keeps the calling agent date/time/place aware.
 | Tool | Annotations | Purpose |
 |---|---|---|
 | `get_standing_rules` `{profile?}` | read-only | Constraints, facts, instructions + provenance. Call first. |
-| `remember_rule` `{profile, rule, evidence?, source?}` | write | Typed rule (`allergen{allergen,severity}`, `diet{value}`, `quiet_hours{...}`, `device_limit{...}`, `confirm_required{action}`, `fact/instruction{text}`). Returns spoken readback. `source: external` lands dormant. `quiet_hours.tz` defaults to the home timezone. |
+| `remember_rule` `{profile, rule, evidence?, source?, expiresAt?}` | write | Typed rule (`allergen{allergen,severity}`, `diet{value}`, `quiet_hours{...}`, `device_limit{...}`, `confirm_required{action}`, `fact/instruction{text}`). Returns spoken readback. `source: external` lands dormant. `quiet_hours.tz` defaults to the home timezone. `expiresAt` for self-expiring visitor constraints. |
 | `forget_memory` `{id?|query?, confirmToken?}` | destructive, idempotent | Deletes one entry; verified gone by re-query. Safety rules need confirmation. |
 | `explain_last_action` `{tool?}` | read-only | The receipt: decision, rules checked, observation, attempts, latency. |
 

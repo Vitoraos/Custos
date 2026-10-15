@@ -1,3 +1,4 @@
+import { foldSteps, type SimEventLike, type Step } from "../steps";
 import { badgeFor, type ToolTrace } from "../verdict";
 
 export interface Turn {
@@ -10,6 +11,57 @@ export interface Turn {
 export interface UserMsg {
   id: number;
   text: string;
+}
+export type Stage = "idle" | "running" | "done";
+
+// Reconstruct the event stream a turn's traces imply, then fold to steps.
+// (Turns store landed traces; foldSteps recovers order, retries, states.)
+function stepsForTurn(turn: Turn): Step[] {
+  const events: SimEventLike[] = [];
+  for (const t of turn.traces) {
+    events.push({ type: "tool_call", name: t.name, args: t.args });
+    if (t.done) {
+      events.push({
+        type: "tool_result",
+        name: t.name,
+        outcome: t.outcome,
+        say: t.say,
+      });
+    }
+  }
+  return foldSteps(events);
+}
+
+const STEP_ICON: Record<Step["state"], string> = {
+  working: "⟳",
+  done: "✓",
+  failed: "✗",
+  pending: "…",
+};
+
+function PlanView({ steps }: { steps: Step[] }) {
+  if (steps.length === 0) return null;
+  return (
+    <ol className="plan">
+      {steps.map((s, i) => (
+        <li key={`${s.tool}-${s.attempt}`} className={`step ${s.state}`}>
+          <span aria-hidden="true">{STEP_ICON[s.state]}</span>{" "}
+          <code>{s.tool}</code>
+          {s.attempt > 1 ? (
+            <span className="sub">retry {s.attempt}</span>
+          ) : null}{" "}
+          <span className="sub">{s.state}</span>
+          {s.note ? <span className="sub"> — {s.note}</span> : null}
+          {i === steps.length - 1 && s.args !== undefined ? (
+            <details className="trace">
+              <summary>args</summary>
+              <pre>{JSON.stringify(s.args, null, 1)}</pre>
+            </details>
+          ) : null}
+        </li>
+      ))}
+    </ol>
+  );
 }
 
 function TraceView({ t }: { t: ToolTrace }) {
@@ -31,6 +83,7 @@ export default function Column({
   userMsgs,
   turns,
   truthDevices,
+  stage,
 }: {
   name: "forge" | "baseline";
   title: string;
@@ -38,18 +91,32 @@ export default function Column({
   userMsgs: UserMsg[];
   turns: Turn[];
   truthDevices?: Record<string, unknown>;
+  stage: Stage;
 }) {
   const counts: Record<string, number> = {};
+  let stepsDone = 0;
+  let stepsFailed = 0;
   for (const t of turns) {
     const label = badgeFor(t.traces, {
       finished: t.finished,
       truthDevices,
     })?.label;
     if (label) counts[label] = (counts[label] ?? 0) + 1;
+    for (const s of stepsForTurn(t)) {
+      if (s.state === "done") stepsDone++;
+      else if (s.state === "failed") stepsFailed++;
+    }
   }
-  const tally = Object.entries(counts)
+  const verdictTally = Object.entries(counts)
     .map(([l, n]) => `${n} ${l}`)
     .join(" · ");
+  const stepTally =
+    stepsDone + stepsFailed > 0
+      ? `${stepsDone} done · ${stepsFailed} failed`
+      : "";
+  const tally = [verdictTally, stepTally]
+    .filter((s) => s.length > 0)
+    .join(" — ");
   // Interleave user messages and turns in id order.
   const items: (
     | { kind: "you"; msg: UserMsg }
@@ -62,15 +129,27 @@ export default function Column({
       (a.kind === "you" ? a.msg.id : a.turn.id) -
       (b.kind === "you" ? b.msg.id : b.turn.id),
   );
+  const stageNote =
+    stage === "running" ? (
+      <span className="badge pending">⟳ working</span>
+    ) : stage === "done" ? (
+      <span className="badge info">done</span>
+    ) : (
+      <span className="sub">up next</span>
+    );
 
   return (
-    <section className={`panel col-${name}`} aria-label={title}>
+    <section
+      className={`panel col-${name}`}
+      aria-label={title}
+      data-stage={stage}
+    >
       <div className="col-head">
         <h2>
           {title}
           <span className="sub">{sub}</span>
         </h2>
-        {tally ? <span className="tally">{tally}</span> : null}
+        {stageNote} {tally ? <span className="tally">{tally}</span> : null}
       </div>
       <div className="feed">
         {items.map((it) =>
@@ -96,6 +175,7 @@ export default function Column({
                   ) : null;
                 })()}
               </div>
+              <PlanView steps={stepsForTurn(it.turn)} />
               {it.turn.traces.map((t) => (
                 <TraceView key={`${t.name}-${t.outcome ?? "open"}`} t={t} />
               ))}

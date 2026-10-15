@@ -180,6 +180,8 @@ export function memoryTools(deps: Deps) {
         rule: ruleInput,
         evidence: evidence,
         source: z.enum(["user_voice", "explicit"]).default("user_voice"),
+        // Visitor pattern: constraints that die on their own (e.g. end of day).
+        expiresAt: z.string().datetime({ offset: true }).max(40).optional(),
       }),
       outputSchema: envelopeSchema,
       execute: async (
@@ -188,6 +190,7 @@ export function memoryTools(deps: Deps) {
           rule: z.infer<typeof ruleInput>;
           evidence?: string;
           source: "user_voice" | "explicit";
+          expiresAt?: string;
         },
         ctx: unknown,
       ) => {
@@ -206,6 +209,7 @@ export function memoryTools(deps: Deps) {
           payload: rule,
           evidence: args.evidence ?? null,
           source: args.source,
+          expiresAt: args.expiresAt,
         });
         const label =
           args.rule.kind === "fact" || args.rule.kind === "instruction"

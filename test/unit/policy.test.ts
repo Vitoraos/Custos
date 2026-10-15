@@ -205,6 +205,26 @@ describe("dormant rules", () => {
     const e = evaluate([expired, external], recipe(["peanut satay"]), ctx());
     expect(e.checked).toEqual([]);
   });
+  it("visitor rules die at end of day in home tz (no residue)", () => {
+    // End of Oct 9 in Lagos (UTC+1) is 22:59:59Z.
+    const ada = {
+      ...allergen("peanut", "Ada", "severe"),
+      expiresAt: "2026-10-09T22:59:59Z",
+    } as unknown as Constraint;
+    const evening = {
+      now: new Date("2026-10-09T18:00:00Z"),
+      profiles: ["household", "Ada"],
+    };
+    const night = {
+      now: new Date("2026-10-10T00:01:00Z"),
+      profiles: ["household", "Ada"],
+    };
+    const action = recipe(["peanut satay"], ["household", "Ada"]);
+    expect(evaluate([ada], action, evening).verdict).toBe("block");
+    const after = evaluate([ada], action, night);
+    expect(after.verdict).toBe("allow");
+    expect(after.checked).toEqual([]);
+  });
 });
 
 describe("quiet hours", () => {

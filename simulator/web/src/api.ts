@@ -9,7 +9,14 @@ const API: string =
 
 export interface SimEvent {
   col: "forge" | "baseline";
-  type: "token" | "tool_call" | "tool_result" | "final" | "error";
+  type:
+    | "token"
+    | "tool_call"
+    | "tool_result"
+    | "final"
+    | "error"
+    | "column_start"
+    | "column_done";
   text?: string;
   name?: string;
   args?: unknown;
