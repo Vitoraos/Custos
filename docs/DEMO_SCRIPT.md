@@ -1,9 +1,12 @@
 # Demo video script (recording takes)
 
-Setup: `npm run demo:seed -- --user demo` (or press **Reset demo data** —
-same thing). Faults via terminal (no UI surface by design):
-`POST /sim/faults` with a `guestId` from `POST /sim/demo`. Record each row
-as its own take (`npm run sim:record -- --base <url> --out <name> -- "<text>"`).
+Two ways to record. **Director mode (recommended):** open the simulator,
+switch Mode to **Demo**, press **Next** per beat — scripted Alexa+ replies
+play left, the live Custos agent runs right, ground-state checks render
+under each beat. Retake a beat by pressing Next again; **Restart demo**
+reseeds from scratch. Manual fallback: the rows below as free chat
+(`npm run sim:record -- --base <url> --out <name> -- "<text>"`), faults via
+terminal (`POST /sim/faults` with a `guestId` from `POST /sim/demo`).
 
 | # | Input | What the audience sees | Narration (≈15s) |
 |---|---|---|---|

@@ -186,14 +186,19 @@ export async function* runAB(
   keys: { forgeKey: string; baselineKey: string },
   guestId: string,
   text: string,
+  cols: ("forge" | "baseline")[] = ["baseline", "forge"],
 ): AsyncGenerator<SimEvent, void, void> {
   // Sequential (not parallel): free-tier rate limits punish parallel model calls.
   // Baseline first: the naive expectation streams to completion, then Custos
   // answers it. Boundary events let the UI stage the columns.
-  yield { col: "baseline", type: "column_start" };
-  yield* runColumn(mcpUrl, keys.baselineKey, guestId, "baseline", text);
-  yield { col: "baseline", type: "column_done" };
-  yield { col: "forge", type: "column_start" };
-  yield* runColumn(mcpUrl, keys.forgeKey, guestId, "forge", text);
-  yield { col: "forge", type: "column_done" };
+  if (cols.includes("baseline")) {
+    yield { col: "baseline", type: "column_start" };
+    yield* runColumn(mcpUrl, keys.baselineKey, guestId, "baseline", text);
+    yield { col: "baseline", type: "column_done" };
+  }
+  if (cols.includes("forge")) {
+    yield { col: "forge", type: "column_start" };
+    yield* runColumn(mcpUrl, keys.forgeKey, guestId, "forge", text);
+    yield { col: "forge", type: "column_done" };
+  }
 }

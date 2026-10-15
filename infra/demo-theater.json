@@ -1,0 +1,101 @@
+{
+  "disclaimer": "Simulated Alexa+ behavior, recreated from user reports — not a recording.",
+  "beats": [
+    {
+      "id": "both-pass",
+      "caption": "A task both assistants pass",
+      "narration": "First, a fair fight: a simple light switch both assistants can do.",
+      "input": "Turn on the hall light.",
+      "fault": null,
+      "alexa": [
+        { "type": "token", "text": "Done! " },
+        { "type": "final", "text": "Done! Hall light is on." }
+      ],
+      "assertLeft": [
+        {
+          "kind": "device",
+          "device": "hall_light",
+          "attr": "power",
+          "equals": "on"
+        }
+      ],
+      "assertRight": [
+        {
+          "kind": "device",
+          "device": "hall_light",
+          "attr": "power",
+          "equals": "on"
+        },
+        { "kind": "receipt", "tool": "set_device_state", "outcome": "verified" }
+      ]
+    },
+    {
+      "id": "alexa-fails",
+      "caption": "The failure: a cheerful lie",
+      "narration": "Same request, but the device stops acknowledging. Watch what each assistant tells you.",
+      "input": "Turn on the kitchen light.",
+      "fault": { "profile": "lost_ack", "params": { "p": 1, "seed": 7 } },
+      "alexa": [
+        { "type": "token", "text": "Done! " },
+        { "type": "final", "text": "Done! Kitchen light is on 👍" }
+      ],
+      "assertLeft": [
+        {
+          "kind": "device",
+          "device": "kitchen_light",
+          "attr": "power",
+          "unequals": "on"
+        }
+      ],
+      "assertRight": [
+        {
+          "kind": "device",
+          "device": "kitchen_light",
+          "attr": "power",
+          "equals": "on"
+        }
+      ]
+    },
+    {
+      "id": "dinner-showcase",
+      "caption": "The showcase: dinner for 4",
+      "narration": "Now the full capability run: remembered allergy, real ingredient lists, pantry check, and a verified shopping list.",
+      "input": "Plan dinner for 4.",
+      "fault": null,
+      "alexa": [
+        { "type": "token", "text": "How about " },
+        {
+          "type": "final",
+          "text": "How about peanut satay? Creamy, fast, serves four!"
+        }
+      ],
+      "assertLeft": [],
+      "assertRight": [
+        { "kind": "receipt", "tool": "find_recipe", "outcome": "ok" },
+        { "kind": "shopping-excludes", "items": ["peanut"] }
+      ]
+    },
+    {
+      "id": "receipt",
+      "caption": "Show your work",
+      "narration": "Every action leaves a receipt. Ask why, get the record — not a guess.",
+      "input": "Why did you pick that?",
+      "fault": null,
+      "alexa": [{ "type": "final", "text": "It looked tasty!" }],
+      "assertLeft": [],
+      "assertRight": [
+        { "kind": "receipt", "tool": "explain_last_action", "outcome": "ok" }
+      ]
+    },
+    {
+      "id": "end-card",
+      "caption": "Results",
+      "narration": "Zero silent failures across fault-injected runs. Same server, any client.",
+      "input": null,
+      "fault": null,
+      "alexa": [],
+      "assertLeft": [],
+      "assertRight": []
+    }
+  ]
+}

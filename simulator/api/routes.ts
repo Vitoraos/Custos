@@ -15,6 +15,13 @@ import {
   guestKeys,
   issueGuest,
 } from "./guest.js";
+import {
+  applyBeatFault,
+  assertBeat,
+  getBeat,
+  listBeats,
+  THEATER_DISCLAIMER,
+} from "./theater.js";
 
 export function mountSim(
   app: Hono,
@@ -31,10 +38,16 @@ export function mountSim(
     const body = (await c.req.json().catch(() => null)) as {
       guestId?: string;
       text?: string;
+      cols?: ("forge" | "baseline")[];
     } | null;
     const g = body?.guestId ? getGuest(body.guestId) : null;
     const k = body?.guestId ? guestKeys(body.guestId) : null;
     const text = body?.text?.slice(0, 500) ?? "";
+    const cols =
+      body?.cols?.length === 1 &&
+      (body.cols[0] === "forge" || body.cols[0] === "baseline")
+        ? [body.cols[0]]
+        : (["baseline", "forge"] as ("forge" | "baseline")[]);
     if (!g || !k || !text)
       return c.json(
         { error: "need guestId + text (POST /sim/guest first)" },
@@ -44,7 +57,7 @@ export function mountSim(
     if (!budget.ok) return c.json({ error: budget.reason, replay: true }, 429);
     budgetSpend(g.id);
     return streamSSE(c, async (stream) => {
-      for await (const ev of runAB(mcpUrl, k, g.id, text)) {
+      for await (const ev of runAB(mcpUrl, k, g.id, text, cols)) {
         await stream.writeSSE({ data: JSON.stringify(ev) });
       }
     });
@@ -93,6 +106,45 @@ export function mountSim(
       params: body.params ?? {},
     });
     return c.json({ ok: true });
+  });
+
+  // Demo theater: scripted beats + ground-state assertions. The simulated
+  // column plays fixtures; assertions prove what actually changed.
+  app.get("/sim/theater", async (c) => {
+    return c.json({ disclaimer: THEATER_DISCLAIMER, beats: listBeats() });
+  });
+  app.post("/sim/theater/fault", async (c) => {
+    const body = (await c.req.json().catch(() => null)) as {
+      guestId?: string;
+      beat?: string;
+    } | null;
+    const g = body?.guestId ? getGuest(body.guestId) : null;
+    if (!g || !body?.beat) return c.json({ error: "need guestId + beat" }, 400);
+    if (!getBeat(body.beat)) return c.json({ error: "unknown beat" }, 404);
+    await applyBeatFault(store, g.userId, body.beat);
+    return c.json({ ok: true });
+  });
+  app.post("/sim/theater/assert", async (c) => {
+    const body = (await c.req.json().catch(() => null)) as {
+      guestId?: string;
+      beat?: string;
+      phase?: "left" | "right";
+    } | null;
+    const g = body?.guestId ? getGuest(body.guestId) : null;
+    if (
+      !g ||
+      !body?.beat ||
+      (body.phase !== "left" && body.phase !== "right")
+    ) {
+      return c.json({ error: "need guestId + beat + phase (left|right)" }, 400);
+    }
+    try {
+      return c.json({
+        results: await assertBeat(store, deps, g.userId, body.beat, body.phase),
+      });
+    } catch (e) {
+      return c.json({ error: (e as Error).message }, 404);
+    }
   });
 
   // Demo session: reset + seed the fixed household, bind keys. Recording only.
