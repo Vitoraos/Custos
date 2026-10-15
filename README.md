@@ -7,7 +7,7 @@
 
 An assistant saying “done” is not proof. Custos moves enforcement out of the prompt and into the tool boundary, where policy checks and verification can run even when a model ignores its instructions.
 
-**[Try the live demo](https://custos-one-black.vercel.app)** · **[Watch the demo](<VIDEO_URL>)** · **[Read the benchmark](docs/BENCHMARK.md)**
+**[Read the architecture](docs/ARCHITECTURE.md)** · **[Review benchmark evidence](docs/BENCHMARK.md)** · **[Inspect the implementation](src/core/policy.ts)
 
 > Previously named ContextForge. Some package names, deployment labels, and older documents still use that name.
 
@@ -22,25 +22,24 @@ AI assistants can remember a preference without reliably applying it when they a
 
 A longer prompt or a larger memory does not structurally solve these problems. Custos puts policy checks at the tool boundary, verifies action results against observed state, and records receipts that explain the decision. The examples above describe failure modes the project is designed to test, not claims that every commercial assistant exhibits each behavior.
 
-## See it in action
+## What reviewers should inspect
 
-The simulator runs the same request through two paths:
+**Reviewers do not need to run the simulator or configure an MCP client.** The fastest way to evaluate Custos is to read the architecture, inspect the enforcement path, and review the benchmark methodology. The simulator is a supporting demonstration, not a prerequisite for understanding the project.
 
-- **Without Custos:** memory may be available, but actions return acknowledgements without policy enforcement or independent verification.
-- **With Custos:** the policy engine checks the action, the execution path reads back state and retries where appropriate, and the system records a receipt.
+The simulator compares the same request across two paths:
 
-The Ground Truth panel shows the simulator's device state, standing rules, and latest receipt independently of what either assistant says.
+- **Without Custos:** the baseline returns raw tool acknowledgements without the Custos policy guard and independent verification.
+- **With Custos:** the policy engine evaluates the action, the execution path reads back state and retries where appropriate, and the system records a receipt.
 
-### Try the hosted demo
+The Ground Truth panel displays simulated device state, standing rules, and the latest receipt independently of what either assistant says. This is a controlled demonstration using a device twin, not a connection to real Alexa+ devices.
 
-1. Open the [Custos simulator](https://custos-one-black.vercel.app).
-2. Use **Reset demo data** if you want a known starting state.
-3. Try: `Plan dinner for four. Maya has a peanut allergy and our household is vegan.`
-4. Compare both columns. Inspect the excluded recipes and the Ground Truth panel.
-5. Try: `Turn on the kitchen light.` Then inspect the resulting action and receipt.
-6. Try a restricted action, such as unlocking the front door, to see where confirmation is required.
+Suggested review order:
 
-The hosted demo uses a simulated household and device twin. It demonstrates the enforcement and verification path; it does not control a real Alexa+ device.
+1. Read [How it works](#how-it-works) for the core idea.
+2. Follow the [architecture and request lifecycle](docs/ARCHITECTURE.md).
+3. Inspect [`src/core/policy.ts`](src/core/policy.ts), [`src/core/verify.ts`](src/core/verify.ts), and [`src/core/receipts.ts`](src/core/receipts.ts).
+4. Read the [benchmark report](docs/BENCHMARK.md), including its assumptions and limitations.
+5. Treat the [hosted simulator](https://custos-one-black.vercel.app) as optional visual context, not as a required judging step.
 
 ## Benchmark
 
@@ -60,11 +59,13 @@ The current recorded L1 run uses a seeded deterministic oracle, not a real Alexa
 
 The key design choice is that **policy enforcement is code at the tool boundary, not a sentence in the system prompt**.
 
-## Run locally
+## Run locally (optional)
 
-You need **Node.js 22.19.0 or newer** and npm. A Supabase project and an OpenRouter API key are optional for the local simulator; without them, the server can use in-memory storage and the UI can use replay mode.
+Local setup is intended for contributors who want to modify or test the implementation. **Hackathon reviewers do not need to install dependencies, configure credentials, or run the simulator.**
 
-### Fastest path: run the demo without external credentials
+You need **Node.js 22.19.0 or newer** and npm. A Supabase project and an OpenRouter API key are optional for local simulator development; without them, the server can use in-memory storage and the UI can use replay mode.
+
+### Start the simulator
 
 ```bash
 git clone https://github.com/Vitoraos/Custos.git
@@ -122,7 +123,7 @@ Policy engine -> action runner -> adapter
                  Receipt        State read-back
 ```
 
-The server hosts the simulator and MCP endpoint in one process. The MCP interface exposes the same tools used by the simulator, so the UI is a demonstration client rather than the enforcement boundary itself.
+The server hosts the simulator and MCP endpoint in one process. The MCP interface exposes the same tools used by the simulator, so the UI is a demonstration client rather than the enforcement boundary itself. Although Amazon documents an Alexa+ MCP add-on pathway, this repository should not be treated as an Alexa+-ready integration: add-on onboarding and compatibility have not been validated.
 
 ### Technology stack
 
@@ -173,7 +174,7 @@ Read the [security notes](docs/SECURITY.md) for implementation details. This is 
 
 ## Current limitations
 
-- Devices are simulated; the verification pipeline is real, but a real Alexa+ integration is not included.
+- Devices are simulated. The current repository does not include a completed or validated Alexa+ add-on integration; compatibility, onboarding, authentication requirements and end-to-end enforcement coverage remain to be verified.
 - Ingredient matching uses heuristics and is not medical advice.
 - Reminder verification confirms scheduling/acceptance, not final delivery.
 - External services and free model tiers can be slow, unavailable or rate-limited.
@@ -183,10 +184,11 @@ Read the [security notes](docs/SECURITY.md) for implementation details. This is 
 
 - **Problem and motivation:** [The problem Custos solves](#the-problem-custos-solves)
 - **Core technical contribution:** `src/core/policy.ts`, `src/core/verify.ts`, and tests
-- **Live product:** [Custos simulator](https://custos-one-black.vercel.app)
-- **Evidence:** [Benchmark methodology and results](docs/BENCHMARK.md)
-- **System design:** [Architecture](docs/ARCHITECTURE.md)
-- **Demo flow:** [Demo script](docs/DEMO_SCRIPT.md)
+- **Concept and mechanism:** [How it works](#how-it-works)
+- **Core implementation:** [`src/core/policy.ts`](src/core/policy.ts), [`src/core/verify.ts`](src/core/verify.ts), [`src/core/receipts.ts`](src/core/receipts.ts)
+- **Evidence and caveats:** [Benchmark methodology and results](docs/BENCHMARK.md)
+- **System design:** [Architecture and request lifecycle](docs/ARCHITECTURE.md)
+- **Optional visual context:** [Hosted simulator](https://custos-one-black.vercel.app)
 
 ## Contributing and license
 
