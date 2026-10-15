@@ -70,7 +70,7 @@ The judges review code, so the bar is **demo-grade scope, review-grade quality**
 
 ### 2.3 Reviewer-visible quality checklist
 
-- [ ] `README.md` at repo root, with a CI badge, demo GIF, benchmark table, and "try it in 60 seconds".
+- [ ] `README.md` at repo root, with a CI badge, benchmark evidence, and a reviewer path that does not require running the simulator. A short, clearly labelled recording is optional supporting material.
 - [ ] `LICENSE` (MIT) with the copyright holder matching your GitHub identity.
 - [ ] `SECURITY.md` and `docs/ARCHITECTURE.md` (with a mermaid diagram).
 - [ ] One command, `npm run check`, runs typecheck, lint and tests.
@@ -565,28 +565,58 @@ The simulator agent sees only the MCP tools and the server's `instructions`, the
 
 **Agent system prompt (identical for both columns):** "You are a voice assistant on a smart speaker. Reply in at most two short sentences of plain speech: no markdown, no lists. Use tools to take actions. Report what the tools tell you."
 
-#### UI (one page)
+#### UI and brand redesign (one page; supporting evidence, not the product)
+
+**Product hierarchy:** Custos is the MCP server and enforcement layer. This interface is a development/research instrument that makes the server's decisions observable. It must never look like the product is merely a chat app, and reviewers must not be required to operate it.
+
+**Brand position:** quiet authority, legibility, and accountable action. Custos should feel like a careful technical control plane: precise, calm, and trustworthy. Avoid generic AI aesthetics, decorative gradients, glassmorphism, neon, excessive rounded cards, and stock shield/lock imagery. Do not use Amazon or Alexa marks.
+
+**Visual concept:** *the evidence trail*. Use a restrained wordmark, strong typographic hierarchy, precise alignment, and a recurring thin rule/trace motif that connects a request → policy decision → action → observed state → receipt. This creates a more ownable visual signature than a generic gradient or oversized logo. Brand identity must remain subordinate to evidence and task completion.
+
+**Color theory and semantic roles**
+- Use color to structure attention, not to decorate every surface. Hue associations are contextual, not universal psychological laws; validate the palette in the actual interface.
+- Keep a warm near-white canvas, white/near-white content surfaces, ink-dark primary text, muted secondary text, and quiet neutral borders. Retain the existing forest-green direction as the **Custos brand accent**, pending contrast tests.
+- Separate brand color from outcome color. Custos green must not automatically mean “success”; use a distinct, semantically consistent status palette for verified, warning/confirmation, blocked/error, and unknown/unverified states.
+- The baseline column should use neutral slate/graphite rather than a competing orange brand color. Use a thin label/border and explicit text to distinguish conditions, not green-versus-red alone.
+- Keep saturated color scarce: primary action and small evidence/status indicators only. No rainbow status chips, large colored panels, or gradient backgrounds.
+- Support light and dark themes only if both are intentionally designed and tested. Do not rely on the operating system's automatic color scheme to produce acceptable contrast by accident.
+
+**Design tokens**
+- Keep one source of truth in `simulator/web/src/theme.css`. Preserve the existing spacing/type token approach, but audit it for consistency and delete one-off values rather than adding exceptions.
+- Define named semantic tokens for canvas, surface, elevated surface, primary/secondary text, border, brand accent, focus, verified, warning, blocked, and unverified. Components must consume semantic tokens, not raw hex values.
+- Establish a predictable type scale: one page title, section headings, body, supporting text, and compact metadata. Reserve monospace for tool names, IDs, timestamps, and raw evidence only.
+- Use a small radius vocabulary and consistent spacing increments. Prefer hairline borders and whitespace over nested card-on-card layouts or heavy shadows.
+- Test text contrast at WCAG AA minimums: 4.5:1 for normal text, 3:1 for large text and meaningful UI boundaries/indicators. Color must never be the only signal for a verdict; pair it with a label/icon/shape.
+
+**Information hierarchy and layout**
+1. **Header:** Custos name and a small “Simulator · simulated devices” label. Keep mode, voice, reset, and replay controls compact and clearly grouped. No giant hero or branding block.
+2. **Scenario/composer:** give the request input one obvious primary action; expose prepared scenarios as secondary shortcuts. Keep the input visible without obscuring content.
+3. **Comparison:** two equal-width columns on desktop. Use explicit “Baseline” and “Custos guarded” labels with short descriptions; avoid emotionally loaded red/green framing. On narrow screens, stack columns with Custos first.
+4. **Action trace:** present tool calls as a readable timeline: action, policy result, verification evidence, retries, and receipt ID. Raw JSON stays collapsed until requested. Distinguish “blocked”, “verified”, and “unverified” in both text and visual treatment.
+5. **Observed state / receipts:** make ground truth the strongest evidence area after the comparison. Group device state, rules, lists, and latest receipt by meaning; show timestamps and evidence source where available. Avoid a wall of pills.
+6. **Fault controls:** keep chaos/fault injection visually secondary and clearly marked as simulator-only. Never let experimental controls resemble real household settings.
+7. **Empty, loading, error, and speaking states:** use stable layouts, concise explanations, and accessible focus states. No pulsing animation as the only indication of progress.
+
+**Composition sketch**
 
 ```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│ Simulated voice assistant   [ A/B | Forge only | Replay ]  🔊 voice  ⚙ chaos │
-├───────────────────────────────────┬─────────────────────────────────────────┤
-│ WITHOUT guard + verification      │ WITH ContextForge                       │
-│ (memory only, raw acks)           │ (guard + verify + receipts)             │
-│  you:  turn on the kitchen light  │  you:  turn on the kitchen light        │
-│  ⚙ set_device_state → ok          │  ⚙ set_device_state → unverified        │
-│  asst: Done!                      │  asst: I sent it, but the light still   │
-│                                   │        shows off. I couldn't confirm.   │
-├───────────────────────────────────┴─────────────────────────────────────────┤
-│ GROUND TRUTH (independent of the assistant)                                 │
-│ kitchen_light: OFF   | shopping list: [...] | scheduled pushes: [...]       │
-│ rules: peanut allergy (Maya), vegan | last receipt: verified_after_retry    │
-├─────────────────────────────────────────────────────────────────────────────┤
-│ > type a request…                                                  [Send]   │
-└─────────────────────────────────────────────────────────────────────────────┘
+┌ Custos  / Simulator · simulated devices ───── [Mode] [Voice] [Replay] ┐
+│ Scenario: Turn on the kitchen light                                     │
+├─────────────────────────────┬───────────────────────────────────────────┤
+│ BASELINE                    │ CUSTOS GUARDED                            │
+│ Assistant response          │ Assistant response                        │
+│ Tool/action timeline        │ Policy → action → verification → receipt  │
+├─────────────────────────────┴───────────────────────────────────────────┤
+│ OBSERVED STATE  OFF · source: device twin · checked at 10:42:08          │
+│ LATEST RECEIPT   UNVERIFIED · expected ON / observed OFF                 │
+└───────────────────────────────────────────────────────────────────────────┘
 ```
 
-Key demo device: **one input box feeds two columns** (A/B). Both columns use the same model, same prompt, same fault seed. Only the server mode differs (set by the guest key's `mode`, not a client header). The **Ground Truth** panel shows what really happened, independent of anything the assistants *say*.
+**Responsive behavior:** at wide sizes, comparison is side by side; below the existing stack breakpoint, columns stack with Custos first; at phone widths, controls wrap cleanly, trace details remain readable, and the composer never covers the receipt. Preserve keyboard navigation, visible focus, semantic headings/labels, and reduced-motion preferences.
+
+**Validation:** review screenshots at desktop and mobile widths; verify contrast ratios; check the interface in grayscale and with common color-vision simulations; confirm every outcome remains understandable with color removed. Evaluate the actual request-to-receipt task, not subjective prettiness alone.
+
+Key demo device: **one input feeds both comparison columns** (A/B). Both columns use the same model, prompt, and fault seed; only the server mode differs (from the guest key's `mode`, not a client header). The **Observed state** panel reports what the simulator's device twin actually says, not physical-device state. Label that limitation visibly.
 
 #### SSE protocol (`/sim/chat`)
 
@@ -619,15 +649,15 @@ Presets: `none`, `lost_ack 30%`, `delayed 2 s`, `offline 20%`, `adversarial news
 #### Tasks
 - [ ] G1. `simulator/api`: guest session issuer (random user + two keys, one `forge` and one `baseline`), `agent.ts` (Strands + `McpClient`), SSE route, budget guard.
 - [ ] G2. `/sim/truth` (reads the twin, lists, scheduled ntfy, receipts, rules for that guest) and `/sim/faults`.
-- [ ] G3. `simulator/web`: transcript columns, tool chips, ground-truth panel, chaos panel, mode switch.
+- [ ] G3. `simulator/web`: implement the research-informed Custos visual system; transcript comparison, readable action trace, observed-state/receipt hierarchy, responsive layout, accessible semantic verdicts, and clearly labelled simulator-only fault controls.
 - [ ] G4. Voice interface + Web Speech backend, "Start" gesture, sentence queue.
 - [ ] G5. A/B runner: send the same text to both agents in parallel.
 - [ ] G6. Replay recorder + player.
 - [ ] G7. (P2) Kokoro backend.
 - [ ] G8. Serve the built web app from the main process (⚑ S2).
-- [ ] G9. Make a scripted "demo scenario" button list (the 8 scenarios in §7) so a judge can click through.
+- [ ] G9. Add scripted scenarios for development and recording. Do not make judges operate the live simulator; provide a short, explicitly labelled recording only if it is reliable.
 
-**Acceptance:** open one URL, press Start, type "I'm vegan and allergic to peanuts, remember that," then "plan dinner for four." You hear the reply, see the two columns diverge, and Ground Truth updates. MCP Inspector can connect to the same `/mcp` with a key and see the same tools.
+**Acceptance:** the simulator is reliable enough for internal development and a recorded walkthrough, with the same MCP server behind both comparison conditions. Judges are not expected to run it. The primary review path is README → architecture → policy/verification/receipt code → benchmark. Any recording must clearly label simulated devices and must not imply a validated Alexa+ integration.
 
 ---
 
@@ -690,7 +720,7 @@ Report n, seed, config, and **Wilson 95% confidence intervals**. Commit raw resu
 2. Demo GIF + video link + **live demo URL**.
 3. **The problem (corrected):** Alexa+ remembers, but doesn't enforce or verify. Cite real sources, paraphrased with links.
 4. **Results:** benchmark table (n, CI).
-5. Try it in 60 seconds: hosted simulator, the `/mcp` endpoint, how to get a guest key, connecting with MCP Inspector.
+5. Reviewer path: architecture, policy/verification/receipt implementation, and benchmark evidence. Hosted simulator and MCP Inspector instructions are optional contributor material, not a judging requirement.
 6. Architecture (mermaid) + tool table.
 7. Run locally (5 commands) and `npm run check`.
 8. Security summary → `SECURITY.md`.
