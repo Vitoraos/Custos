@@ -1,4 +1,4 @@
-# ContextForge: Master Build Plan (v3 · "Verified Actions")
+# Custos: Master Build Plan (v3 · "Verified Actions")
 
 > **Goal:** win a prize in the Alexa+ track of the Amazon *Build, Ship, Shape* hackathon (plus the AWS Builder and Open Source mini challenges).
 > **Today:** Sun Oct 4, 2026 · **Target submit:** Wed Oct 21 · **Hard deadline:** Fri Oct 23, 12:00 PM PDT (8:00 PM WAT) · **Judging:** Nov 9–20 · **Winners:** about Dec 3.
@@ -615,6 +615,16 @@ The simulator agent sees only the MCP tools and the server's `instructions`, the
 **Responsive behavior:** at wide sizes, comparison is side by side; below the existing stack breakpoint, columns stack with Custos first; at phone widths, controls wrap cleanly, trace details remain readable, and the composer never covers the receipt. Preserve keyboard navigation, visible focus, semantic headings/labels, and reduced-motion preferences.
 
 **Validation:** review screenshots at desktop and mobile widths; verify contrast ratios; check the interface in grayscale and with common color-vision simulations; confirm every outcome remains understandable with color removed. Evaluate the actual request-to-receipt task, not subjective prettiness alone.
+
+**Research basis**
+- [W3C WCAG 2.2: Use of Color](https://www.w3.org/WAI/WCAG22/Understanding/use-of-color): never make hue the only way to identify an action, state, or meaning.
+- [W3C WAI: Colors with Good Contrast](https://www.w3.org/WAI/perspectives/contrast.html): foreground/background contrast supports readability in varied lighting and for people with low contrast sensitivity.
+- [W3C accessibility principles](https://www.w3.org/WAI/fundamentals/accessibility-principles/): pair adequate contrast with clear navigation, labels, feedback, grouping, and responsive behavior.
+- [Google Design: Expressing Brand in Material](https://design.google/library/staying-true-to-your-identity-material-branding): a product can keep a distinctive color story, typography, imagery, and voice while using a consistent UI system; color should establish hierarchy rather than flood the interface.
+- [Google Design: Brand New](https://design.google/library/brand-new): define and prioritize a small number of brand goals before exploring visual directions.
+- [Google Design: YouTube's New Hue](https://design.google/library/youtube-new-red-color): evolve recognizable brand assets through a deliberate usage framework and audit real interface surfaces, rather than changing a palette in isolation.
+
+These sources support the design rules; they do not prove that any particular green, typeface, or layout is inherently trustworthy. The proposed Custos palette is a hypothesis to test in context.
 
 Key demo device: **one input feeds both comparison columns** (A/B). Both columns use the same model, prompt, and fault seed; only the server mode differs (from the guest key's `mode`, not a client header). The **Observed state** panel reports what the simulator's device twin actually says, not physical-device state. Label that limitation visibly.
 
