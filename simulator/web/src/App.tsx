@@ -1,5 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { chat, loadDemo, type SimEvent, truth } from "./api";
+import {
+  type AssertResult,
+  chat,
+  loadDemo,
+  type SimEvent,
+  type TheaterBeat,
+  theater,
+  theaterAssert,
+  theaterFault,
+  truth,
+} from "./api";
 import Column, { type Turn, type UserMsg } from "./components/Column";
 import TruthPanel from "./components/TruthPanel";
 import type { ToolTrace } from "./verdict";
@@ -19,9 +29,13 @@ export default function App() {
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [muted, setMuted] = useState(false);
-  const [mode, setMode] = useState<"ab" | "forge" | "replay">("ab");
+  const [mode, setMode] = useState<"ab" | "forge" | "replay" | "demo">("ab");
   const [replayName, setReplayName] = useState("dinner.json");
   const [speaking, setSpeaking] = useState(false);
+  const [beats, setBeats] = useState<TheaterBeat[] | null>(null);
+  const [disclaimer, setDisclaimer] = useState("");
+  const [beatIndex, setBeatIndex] = useState(0);
+  const [asserts, setAsserts] = useState<Record<string, AssertResult[]>>({});
   const [live, setLive] = useState<Record<Col, "idle" | "running" | "done">>({
     forge: "idle",
     baseline: "idle",
@@ -168,6 +182,53 @@ export default function App() {
     }
   }
 
+  async function ensureBeats(): Promise<TheaterBeat[]> {
+    if (beats) return beats;
+    const t = await theater();
+    setDisclaimer(t.disclaimer);
+    setBeats(t.beats);
+    return t.beats;
+  }
+
+  async function runBeat(i: number) {
+    const list = await ensureBeats();
+    const beat = list[i];
+    if (!beat || busy || !guestId) return;
+    setBusy(true);
+    setBeatIndex(i);
+    try {
+      await theaterFault(guestId, beat.id);
+      if (beat.input) {
+        setUserMsgs((m) => [...m, { id: nid(), text: beat.input as string }]);
+        // Left column: scripted fixtures, staggered for readability.
+        for (const fx of beat.alexa) {
+          await new Promise((res) => setTimeout(res, 350));
+          handleEvent({ col: "baseline", ...fx });
+        }
+        // Right column: always live.
+        for await (const ev of chat(guestId, beat.input, ["forge"]))
+          handleEvent(ev);
+      }
+      const left = await theaterAssert(guestId, beat.id, "left");
+      const right = await theaterAssert(guestId, beat.id, "right");
+      setAsserts((a) => ({
+        ...a,
+        [`${beat.id}:left`]: left.results,
+        [`${beat.id}:right`]: right.results,
+      }));
+      setGround(await truth(guestId));
+      setBeatIndex(Math.min(i + 1, list.length - 1));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function restartDemo() {
+    setAsserts({});
+    setBeatIndex(0);
+    await boot();
+  }
+
   async function playReplay() {
     setBusy(true);
     try {
@@ -206,6 +267,7 @@ export default function App() {
             <option value="ab">A/B</option>
             <option value="forge">Custos only</option>
             <option value="replay">Replay</option>
+            <option value="demo">Demo</option>
           </select>
           <button
             type="button"
@@ -224,6 +286,24 @@ export default function App() {
           >
             Reset demo data
           </button>
+          {mode === "demo" && (
+            <>
+              <button
+                type="button"
+                onClick={() => void runBeat(beatIndex)}
+                disabled={busy || !beats}
+              >
+                Next
+              </button>
+              <button
+                type="button"
+                onClick={() => void restartDemo()}
+                disabled={busy}
+              >
+                Restart demo
+              </button>
+            </>
+          )}
           {mode === "replay" && (
             <>
               <input
@@ -256,6 +336,47 @@ export default function App() {
       ) : null}
       {guestId ? (
         <>
+          {mode === "demo" && beats ? (
+            <section className="panel" aria-label="Demo director">
+              <p className="sub">{disclaimer}</p>
+              <h2>
+                Beat {beatIndex + 1} of {beats.length}:{" "}
+                {beats[beatIndex]?.caption}
+              </h2>
+              <p>{beats[beatIndex]?.narration}</p>
+              <div className="chips" aria-hidden="true">
+                {beats.map((b, i) => (
+                  <span
+                    key={b.id}
+                    className={`chip${i === beatIndex ? " open" : ""}`}
+                  >
+                    {i + 1}. {b.caption}
+                  </span>
+                ))}
+              </div>
+              {(["left", "right"] as const).map((phase) => {
+                const key = `${beats[beatIndex]?.id}:${phase}`;
+                const list = asserts[key];
+                if (!list) return null;
+                return (
+                  <div key={phase}>
+                    <h3>
+                      {phase === "left" ? "Simulated column" : "Custos column"}{" "}
+                      checks
+                    </h3>
+                    <ul>
+                      {list.map((r) => (
+                        <li key={r.description}>
+                          {r.pass ? "✓" : "×"} {r.description}{" "}
+                          <span className="sub">({r.detail})</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                );
+              })}
+            </section>
+          ) : null}
           <div className="cols">
             {show.includes("baseline") && (
               <Column

@@ -55,11 +55,12 @@ export async function loadDemo(): Promise<{
 export async function* chat(
   guestId: string,
   text: string,
+  cols?: ("forge" | "baseline")[],
 ): AsyncGenerator<SimEvent, void, void> {
   const r = await fetch(`${API}/sim/chat`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ guestId, text }),
+    body: JSON.stringify({ guestId, text, ...(cols ? { cols } : {}) }),
   });
   if (!r.ok || !r.body) {
     const err = (await r.json().catch(() => ({ error: r.statusText }))) as {
@@ -97,5 +98,54 @@ export async function truth(guestId: string): Promise<Record<string, unknown>> {
   const r = await fetch(
     `${API}/sim/truth?guestId=${encodeURIComponent(guestId)}`,
   );
+  return r.json();
+}
+
+export interface TheaterBeat {
+  id: string;
+  caption: string;
+  narration: string;
+  input: string | null;
+  alexa: { type: "token" | "final"; text: string }[];
+}
+
+export interface AssertResult {
+  description: string;
+  pass: boolean;
+  detail: string;
+}
+
+export async function theater(): Promise<{
+  disclaimer: string;
+  beats: TheaterBeat[];
+}> {
+  const r = await fetch(`${API}/sim/theater`);
+  if (!r.ok) throw new Error("theater listing failed");
+  return r.json();
+}
+
+export async function theaterFault(
+  guestId: string,
+  beat: string,
+): Promise<void> {
+  const r = await fetch(`${API}/sim/theater/fault`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ guestId, beat }),
+  });
+  if (!r.ok) throw new Error("theater fault failed");
+}
+
+export async function theaterAssert(
+  guestId: string,
+  beat: string,
+  phase: "left" | "right",
+): Promise<{ results: AssertResult[] }> {
+  const r = await fetch(`${API}/sim/theater/assert`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ guestId, beat, phase }),
+  });
+  if (!r.ok) throw new Error("theater assert failed");
   return r.json();
 }
