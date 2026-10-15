@@ -22,6 +22,10 @@ export default function App() {
   const [mode, setMode] = useState<"ab" | "forge" | "replay">("ab");
   const [replayName, setReplayName] = useState("dinner.json");
   const [speaking, setSpeaking] = useState(false);
+  const [live, setLive] = useState<Record<Col, "idle" | "running" | "done">>({
+    forge: "idle",
+    baseline: "idle",
+  });
   const partial = useRef<Record<Col, string>>({ forge: "", baseline: "" });
   const turnId = useRef<Record<Col, number | null>>({
     forge: null,
@@ -84,6 +88,14 @@ export default function App() {
 
   function handleEvent(ev: SimEvent) {
     if (mode === "forge" && ev.col === "baseline") return;
+    if (ev.type === "column_start") {
+      setLive((l) => ({ ...l, [ev.col]: "running" }));
+      return;
+    }
+    if (ev.type === "column_done") {
+      setLive((l) => ({ ...l, [ev.col]: "done" }));
+      return;
+    }
     if (ev.type === "token") {
       partial.current[ev.col] += ev.text ?? "";
       const id = ensureTurn(ev.col);
@@ -142,6 +154,7 @@ export default function App() {
     if (!t || busy || !guestId) return;
     setBusy(true);
     setUserMsgs((m) => [...m, { id: nid(), text: t }]);
+    setLive({ forge: "idle", baseline: "idle" });
     setInput("");
     try {
       for await (const ev of chat(guestId, t)) handleEvent(ev);
@@ -252,6 +265,7 @@ export default function App() {
                 userMsgs={userMsgs}
                 turns={turns.filter((t) => t.col === "baseline")}
                 truthDevices={devices}
+                stage={live.baseline}
               />
             )}
             <Column
@@ -261,6 +275,7 @@ export default function App() {
               userMsgs={userMsgs}
               turns={turns.filter((t) => t.col === "forge")}
               truthDevices={devices}
+              stage={live.forge}
             />
           </div>
           <TruthPanel ground={ground} />

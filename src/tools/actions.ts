@@ -14,12 +14,14 @@ import {
   type ReminderState,
   topicFor,
 } from "../adapters/ntfy.js";
+import { getLocale } from "../core/locale.js";
 import { type ActionSpec, type RunContext, runAction } from "../core/verify.js";
 import type { Runner } from "./accountability.js";
 import {
   type Deps,
   envelope,
   envelopeSchema,
+  requestContextFor,
   runCtx,
   sessionOf,
 } from "./context.js";
@@ -31,6 +33,41 @@ function strip<T extends Record<string, unknown>>(
 ): { rest: Omit<T, "confirmToken">; token?: string } {
   const { confirmToken, ...rest } = args as T & { confirmToken?: string };
   return { rest, token: confirmToken };
+}
+
+// ms until the next HH:MM wall-clock occurrence in tz ("today"|"tomorrow").
+// Past times roll forward a day; DST edges approximate by wall diff. Null on bad input.
+// Exported for unit tests; the only caller is set_reminder's atLocal path.
+export function delayUntil(
+  tz: string,
+  day: "today" | "tomorrow",
+  time: string,
+  now: Date,
+): number | null {
+  const m = /^(\d{2}):(\d{2})$/.exec(time);
+  if (!m) return null;
+  const hh = Number(m[1]);
+  const mm = Number(m[2]);
+  if (hh > 23 || mm > 59) return null;
+  let nowWall: number;
+  try {
+    const parts = new Intl.DateTimeFormat("en-GB", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+      timeZone: tz,
+    }).formatToParts(now);
+    const h = Number(parts.find((p) => p.type === "hour")?.value ?? 0);
+    const min = Number(parts.find((p) => p.type === "minute")?.value ?? 0);
+    nowWall = (h === 24 ? 0 : h) * 60 + min;
+  } catch {
+    return null;
+  }
+  const target = hh * 60 + mm;
+  let deltaMin =
+    day === "tomorrow" ? 24 * 60 - nowWall + target : target - nowWall;
+  if (deltaMin <= 0) deltaMin += 24 * 60;
+  return deltaMin * 60 * 1000;
 }
 
 export function actionTools(deps: Deps) {
@@ -154,7 +191,15 @@ export function actionTools(deps: Deps) {
   });
   const reminderParams = z.object({
     text: z.string().min(1).max(200),
-    inSeconds: z.number().int().min(10).max(259200),
+    inSeconds: z.number().int().min(10).max(259200).optional(),
+    // Wall-clock time in the home timezone: the 4am-coffee case.
+    // "tomorrow 07:00" or "today 15:00". Exactly one of inSeconds/atLocal.
+    atLocal: z
+      .object({
+        day: z.enum(["today", "tomorrow"]),
+        time: z.string().regex(/^\d{2}:\d{2}$/),
+      })
+      .optional(),
     title: z.string().max(100).optional(),
     confirmToken: tokenParam,
   });
@@ -188,12 +233,14 @@ export function actionTools(deps: Deps) {
         outputSchema: envelopeSchema,
         execute: async (args: z.infer<typeof deviceParams>, ctx: unknown) => {
           const s = sessionOf(ctx);
+          const c = await requestContextFor(deps, s);
           const { rest, token } = strip(args);
           return envelope(
             await runners.set_device_state(rest, {
               ...(await runCtx(deps, s)),
               confirmToken: token,
             }),
+            c,
           );
         },
       },
@@ -210,18 +257,55 @@ export function actionTools(deps: Deps) {
         outputSchema: envelopeSchema,
         execute: async (args: z.infer<typeof reminderParams>, ctx: unknown) => {
           const s = sessionOf(ctx);
+          const c = await requestContextFor(deps, s);
           const { rest, token } = strip(args);
+          let delayMs: number | null = null;
+          if (rest.inSeconds !== undefined && rest.atLocal !== undefined) {
+            return envelope(
+              {
+                outcome: "error",
+                say: "Give either inSeconds or atLocal, not both.",
+              },
+              c,
+            );
+          }
+          if (rest.inSeconds !== undefined) {
+            delayMs = rest.inSeconds * 1000;
+          } else if (rest.atLocal !== undefined) {
+            const locale = await getLocale(deps.store, s.userId);
+            delayMs = delayUntil(
+              locale.tz,
+              rest.atLocal.day,
+              rest.atLocal.time,
+              new Date(),
+            );
+            if (delayMs === null) {
+              return envelope(
+                {
+                  outcome: "error",
+                  say: "That time did not parse. Use HH:MM, 24-hour.",
+                },
+                c,
+              );
+            }
+          } else {
+            return envelope(
+              { outcome: "error", say: "Give either inSeconds or atLocal." },
+              c,
+            );
+          }
           const withMs = {
             topic: topicFor(s.userId),
             text: rest.text,
             title: rest.title,
-            delayMs: rest.inSeconds * 1000,
+            delayMs,
           };
           return envelope(
             await runners.set_reminder(withMs, {
               ...(await runCtx(deps, s)),
               confirmToken: token,
             }),
+            c,
           );
         },
       },
@@ -238,12 +322,14 @@ export function actionTools(deps: Deps) {
         outputSchema: envelopeSchema,
         execute: async (args: z.infer<typeof listParams>, ctx: unknown) => {
           const s = sessionOf(ctx);
+          const c = await requestContextFor(deps, s);
           const { rest, token } = strip(args);
           return envelope(
             await runners.update_shopping_list(rest, {
               ...(await runCtx(deps, s)),
               confirmToken: token,
             }),
+            c,
           );
         },
       },

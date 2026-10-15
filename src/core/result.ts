@@ -1,6 +1,7 @@
 // ToolResult envelope (§3.4). Every action/read tool returns this.
 // `say` (<=25 words) is safe to read aloud verbatim.
 import { z } from "zod";
+import type { RequestContext } from "./locale.js";
 
 export const outcomeSchema = z.enum([
   "ok",
@@ -19,6 +20,7 @@ export interface Evidence {
   observed: unknown;
   source: string;
   checkedAt: string;
+  localCheckedAt?: string;
 }
 export interface ReasonRef {
   constraintId: string;
@@ -33,6 +35,7 @@ export interface ToolResult<T = unknown> {
   receiptId?: string;
   confirmToken?: string;
   untrusted?: boolean;
+  context?: RequestContext;
 }
 
 export function ok<T>(say: string, data?: T): ToolResult<T> {

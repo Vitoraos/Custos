@@ -37,6 +37,7 @@ export default function TruthPanel({
   const devices = (ground.devices as Record<string, unknown> | undefined) ?? {};
   const rules = (ground.rules as Rule[] | undefined) ?? [];
   const shopping = (ground.shopping as string[] | undefined) ?? [];
+  const pantry = (ground.pantry as string[] | undefined) ?? [];
   const last = (ground.lastReceipt as Receipt | undefined) ?? null;
   const empty =
     Object.keys(devices).length === 0 &&
@@ -80,11 +81,17 @@ export default function TruthPanel({
               )}
             </div>
             <h3>Shopping list</h3>
-            {shopping.length === 0 ? (
-              <span className="sub">empty</span>
-            ) : (
+            {shopping.length === 0 ? null : (
               <ul>
                 {shopping.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            )}
+            <h3>Pantry</h3>
+            {pantry.length === 0 ? null : (
+              <ul>
+                {pantry.map((item) => (
                   <li key={item}>{item}</li>
                 ))}
               </ul>

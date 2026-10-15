@@ -2,6 +2,12 @@
 import { UserError } from "fastmcp";
 import { z } from "zod";
 import type { Session } from "../auth.js";
+import {
+  getLocale,
+  type Locale,
+  type RequestContext,
+  requestContext,
+} from "../core/locale.js";
 import { MemoryReceipts, type ReceiptStore } from "../core/receipts.js";
 import { outcomeSchema, type ToolResult } from "../core/result.js";
 import {
@@ -37,17 +43,30 @@ export async function runCtx(
   session: Session,
   profiles: string[] = ["household"],
   extra?: Partial<RunContext>,
-): Promise<RunContext> {
+): Promise<RunContext & { locale: Locale }> {
   return {
     userId: session.userId,
     mode: session.mode,
     rules: await loadConstraints(deps.store, session.userId),
     profiles,
     now: new Date(),
+    locale: await getLocale(deps.store, session.userId),
     receipts: deps.receipts,
     confirms: deps.confirms,
     ...extra,
   };
+}
+
+// Request context for one response: server clock + household locale.
+// This is what makes the calling agent date/time/place aware.
+export async function requestContextFor(
+  deps: Deps,
+  session: Session,
+): Promise<RequestContext> {
+  return requestContext(
+    new Date(),
+    await getLocale(deps.store, session.userId),
+  );
 }
 
 // Every tool declares this outputSchema -> MCP structuredContent + text fallback.
@@ -61,6 +80,7 @@ export const envelopeSchema = z.object({
       observed: z.unknown(),
       source: z.string(),
       checkedAt: z.string(),
+      localCheckedAt: z.string().optional(),
     })
     .optional(),
   reasons: z
@@ -69,14 +89,27 @@ export const envelopeSchema = z.object({
   receiptId: z.string().optional(),
   confirmToken: z.string().optional(),
   untrusted: z.boolean().optional(),
+  context: z
+    .object({
+      nowUtc: z.string(),
+      nowLocal: z.string(),
+      weekday: z.string(),
+      tz: z.string(),
+      city: z.string().nullable(),
+    })
+    .optional(),
 });
 export type Envelope = z.infer<typeof envelopeSchema>;
 
 // FastMCP return shape: explicit text (the say) + structured envelope.
-export function envelope(r: ToolResult): {
+export function envelope(
+  r: ToolResult,
+  c?: RequestContext,
+): {
   content: { type: "text"; text: string }[];
   structuredContent: Envelope;
 } {
+  if (c) r.context = c;
   return {
     content: [{ type: "text", text: r.say }],
     structuredContent: {
@@ -88,6 +121,7 @@ export function envelope(r: ToolResult): {
       ...(r.receiptId ? { receiptId: r.receiptId } : {}),
       ...(r.confirmToken ? { confirmToken: r.confirmToken } : {}),
       ...(r.untrusted ? { untrusted: true } : {}),
+      ...(r.context ? { context: r.context } : {}),
     },
   };
 }

@@ -5,12 +5,19 @@ import { Agent, McpClient } from "@strands-agents/sdk";
 import { OpenAIModel } from "@strands-agents/sdk/models/openai";
 
 export const SYSTEM_PROMPT =
-  "You are a voice assistant on a smart speaker. Reply in at most two short sentences of plain speech: no markdown, no lists. Use tools to take actions. Report what the tools tell you.";
+  "You are a voice assistant on a smart speaker. Reply in at most two short sentences of plain speech: no markdown, no lists. Use tools to take actions. Report what the tools tell you. If a request is ambiguous about who is included (e.g. dinner for visitors when profiles exist), ask one short question — who is coming and whether anyone has allergies or diets — and wait for the answer before acting.";
 
 export type Column = "forge" | "baseline";
 export interface SimEvent {
   col: Column;
-  type: "token" | "tool_call" | "tool_result" | "final" | "error";
+  type:
+    | "token"
+    | "tool_call"
+    | "tool_result"
+    | "final"
+    | "error"
+    | "column_start"
+    | "column_done";
   text?: string;
   name?: string;
   args?: unknown;
@@ -181,6 +188,12 @@ export async function* runAB(
   text: string,
 ): AsyncGenerator<SimEvent, void, void> {
   // Sequential (not parallel): free-tier rate limits punish parallel model calls.
-  yield* runColumn(mcpUrl, keys.forgeKey, guestId, "forge", text);
+  // Baseline first: the naive expectation streams to completion, then Custos
+  // answers it. Boundary events let the UI stage the columns.
+  yield { col: "baseline", type: "column_start" };
   yield* runColumn(mcpUrl, keys.baselineKey, guestId, "baseline", text);
+  yield { col: "baseline", type: "column_done" };
+  yield { col: "forge", type: "column_start" };
+  yield* runColumn(mcpUrl, keys.forgeKey, guestId, "forge", text);
+  yield { col: "forge", type: "column_done" };
 }

@@ -59,9 +59,17 @@ export function mountSim(
       devices[d] = await store.getDevice(g.userId, d);
     const faults = await store.getFaults(g.userId);
     const shopping = await store.listItems(g.userId, "shopping");
+    const pantry = await store.listItems(g.userId, "pantry");
     const rules = await listStandingRules(store, g.userId);
     const last = await deps.receipts.latest(g.userId);
-    return c.json({ devices, faults, shopping, rules, lastReceipt: last });
+    return c.json({
+      devices,
+      faults,
+      shopping,
+      pantry,
+      rules,
+      lastReceipt: last,
+    });
   });
 
   // Chaos panel. Admin endpoint — never an MCP tool, so the LLM can't flip it.

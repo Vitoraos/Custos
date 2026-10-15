@@ -106,7 +106,7 @@ describe("auth", () => {
     });
     expect(r.status).toBe(401);
   });
-  it("lists 11 tools with a valid key", async () => {
+  it("lists 12 tools with a valid key", async () => {
     const c = await client(keys.forge);
     try {
       const { tools } = await c.listTools();
@@ -117,6 +117,7 @@ describe("auth", () => {
           "find_recipe",
           "forget_memory",
           "get_headlines",
+          "get_pantry",
           "get_standing_rules",
           "get_weather",
           "remember_rule",
@@ -255,6 +256,96 @@ describe("actions + receipts", () => {
       expect(done.outcome).toBe("verified");
       const after = await call(c, "get_standing_rules", {});
       expect(JSON.stringify(after.data ?? [])).not.toContain("peanut");
+    } finally {
+      await c.close();
+    }
+  });
+});
+
+describe("time, place, and pantry", () => {
+  it("every response carries a request context block", async () => {
+    const c = await client(keys.forge);
+    try {
+      const r = (await call(c, "get_standing_rules", {})) as {
+        outcome: string;
+        context?: { nowUtc: string; weekday: string; tz: string };
+      };
+      expect(r.context?.nowUtc).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+      expect(typeof r.context?.weekday).toBe("string");
+      expect(typeof r.context?.tz).toBe("string");
+    } finally {
+      await c.close();
+    }
+  });
+  it("get_pantry reads pantry and shopping lists", async () => {
+    const c = await client(keys.forge);
+    try {
+      await call(c, "update_shopping_list", {
+        list: "shopping",
+        ops: [{ op: "add", item: "oats" }],
+      });
+      const r = (await call(c, "get_pantry", { list: "shopping" })) as {
+        outcome: string;
+        data?: { pantry: unknown; shopping: string[] };
+      };
+      expect(r.outcome).toBe("ok");
+      expect(Array.isArray(r.data?.pantry)).toBe(true);
+      expect(r.data?.shopping).toContain("oats");
+    } finally {
+      await c.close();
+    }
+  });
+  it("quiet_hours without tz defaults to home timezone", async () => {
+    const c = await client(keys.forge);
+    try {
+      await call(c, "remember_rule", {
+        profile: "household",
+        rule: { kind: "fact", text: "Home timezone: Pacific/Auckland" },
+        evidence: "e2e",
+      });
+      const rem = (await call(c, "remember_rule", {
+        profile: "household",
+        rule: {
+          kind: "quiet_hours",
+          start: "22:00",
+          end: "07:00",
+          applies: ["lights"],
+        },
+        evidence: "e2e",
+      })) as { outcome: string; data?: { id: string } };
+      expect(rem.outcome).toBe("ok");
+      const rules = (await call(c, "get_standing_rules", {})) as {
+        data?: { id: string; summary: string }[];
+      };
+      expect(
+        (rules.data ?? []).some((r) => r.summary.includes("Pacific/Auckland")),
+      ).toBe(true);
+      // Cleanup: home tz fact + quiet rule (non-safety deletes are immediate).
+      for (const r of rules.data ?? []) {
+        if (
+          r.summary.includes("Pacific/Auckland") ||
+          r.summary.includes("Home timezone")
+        ) {
+          await call(c, "forget_memory", { id: r.id });
+        }
+      }
+    } finally {
+      await c.close();
+    }
+  });
+  it("set_reminder rejects both/neither time forms without touching ntfy", async () => {
+    const c = await client(keys.forge);
+    try {
+      const both = await call(c, "set_reminder", {
+        text: "x",
+        inSeconds: 60,
+        atLocal: { day: "today", time: "15:00" },
+      });
+      expect(both.outcome).toBe("error");
+      const neither = await call(c, "set_reminder", { text: "x" });
+      expect(neither.outcome).toBe("error");
+      // Note: malformed atLocal.time fails Zod input validation (no envelope),
+      // covered at unit level in test/unit/reminder.test.ts.
     } finally {
       await c.close();
     }

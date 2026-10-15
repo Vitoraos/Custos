@@ -49,12 +49,22 @@
   "facts": [
     {
       "profile": "household",
-      "text": "Home city is Lagos, Nigeria",
+      "text": "Home city: Lagos, Nigeria",
       "evidence": "Demo household setup"
     },
     {
       "profile": "household",
-      "text": "Home timezone is Africa/Lagos",
+      "text": "Home timezone: Africa/Lagos",
+      "evidence": "Demo household setup"
+    },
+    {
+      "profile": "household",
+      "text": "Home coordinates: 6.5244, 3.3792",
+      "evidence": "Demo household setup"
+    },
+    {
+      "profile": "household",
+      "text": "Shopping trip is every day at 3pm.",
       "evidence": "Demo household setup"
     },
     {
@@ -70,6 +80,7 @@
     "front_door_lock": { "locked": true },
     "coffee_maker": { "power": "off" }
   },
-  "shopping": ["rolled oats", "olive oil", "tomatoes"],
+  "shopping": [],
+  "pantry": ["rice", "olive oil", "garlic", "onions"],
   "fault": { "profile": "none", "params": {} }
 }

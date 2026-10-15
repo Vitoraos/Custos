@@ -68,9 +68,10 @@ reported things that weren't true. The checks cost a short delay.
 One process: `/mcp` (FastMCP, stateless) → auth (key->user) → policy engine
 → `runAction` (act, read back, retry) → adapters → receipts; plus `/health`,
 `/health/deep`, `/sim/*`, static UI. Diagram: `docs/ARCHITECTURE.md`.
-11 tools: `get_standing_rules`, `remember_rule`, `forget_memory`,
+12 tools: `get_standing_rules`, `remember_rule`, `forget_memory`,
 `explain_last_action`, `confirm_action`, `set_device_state`, `set_reminder`,
-`update_shopping_list`, `find_recipe`, `get_weather`, `get_headlines`
+`update_shopping_list`, `find_recipe`, `get_weather`, `get_headlines`,
+`get_pantry`
 (contract: `docs/API.md`).
 
 ## Run locally (5 commands)
