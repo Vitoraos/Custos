@@ -561,7 +561,7 @@ Browser (React)
   └─ Voice: speak(finalText)  (Web Speech API → Kokoro P2)
 ```
 
-The simulator agent sees only the MCP tools and the server's `instructions`, the same as real Alexa+ would. **No ContextForge knowledge is hard-coded in its prompt.**
+The simulator agent sees the MCP tools and the server's `instructions`; this exercises the product boundary, but it is **not** a validated Alexa+ client or proof of Alexa+ compatibility. **No Custos-specific policy knowledge is hard-coded in its prompt.**
 
 **Agent system prompt (identical for both columns):** "You are a voice assistant on a smart speaker. Reply in at most two short sentences of plain speech: no markdown, no lists. Use tools to take actions. Report what the tools tell you."
 
@@ -644,11 +644,11 @@ Events: `token`, `tool_call {name,args}`, `tool_result {outcome,say,...}`, `fina
 
 Presets: `none`, `lost_ack 30%`, `delayed 2 s`, `offline 20%`, `adversarial news feed` (a poisoned headline). Calls `/sim/faults`, which writes `fault_config` for that guest only.
 
-#### Replay mode (so judges never see an error)
+#### Replay mode (for repeatable internal testing and optional recordings)
 
 - `npm run sim:record` captures real live sessions (SSE events + timings) to `simulator/web/public/replays/*.json`.
 - Replay plays them back with the same UI and voice. Used when the LLM budget is exhausted, Bedrock is down, or the person prefers it.
-- Replays are **recordings of real runs**, not hand-written fixtures. Label them "Recorded".
+- Replays are **recordings of real runs**, not hand-written fixtures. Label them "Recorded" and state that devices are simulated. Use recordings as optional explanatory material, not as a substitute for integration evidence.
 
 #### LLM choice and cost control
 
