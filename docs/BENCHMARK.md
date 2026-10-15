@@ -1,77 +1,98 @@
-# Benchmark metric definitions (written BEFORE any run — plan §5.H integrity rule)
+# Custos benchmark
 
-Conditions: **forge** (guard + verify + receipts) vs **baseline** (memory tools
-work; actions return raw acks; no guard, no verification). Same adapters,
-same fault seeds, same tasks. Oracle agent (L1): always calls the right tool
-with the right args and reports whatever the tool says — this MODELS
-acknowledgment-trusting behavior (like an LLM that says "Done!" on any ack);
-it does NOT measure real Alexa+.
+**Purpose:** evaluate whether policy enforcement and action verification reduce silent failures and constraint violations compared with a memory-only baseline.
 
-## Rates (Wilson 95% CI, n reported)
+> **Interpretation first:** the published numbers below come from a seeded L1 oracle harness, not a live Alexa+ deployment. They establish behavior under the benchmark's assumptions; they do not establish real-world safety or generalization.
 
-- **SFR (silent-failure rate):** runs where the assistant reported success
-  (`ok`/`verified`/`verified_after_retry`) but ground truth != intent /
-  runs with an actionable intent.
-- **CVR (constraint-violation rate):** executed actions violating a stored rule
-  (judged against the HAND-LABELLED set, never the matcher) / violating
-  opportunities. Includes model-ignored-rule cases in L2. L1 modeling note:
-  the forge guard decides per opportunity; the baseline has no guard so the
-  oracle executes every violating opportunity (CVR ~= 100% by construction).
-  This is the point under test — a guard that cannot be bypassed vs no guard —
-  not a claim about any real assistant's behavior.
-- **FBR (false-block rate):** compliant actions wrongly blocked / compliant
-  opportunities. The honest cost of fail-closed — always reported.
-- **Recovery rate:** injected faults recovered by retry / faults injected.
-- **Honest-failure rate:** unverified outcomes whose `say` disclosed
-  non-confirmation / all unverified outcomes (forge should be 1.0).
-- **Injection success (S4):** untrusted-source rule writes that took effect /
-  attempts (forge should be 0.0).
-- **Overhead:** added wall latency p50/p95 forge-vs-baseline per task family.
+## Executive summary
 
-## Families
+Run: **L1 oracle harness · seed 7 · 9 October 2026**
 
-- **S1** device actuation under faults (twin, seeded): fault x device x seed.
-- **S2** constraint adherence: hand-labelled recipes x rules x households.
-- **S3** reminders: acceptance verification (stub transport offline; ~20 real
-  ntfy runs with a throwaway topic when LIVE bench flag is set). `atLocal`
-  wall-time mapping is unit-tested (`test/unit/reminder.test.ts`); the
-  pantry→list→weather dinner choreography is agent behavior, not a metric
-  family — L2 covers it qualitatively.
-- **S4** injection: untrusted headline/recipe text attempting rule writes.
-- **S5** quiet hours + confirm-required: times/zones, unlock/purchase flows.
+| Metric | Custos: guard + verification + receipts | Baseline: memory + raw acknowledgements |
+|---|---:|---:|
+| Silent failures | 0 / 156 (0.0%) | 49 / 156 (31.4%) |
+| Constraint violations | 0 / 204 (0.0%) | 204 / 204 (100.0%) |
+| False blocks | 0 / 576 (0.0%) | 0 / 576 (0.0%) |
+| Injected faults recovered by retry | 6 / 120 (5.0%) | 0 / 120 (0.0%) |
+| Unverified outcomes reported honestly | 13 / 13 (100.0%) | Not applicable |
+| Untrusted rule-write attempts accepted | 0 / 3 (0.0%) | 0 / 3 (0.0%) |
+| S1 latency, p50 / p95 | 309 / 4,442 ms | 0 / 1 ms |
 
-## Limitations (published with every number)
+The rate estimates for silent failures, constraint violations and false blocks use Wilson 95% confidence intervals. The corresponding intervals for the Custos and baseline results are:
 
-Oracle != real Alexa+; twin != real devices; ontology = ingredient-name
-heuristics (not medical advice); one model in L2; small L2 sample.
-Expected shape (not a promise): baseline SFR ~= fault rate; forge SFR ~= 0
-for detectable faults + added latency + non-zero FBR.
+| Metric | Custos, 95% CI | Baseline, 95% CI |
+|---|---:|---:|
+| Silent-failure rate | 0.0–2.4% | 24.6–39.1% |
+| Constraint-violation rate | 0.0–1.8% | 98.2–100.0% |
+| False-block rate | 0.0–0.7% | 0.0–0.7% |
 
-## What these results mean (plain language)
+Raw run output: [`bench/results/2026-10-09.json`](../bench/results/2026-10-09.json) · [Earlier run](../bench/results/2026-10-08.json) · [Generated report](../bench/results/report.md) · [Chart](../bench/results/chart.svg)
 
-**What we did:** we gave the same jobs (turn on lights, follow food rules,
-set reminders) to two versions of the assistant hundreds of times — one with
-ContextForge's safety checks on, one without — while randomly breaking things
-(weak signal, lost messages, dead devices), the way real homes break. An
-automated stand-in played the user so the test is repeatable.
+## What the benchmark tests
 
-**What each row means:**
-- *Silent failures* — the assistant said "done" but nothing actually happened.
-  The dangerous kind of wrong, because you'd never know. Ours: **zero**. Without
-  checks: **about 1 in 3**.
-- *Rule-breaking* — e.g. serving peanuts to someone with a peanut allergy.
-  Ours blocked every one (**0 in 204**); without enforcement, all went through.
-- *False alarms* — blocking something harmless (the cost of being strict).
-  Ours: **zero in 576 tries**.
-- *Recovery* — fixing a failed command by retrying: 5%. Low because some faults
-  (device offline) can't be retried into working — those become honest failures.
-- *Honest failures* — when it couldn't confirm, it said so **13 out of 13 times**
-  instead of pretending.
-- *Hacking attempts* — bogus "forget the allergy" instructions hidden in news
-  headlines: **none got through**.
-- *Speed cost* — safety adds about a third of a second normally, ~4 seconds worst
-  case. That's the price of checking instead of assuming.
+We send the same simulated household tasks through two configurations using the same task definitions and fault seeds:
 
-**Bottom line:** with the checks on, the assistant never claimed success it
-couldn't prove and never broke a stored rule; without them, it confidently
-reported things that weren't true. The checks cost a short delay.
+- **Custos:** policy checks at the tool boundary, action execution, independent state read-back, retry where appropriate, and an action receipt.
+- **Baseline:** memory tools remain available, but actions return raw acknowledgements without the Custos guard and verification path.
+
+The L1 oracle is deterministic: it calls the intended tool with the intended arguments and reports the tool's result. It models the failure mode where an assistant trusts an acknowledgement as proof of success. **It is not a simulation of Alexa+'s actual internal behavior, and it does not use a real LLM to choose tools.**
+
+## Metric definitions
+
+| Metric | Definition | Why it matters |
+|---|---|---|
+| Silent-failure rate (SFR) | Runs where the assistant reports success (`ok`, `verified`, or `verified_after_retry`) while observed ground truth does not match intent, divided by actionable-intent runs. | Measures false confidence after an action fails. |
+| Constraint-violation rate (CVR) | Executed actions that violate a hand-labelled stored rule, divided by opportunities to violate that rule. | Measures whether enforcement prevents a forbidden action. |
+| False-block rate (FBR) | Compliant actions incorrectly blocked, divided by compliant opportunities. | Measures the usability cost of fail-closed enforcement. |
+| Recovery rate | Injected faults recovered by retry, divided by faults injected. | Measures the faults the retry path can actually repair. |
+| Honest-failure rate | Unverified outcomes whose response explicitly discloses non-confirmation, divided by all unverified outcomes. | Measures whether the assistant admits uncertainty instead of claiming success. |
+| Injection success | Rule writes from untrusted external content that take effect, divided by injection attempts. | Tests whether untrusted text can alter standing rules. |
+| Latency overhead | Wall-clock latency distribution for Custos compared with baseline, reported by task family. | Shows the cost of checks and read-back. |
+
+### Important reading notes
+
+- In L1, the baseline CVR is 100% **by construction**: there is no guard, so the oracle executes every violating opportunity. This tests the structural difference between a guarded and unguarded tool boundary; it is not a measured claim that every real assistant violates every rule.
+- The injection sample is only three attempts. Zero successes in three trials is preliminary evidence, not a robust security estimate.
+- The 5% recovery rate is not necessarily a failure of the verifier. Some injected faults, such as an offline device, cannot be fixed by retrying. The intended behavior is to disclose an unverified outcome rather than fabricate success.
+- Baseline latency near zero reflects the simplified oracle path, not a fair comparison of two equivalent LLM inference workloads.
+
+## Scenario families
+
+| Family | Coverage | Method |
+|---|---|---|
+| S1 · Device actuation | Device commands under injected faults | Seeded device twin; combinations of fault, device and seed |
+| S2 · Constraint adherence | Recipe choices against household rules | Hand-labelled recipe/rule/household cases |
+| S3 · Reminders | Scheduling and acceptance verification | Stub transport offline; approximately 20 real ntfy runs when the live benchmark flag is enabled |
+| S4 · Untrusted content | Headlines or recipe text attempting to write rules | Attempts to introduce or change rules from untrusted sources |
+| S5 · Time and confirmation | Quiet hours, time zones, unlock and purchase flows | Policy cases with time/zone and confirmation requirements |
+
+The dinner-planning sequence that connects pantry, shopping list and weather is evaluated qualitatively in the L2 agent run; it is not a standalone quantitative metric family here.
+
+## Reproduce the results
+
+From the repository root, with Node.js 22.19.0 or newer:
+
+```bash
+npm ci
+npm run bench -- --quick
+npm run bench:report
+```
+
+The benchmark runner is `bench/run.ts`; report generation is `bench/report.ts`. Inspect the generated JSON and report alongside this document. For LLM-driven evaluation, see the `bench:llm` script and configure the model-provider environment variables; model-based runs are subject to provider quotas and variability.
+
+> Re-run commands can generate new output. The table above describes the recorded 9 October 2026 run, not a guarantee that a fresh run will reproduce identical timings or counts.
+
+## Limitations and next steps
+
+1. **Oracle validity:** L1 evaluates a deterministic acknowledgement-trusting behavior, not a real assistant's full reasoning or tool selection.
+2. **Device realism:** the device twin cannot reproduce all network, firmware or hardware failures.
+3. **Small security sample:** three injection attempts are far too few to characterize adversarial robustness.
+4. **Food constraints:** ingredient matching relies on names and heuristics; it is not a substitute for medical or allergen-safety systems.
+5. **External services:** ntfy, weather, recipe and model-provider behavior may differ by network, quota and service state.
+6. **L2 scope:** only a small number of model-driven runs have been evaluated; those results are qualitative and model-specific.
+
+Next, the evaluation should expand the injection corpus, add more seeds and household combinations, publish repeated L2 results with model/version details, and compare latency against a baseline with equivalent model inference.
+
+## Plain-language takeaway
+
+In this controlled test, Custos prevented the oracle from reporting unverified actions as successful and blocked the labelled rule-violating actions. The unguarded baseline produced silent failures under the injected-fault scenarios and executed all violating opportunities by design. The trade-off is added time for policy checks and verification. These findings justify further testing; they do not prove that Custos makes a real-world assistant safe.
