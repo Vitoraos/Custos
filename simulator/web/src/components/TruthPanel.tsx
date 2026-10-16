@@ -42,6 +42,8 @@ export default function TruthPanel({
   const pantry = (ground.pantry as string[] | undefined) ?? [];
   const last = (ground.lastReceipt as Receipt | undefined) ?? null;
   const log = ((ground.receipts as Receipt[] | undefined) ?? []).slice(0, 20);
+  const notifyTopic =
+    typeof ground.notifyTopic === "string" ? ground.notifyTopic : null;
   const empty =
     Object.keys(devices).length === 0 &&
     rules.length === 0 &&
@@ -141,6 +143,23 @@ export default function TruthPanel({
                   </li>
                 ))}
               </ol>
+            )}
+            <h3>Phone notifications</h3>
+            {notifyTopic ? (
+              <div className="sub">
+                Reminders + shopping updates buzz this ntfy topic:{" "}
+                <a
+                  href={`https://ntfy.sh/${notifyTopic}`}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  {notifyTopic}
+                </a>{" "}
+                — open it in the ntfy app (Android/iOS) or browser and tap
+                Subscribe.
+              </div>
+            ) : (
+              <span className="sub">start a session to get a topic</span>
             )}
           </div>
         </div>

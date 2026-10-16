@@ -2,6 +2,7 @@
 import type { Hono } from "hono";
 import { streamSSE } from "hono/streaming";
 import { TWIN_DEVICES } from "../../src/adapters/devices/twin.js";
+import { topicFor } from "../../src/adapters/ntfy.js";
 import { listStandingRules } from "../../src/storage/memories.js";
 import type { Store } from "../../src/storage/store.js";
 import type { Deps } from "../../src/tools/context.js";
@@ -96,6 +97,7 @@ export function mountSim(
       rules,
       lastReceipt: last,
       receipts,
+      notifyTopic: topicFor(g.userId),
     });
   });
 
