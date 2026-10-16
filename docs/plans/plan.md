@@ -616,6 +616,27 @@ The simulator agent sees the MCP tools and the server's `instructions`; this exe
 
 **Validation:** review screenshots at desktop and mobile widths; verify contrast ratios; check the interface in grayscale and with common color-vision simulations; confirm every outcome remains understandable with color removed. Evaluate the actual request-to-receipt task, not subjective prettiness alone.
 
+**Designer video study: principles to borrow**
+The goal is not to copy a creator's visual style. Borrow the repeatable decisions behind polished interfaces and apply them to Custos's evidence-heavy workflow.
+
+- [Steve Schoger: Refactoring UI / WP Pusher checkout redesign](https://www.youtube.com/results?search_query=Steve+Schoger+Refactoring+UI+WP+Pusher+checkout): inspect the before/after and the reasoning. Borrow hierarchy through contrast and weight, restrained borders, intentional button emphasis, and fixing alignment/spacing before adding decoration. The lesson is to improve the existing interface through many small, coherent decisions rather than a dramatic reskin.
+- [Steve Schoger: How to Think Like a Visual Designer](https://www.youtube.com/results?search_query=Steve+Schoger+How+to+Think+Like+a+Visual+Designer): borrow the habit of asking what should attract attention first, second, and third. For Custos, the order should be verdict/evidence, observed state/receipt, then raw tool detail.
+- [DesignCourse: How to Use Figma for UI/UX Design in 2025](https://www.youtube.com/watch?v=cvm_ECH94x4): use its emphasis on visual hierarchy, typography, and practical iteration. Build a small set of text styles and reusable components before polishing individual screens.
+- [Flux Academy: Perfect Spacing for Web Designers](https://www.youtube.com/results?search_query=Flux+Academy+Perfect+Spacing+for+Web+Designers): borrow a consistent spacing rhythm, deliberate grouping, and readable line lengths. Related elements should be closer to each other than to unrelated sections; don't make every gap identical.
+- [Envato Tuts+: Creating a Figma Design System: Typography, Spacing, and Sizing](https://www.classcentral.com/course/youtube-creating-a-figma-design-system-typography-spacing-and-sizing-136436): borrow a limited type scale, defined line heights, repeatable sizing, and tokens that prevent one-off styling.
+- [Figma: Design for beginners (2025)](https://help.figma.com/hc/en-us/articles/30848209492887-Course-overview-Figma-Design-for-beginners-2025): use Auto Layout, components, variables, and responsive frames as the design-to-code discipline, not just as Figma-specific tricks.
+
+**Concrete decisions for Custos**
+- **Colour:** start with a near-white neutral canvas, ink text, neutral borders, and one muted forest-green brand accent. Use a deliberately small neutral ramp, then separate semantic status tokens. Avoid a palette made of multiple competing accent colours. Test the actual hex values; don't select them based on mood-board associations alone.
+- **Layout:** establish a clear page grid and a consistent maximum content width. Use the same alignment edges across header, composer, comparison columns, and evidence panel. Let the observed state/receipt section span the full content width because it is cross-cutting evidence.
+- **Spacing:** define a compact scale such as 4, 8, 12, 16, 24, 32, and 48 px, then use it consistently. Use larger gaps between sections and smaller gaps within related groups. Avoid arbitrary per-component margins and padding.
+- **Typography:** use one highly legible UI sans family for most text and a monospace face only for tool names, IDs, timestamps, and machine evidence. Start by evaluating Inter or Geist Sans against the existing font and loading/performance constraints; choose one, not both. Use a small hierarchy with distinct size, weight, and line-height values rather than styling every heading differently. Keep body copy comfortably readable; metadata should be secondary, not microscopic.
+- **Surfaces:** prefer spacing, alignment, and thin borders to stacked cards and shadows. A card is justified only when it groups information that belongs together. Avoid wrapping every line of the interface in its own box.
+- **Interaction:** one obvious primary action; secondary controls quieter. Use visible keyboard focus, stable loading states, clear disabled states, and short transitions only where they communicate state.
+- **Review loop:** first make a grayscale version to validate hierarchy, then apply the brand/status palette. Review the whole page at desktop, tablet, and mobile widths. Compare the old and new versions side by side and remove any element that adds decoration without improving understanding.
+
+These are implementation hypotheses drawn from practical design education, not laws. The final decisions should be judged against screenshots, contrast checks, responsive behavior, and how quickly a reviewer can understand a policy decision and its evidence.
+
 **Research basis**
 - [W3C WCAG 2.2: Use of Color](https://www.w3.org/WAI/WCAG22/Understanding/use-of-color): never make hue the only way to identify an action, state, or meaning.
 - [W3C WAI: Colors with Good Contrast](https://www.w3.org/WAI/perspectives/contrast.html): foreground/background contrast supports readability in varied lighting and for people with low contrast sensitivity.
