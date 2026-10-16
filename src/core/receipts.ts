@@ -29,6 +29,8 @@ export interface ReceiptStore {
     r: Omit<Receipt, "id" | "createdAt"> & { id?: string },
   ): Promise<Receipt>;
   latest(userId: string, tool?: string): Promise<Receipt | null>;
+  /** Newest-first session history (in-memory only; resets on restart). */
+  recent(userId: string, limit: number): Promise<Receipt[]>;
 }
 
 export class MemoryReceipts implements ReceiptStore {
@@ -61,5 +63,11 @@ export class MemoryReceipts implements ReceiptStore {
       (r) => r.userId === userId && (!tool || r.tool === tool),
     );
     return rows.length > 0 ? rows[rows.length - 1] : null;
+  }
+  async recent(userId: string, limit: number): Promise<Receipt[]> {
+    return this.rows
+      .filter((r) => r.userId === userId)
+      .slice(-Math.max(1, limit))
+      .reverse();
   }
 }

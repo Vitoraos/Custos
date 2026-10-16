@@ -101,6 +101,22 @@ export async function truth(guestId: string): Promise<Record<string, unknown>> {
   return r.json();
 }
 
+export interface RecipeCardData {
+  name: string;
+  ingredients: string[];
+}
+
+export async function fetchRecipe(
+  guestId: string,
+  query: string,
+): Promise<RecipeCardData> {
+  const r = await fetch(
+    `${API}/sim/recipe?guestId=${encodeURIComponent(guestId)}&query=${encodeURIComponent(query)}`,
+  );
+  if (!r.ok) throw new Error("recipe lookup failed");
+  return r.json();
+}
+
 export interface TheaterBeat {
   id: string;
   caption: string;
