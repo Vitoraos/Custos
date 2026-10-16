@@ -387,6 +387,7 @@ export default function App() {
                 turns={turns.filter((t) => t.col === "baseline")}
                 truthDevices={devices}
                 stage={live.baseline}
+                guestId={guestId}
               />
             )}
             <Column
@@ -397,6 +398,7 @@ export default function App() {
               turns={turns.filter((t) => t.col === "forge")}
               truthDevices={devices}
               stage={live.forge}
+              guestId={guestId}
             />
           </div>
           <TruthPanel ground={ground} />

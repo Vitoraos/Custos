@@ -12,6 +12,8 @@ interface Receipt {
   outcome: string;
   attempts: number;
   latencyMs: number;
+  createdAt?: string;
+  rulesChecked?: number;
   decision?: { checked?: string[]; reasons?: { text: string }[] };
 }
 
@@ -39,6 +41,7 @@ export default function TruthPanel({
   const shopping = (ground.shopping as string[] | undefined) ?? [];
   const pantry = (ground.pantry as string[] | undefined) ?? [];
   const last = (ground.lastReceipt as Receipt | undefined) ?? null;
+  const log = ((ground.receipts as Receipt[] | undefined) ?? []).slice(0, 20);
   const empty =
     Object.keys(devices).length === 0 &&
     rules.length === 0 &&
@@ -117,6 +120,27 @@ export default function TruthPanel({
                   <div key={r.text}>{r.text}</div>
                 ))}
               </div>
+            )}
+            <h3>Receipts log</h3>
+            {log.length === 0 ? (
+              <span className="sub">no actions yet this session</span>
+            ) : (
+              <ol className="receipt-log">
+                {log.map((r, i) => (
+                  <li key={`${r.tool}-${r.createdAt ?? i}`}>
+                    <strong>{r.tool}</strong> → {r.outcome}{" "}
+                    <span className="sub">
+                      {r.attempts} attempt{r.attempts === 1 ? "" : "s"} ·{" "}
+                      {r.latencyMs} ms
+                      {typeof r.rulesChecked === "number"
+                        ? ` · ${r.rulesChecked} rules`
+                        : r.decision?.checked
+                          ? ` · ${r.decision.checked.length} rules`
+                          : ""}
+                    </span>
+                  </li>
+                ))}
+              </ol>
             )}
           </div>
         </div>

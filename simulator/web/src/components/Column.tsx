@@ -1,3 +1,5 @@
+import { useState } from "react";
+import { fetchRecipe, type RecipeCardData } from "../api";
 import { foldSteps, type SimEventLike, type Step } from "../steps";
 import { badgeFor, type ToolTrace } from "../verdict";
 
@@ -64,7 +66,7 @@ function PlanView({ steps }: { steps: Step[] }) {
   );
 }
 
-function TraceView({ t }: { t: ToolTrace }) {
+function TraceView({ t, guestId }: { t: ToolTrace; guestId: string }) {
   return (
     <details className="trace">
       <summary>
@@ -72,7 +74,61 @@ function TraceView({ t }: { t: ToolTrace }) {
         {t.done && t.outcome ? ` → ${t.outcome}` : t.done ? " → done" : " …"}
       </summary>
       <pre>{JSON.stringify({ args: t.args, say: t.say }, null, 1)}</pre>
+      {t.name === "find_recipe" && t.done ? (
+        <RecipeCard
+          guestId={guestId}
+          query={
+            typeof (t.args as { query?: unknown } | undefined)?.query ===
+            "string"
+              ? ((t.args as { query: string }).query as string)
+              : ""
+          }
+        />
+      ) : null}
     </details>
+  );
+}
+
+function RecipeCard({ guestId, query }: { guestId: string; query: string }) {
+  const [open, setOpen] = useState(false);
+  const [card, setCard] = useState<RecipeCardData | null>(null);
+  const [failed, setFailed] = useState(false);
+  if (!query) return null;
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() => {
+          const next = !open;
+          setOpen(next);
+          setFailed(false);
+          if (next && !card) {
+            fetchRecipe(guestId, query).then(
+              (c) => setCard(c),
+              () => setFailed(true),
+            );
+          }
+        }}
+      >
+        {open ? "Hide recipe" : "View recipe"}
+      </button>
+      {open ? (
+        failed ? (
+          <span className="sub">recipe unavailable</span>
+        ) : card ? (
+          <div className="recipe-card">
+            <strong>{card.name}</strong>
+            <ul>
+              {card.ingredients.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
+          </div>
+        ) : (
+          <span className="sub">loading…</span>
+        )
+      ) : null}
+    </div>
   );
 }
 
@@ -84,6 +140,7 @@ export default function Column({
   turns,
   truthDevices,
   stage,
+  guestId,
 }: {
   name: "forge" | "baseline";
   title: string;
@@ -92,6 +149,7 @@ export default function Column({
   turns: Turn[];
   truthDevices?: Record<string, unknown>;
   stage: Stage;
+  guestId: string;
 }) {
   const counts: Record<string, number> = {};
   let stepsDone = 0;
@@ -177,7 +235,11 @@ export default function Column({
               </div>
               <PlanView steps={stepsForTurn(it.turn)} />
               {it.turn.traces.map((t) => (
-                <TraceView key={`${t.name}-${t.outcome ?? "open"}`} t={t} />
+                <TraceView
+                  key={`${t.name}-${t.outcome ?? "open"}`}
+                  t={t}
+                  guestId={guestId}
+                />
               ))}
             </div>
           ),

@@ -416,6 +416,27 @@ header.app h1 {
   max-height: var(--card-h);
   overflow: auto;
 }
+.receipt-log {
+  margin: var(--s2) 0 0;
+  padding-left: var(--s4);
+  font-size: var(--t-body-s);
+  max-height: var(--card-h);
+  overflow: auto;
+}
+.receipt-log li {
+  margin-bottom: var(--s1);
+}
+.recipe-card {
+  border: var(--bw) solid var(--line);
+  border-radius: var(--r2);
+  padding: var(--s2) var(--s3);
+  margin-top: var(--s2);
+  font-size: var(--t-body-s);
+}
+.recipe-card ul {
+  margin: var(--s1) 0 0;
+  padding-left: var(--s4);
+}
 .truth details {
   margin-top: var(--s3);
   font-size: var(--t-body-s);

@@ -15,6 +15,7 @@ import {
   guestKeys,
   issueGuest,
 } from "./guest.js";
+import { fetchRecipe } from "./recipes.js";
 import {
   applyBeatFault,
   assertBeat,
@@ -75,6 +76,18 @@ export function mountSim(
     const pantry = await store.listItems(g.userId, "pantry");
     const rules = await listStandingRules(store, g.userId);
     const last = await deps.receipts.latest(g.userId);
+    const receipts = (await deps.receipts.recent(g.userId, 20)).map((r) => ({
+      tool: r.tool,
+      outcome: r.outcome,
+      attempts: r.attempts,
+      latencyMs: r.latencyMs,
+      createdAt: r.createdAt,
+      rulesChecked: Array.isArray(
+        (r.decision as { checked?: unknown })?.checked,
+      )
+        ? ((r.decision as { checked?: unknown[] }).checked?.length ?? 0)
+        : 0,
+    }));
     return c.json({
       devices,
       faults,
@@ -82,7 +95,25 @@ export function mountSim(
       pantry,
       rules,
       lastReceipt: last,
+      receipts,
     });
+  });
+
+  // Recipe card data: re-runs find_recipe through the real MCP tool
+  // (same guard, same lists) and returns name + ingredients only.
+  app.get("/sim/recipe", async (c) => {
+    const g = getGuest(c.req.query("guestId") ?? "");
+    const query = (c.req.query("query") ?? "").slice(0, 100);
+    const k = g ? guestKeys(g.id) : null;
+    if (!g || !k || !query)
+      return c.json({ error: "need guestId + query" }, 400);
+    try {
+      const card = await fetchRecipe(mcpUrl, k.forgeKey, query);
+      if (!card) return c.json({ error: "no recipe found" }, 404);
+      return c.json(card);
+    } catch (e) {
+      return c.json({ error: (e as Error).message.slice(0, 200) }, 502);
+    }
   });
 
   // Chaos panel. Admin endpoint — never an MCP tool, so the LLM can't flip it.
