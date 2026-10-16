@@ -233,7 +233,7 @@ Use these as learning material and reference points, not as templates to copy bl
 - [Steve Schoger: How to Think Like a Visual Designer](https://www.youtube.com/results?search_query=Steve+Schoger+How+to+Think+Like+a+Visual+Designer) — visual hierarchy and purposeful styling.
 
 ### Layout and spacing
-- [Flux Academy: Perfect Spacing for Web Designers](https://www.classclassroom.com/) — use spacing to group information and establish rhythm. Replace this link with the specific course page if the resource moves.
+- [Flux Academy: Perfect Spacing for Web Designers](https://www.classcentral.com/course/youtube-perfect-spacing-for-web-designers-306869) — use spacing to group information and establish rhythm. Replace this link with the specific course page if the resource moves.
 - [Envato Tuts+: Creating a Figma Design System: Typography, Spacing and Sizing](https://www.classcentral.com/course/youtube-creating-a-figma-design-system-typography-spacing-and-sizing-136436) — consistent scales instead of arbitrary values.
 - [DesignCourse: How to Use Figma for UI/UX Design in 2025](https://www.youtube.com/watch?v=cvm_ECH94x4) — practical workflow and UI composition.
 - [Figma Design for Beginners (2025)](https://help.figma.com/hc/en-us/articles/30848209492887-Course-overview-Figma-Design-for-beginners-2025) — fundamentals and design workflow.
