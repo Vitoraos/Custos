@@ -38,7 +38,7 @@ guard+verification and return raw acks (the A/B control).
 |---|---|---|
 | `set_device_state` `{device, attr="power", value, confirmToken?}` | high for locks, else low | device twin (Supabase) / independent `read()` |
 | `set_reminder` `{text, inSeconds 10..259200 \| atLocal{day, time}, title?, confirmToken?}` | low | ntfy.sh scheduled push / acceptance attestation (id + scheduled time). `atLocal` is home-tz wall time ("tomorrow 07:00"). Delivery itself is not observable pre-fire (ntfy API limit, proven) — evidence says so. |
-| `update_shopping_list` `{list="shopping", ops[{add\|remove,item}]×20, confirmToken?}` | low; `purchase` rule -> confirm | Supabase `list_items` (dedupe_key) / re-query |
+| `update_shopping_list` `{list="shopping", ops[{add\|remove,item}]×20, confirmToken?}` | low; `purchase` rule -> confirm | Supabase `list_items` (dedupe_key) / re-query. One summary ntfy buzz per verified build with added items (suppressed during notification quiet hours; id in result data; best-effort, never fails the tool). |
 
 ## Reads (4 — surface closed at 12)
 

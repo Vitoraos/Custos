@@ -12,9 +12,12 @@ import {
   NtfyReminders,
   type ReminderCmd,
   type ReminderState,
+  scheduleReminder,
   topicFor,
 } from "../adapters/ntfy.js";
+import type { Constraint } from "../core/constraints.js";
 import { getLocale } from "../core/locale.js";
+import { evaluate } from "../core/policy.js";
 import { type ActionSpec, type RunContext, runAction } from "../core/verify.js";
 import type { Runner } from "./accountability.js";
 import {
@@ -33,6 +36,22 @@ function strip<T extends Record<string, unknown>>(
 ): { rest: Omit<T, "confirmToken">; token?: string } {
   const { confirmToken, ...rest } = args as T & { confirmToken?: string };
   return { rest, token: confirmToken };
+}
+
+// One summary buzz per completed list build (not per item).
+// Exported for unit tests.
+export function shoppingSummaryText(items: string[]): string {
+  return `Shopping list updated: ${items.join(", ")}`;
+}
+
+// True unless a quiet_hours rule covers notifications right now.
+export function shouldNotifyShopping(rules: Constraint[], now: Date): boolean {
+  const verdict = evaluate(
+    rules,
+    { type: "reminder", at: now, text: "shopping summary" },
+    { now, profiles: ["household"] },
+  ).verdict;
+  return verdict !== "block";
 }
 
 // ms until the next HH:MM wall-clock occurrence in tz ("today"|"tomorrow").
@@ -312,7 +331,7 @@ export function actionTools(deps: Deps) {
       {
         name: "update_shopping_list",
         description:
-          "Add/remove shopping list items. Guarded by allergen and diet rules, verified by re-query.",
+          "Add/remove shopping list items. Guarded by allergen and diet rules, verified by re-query. One summary push on verified builds with adds (quiet-hours aware).",
         annotations: {
           readOnlyHint: false,
           idempotentHint: true,
@@ -324,13 +343,37 @@ export function actionTools(deps: Deps) {
           const s = sessionOf(ctx);
           const c = await requestContextFor(deps, s);
           const { rest, token } = strip(args);
-          return envelope(
-            await runners.update_shopping_list(rest, {
-              ...(await runCtx(deps, s)),
-              confirmToken: token,
-            }),
-            c,
-          );
+          const rc = await runCtx(deps, s);
+          const result = await runners.update_shopping_list(rest, {
+            ...rc,
+            confirmToken: token,
+          });
+          // One summary buzz per verified list build — never a failure mode.
+          if (
+            (result.outcome === "verified" ||
+              result.outcome === "verified_after_retry") &&
+            rest.ops.some((o) => o.op === "add") &&
+            shouldNotifyShopping(rc.rules, new Date())
+          ) {
+            try {
+              const added = rest.ops
+                .filter((o) => o.op === "add")
+                .map((o) => o.item);
+              const conf = await scheduleReminder({
+                topic: topicFor(s.userId),
+                text: shoppingSummaryText(added),
+                title: "Custos shopping",
+                delayMs: 0,
+              });
+              result.data = {
+                ...((result.data as Record<string, unknown> | undefined) ?? {}),
+                notificationId: conf.id,
+              };
+            } catch {
+              // Notify is best-effort; the verified list change stands.
+            }
+          }
+          return envelope(result, c);
         },
       },
     ],
