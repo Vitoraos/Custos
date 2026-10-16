@@ -1,119 +1,199 @@
-# ContextForge — the accountability layer for Alexa+
+# Custos
 
-![check](https://github.com/Vitoraos/Custos/actions/workflows/check.yml/badge.svg)
-![license](https://img.shields.io/badge/license-MIT-green)
+![CI](https://github.com/Vitoraos/Custos/actions/workflows/check.yml/badge.svg)
+![License: MIT](https://img.shields.io/badge/license-MIT-green)
 
-Alexa+ remembers — but nothing **enforces** a remembered rule, **verifies** an
-action, or **receipts** a decision. ContextForge is that layer: standing rules
-enforced in code at the tool boundary, every action verified against real
-state, every decision receipted. One process: LLM-free MCP server + simulator
-window. **Live demo:** https://contextforge-8ssj.onrender.com · **Video:** `<VIDEO_URL>`
+**Custos is an accountability layer for AI assistants.** It checks remembered rules before an assistant acts, verifies actions against observed state, and records receipts explaining what happened.
 
-## Results (L1 oracle harness, seeded, CIs)
+An assistant saying “done” is not proof. Custos moves enforcement out of the prompt and into the tool boundary, where policy checks and verification can run even when a model ignores its instructions.
 
-| Metric | ContextForge | Baseline (memory only) |
+**[Read the architecture](docs/ARCHITECTURE.md)** · **[Review benchmark evidence](docs/BENCHMARK.md)** · **[Inspect the implementation](src/core/policy.ts)
+
+> Previously named ContextForge. Some package names, deployment labels, and older documents still use that name.
+
+## The problem Custos solves
+
+AI assistants can remember a preference without reliably applying it when they act. That leaves four gaps:
+
+- **Rules are remembered but ignored:** a stored vegan preference or severe allergy can be missed when planning a meal.
+- **Acknowledgements are mistaken for outcomes:** an assistant says a light is on because a tool returned an acknowledgement, even if the device state never changed.
+- **Decisions are hard to explain:** users cannot easily see which rules were checked or why an action was allowed or blocked.
+- **Untrusted content can influence behavior:** external text should not be allowed to rewrite standing household rules.
+
+A longer prompt or a larger memory does not structurally solve these problems. Custos puts policy checks at the tool boundary, verifies action results against observed state, and records receipts that explain the decision. The examples above describe failure modes the project is designed to test, not claims that every commercial assistant exhibits each behavior.
+
+## What reviewers should inspect
+
+**Reviewers do not need to run the simulator or configure an MCP client.** The fastest way to evaluate Custos is to read the architecture, inspect the enforcement path, and review the benchmark methodology. The simulator is a supporting demonstration, not a prerequisite for understanding the project.
+
+The simulator compares the same request across two paths:
+
+- **Without Custos:** the baseline returns raw tool acknowledgements without the Custos policy guard and independent verification.
+- **With Custos:** the policy engine evaluates the action, the execution path reads back state and retries where appropriate, and the system records a receipt.
+
+The Ground Truth panel displays simulated device state, standing rules, and the latest receipt independently of what either assistant says. This is a controlled demonstration using a device twin, not a connection to real Alexa+ devices.
+
+Suggested review order:
+
+1. Read [How it works](#how-it-works) for the core idea.
+2. Follow the [architecture and request lifecycle](docs/ARCHITECTURE.md).
+3. Inspect [`src/core/policy.ts`](src/core/policy.ts), [`src/core/verify.ts`](src/core/verify.ts), and [`src/core/receipts.ts`](src/core/receipts.ts).
+4. Read the [benchmark report](docs/BENCHMARK.md), including its assumptions and limitations.
+5. Treat the [hosted simulator](https://custos-one-black.vercel.app) as optional visual context, not as a required judging step.
+
+## Benchmark
+
+Custos is evaluated against a baseline that has access to memory but lacks the Custos policy guard and verification path. The benchmark measures silent failures, rule violations, false blocks, recovery from injected faults, honest reporting of unverified outcomes, injection attempts, and latency overhead.
+
+The current recorded L1 run uses a seeded deterministic oracle, not a real Alexa+ model. Its results demonstrate behavior under the harness's assumptions and should not be treated as proof of real-world safety. The baseline's 100% constraint-violation result is true by construction for that test setup.
+
+**[Read the benchmark report](docs/BENCHMARK.md)** for metric definitions, confidence intervals, scenario coverage, reproduction steps, raw result links, and limitations.
+
+## How it works
+
+1. **Remember:** household rules and preferences are stored as structured memories.
+2. **Evaluate:** a typed policy engine checks proposed actions against relevant constraints, including allergens, diets, quiet hours and confirmation requirements.
+3. **Act:** allowed actions pass through the action runner and adapter.
+4. **Verify:** the runner reads back the resulting state, retries once where appropriate, and distinguishes verified success from an unverified outcome.
+5. **Receipt:** the decision, expected state and observation are recorded so the assistant can explain what happened.
+
+The key design choice is that **policy enforcement is code at the tool boundary, not a sentence in the system prompt**.
+
+## Run locally (optional)
+
+Local setup is intended for contributors who want to modify or test the implementation. **Hackathon reviewers do not need to install dependencies, configure credentials, or run the simulator.**
+
+You need **Node.js 22.19.0 or newer** and npm. A Supabase project and an OpenRouter API key are optional for local simulator development; without them, the server can use in-memory storage and the UI can use replay mode.
+
+### Start the simulator
+
+```bash
+git clone https://github.com/Vitoraos/Custos.git
+cd Custos
+npm ci
+npm ci --prefix simulator/web
+npm run web:build
+npm run dev
+```
+
+Open **http://localhost:3000**. The server serves the API and the built simulator UI from one process. Use **Reset demo data** in the UI if you want a known starting state. For frontend hot reload during UI development, use a second terminal and run `npm run web:dev` (Vite runs on port 5173 and proxies API calls to port 3000).
+
+### Optional: enable persistent storage and live model calls
+
+1. Copy `.env.example` to `.env`.
+2. Add your Supabase project URL and **server-side service-role key** if you want persistent storage. Keep the service-role key private and never expose it in frontend code.
+3. Add an OpenRouter API key if you want live model-driven conversations. Without it, select Replay mode; free-tier quotas can run out.
+4. If using Supabase, apply the schema/migration and seed data as described in [the database setup](infra/migrations/001_v3.sql) and run:
+
+```bash
+npm run db:seed
+```
+
+Then start the server with `npm run dev`.
+
+### Verify your setup
+
+```bash
+npm run check       # TypeScript, Biome, and tests
+npm run web:build   # Build the simulator UI
+npm run web:tokens  # Check design-token discipline
+```
+
+For an API smoke test against a running server, create a key for the target deployment and use `npm run smoke -- --base http://localhost:3000 --key <cf_...>`. The key-creation command may require database configuration: `npm run keys:create -- --user demo --mode forge`.
+
+### Setup simplification opportunity
+
+A small `npm run setup` script could automate the Node version check, both installs, and the frontend build. It should preserve an existing `.env`, never fabricate credentials, and keep Supabase optional for replay mode. This is a proposed improvement; the command does not exist yet.
+
+## Architecture
+
+```text
+Browser / MCP client
+        |
+        v
+HTTP server: /sim/*, /health*, /mcp, static UI
+        |
+        v
+Authentication and per-user scope
+        |
+        v
+Policy engine -> action runner -> adapter
+                    |                |
+                    v                v
+                 Receipt        State read-back
+```
+
+The server hosts the simulator and MCP endpoint in one process. The MCP interface exposes the same tools used by the simulator, so the UI is a demonstration client rather than the enforcement boundary itself. Although Amazon documents an Alexa+ MCP add-on pathway, this repository should not be treated as an Alexa+-ready integration: add-on onboarding and compatibility have not been validated.
+
+### Technology stack
+
+| Layer | Technology | Why it is here |
 |---|---|---|
-| Silent-failure rate | 0.0% [0/156] (95% CI 0.0%–2.4%) | 31.4% [49/156] (95% CI 24.6%–39.1%) |
-| Constraint-violation rate | 0.0% [0/204] (95% CI 0.0%–1.8%) | 100.0% [204/204] (95% CI 98.2%–100.0%) |
-| False-block rate | 0.0% [0/576] (95% CI 0.0%–0.7%) | 0.0% [0/576] (95% CI 0.0%–0.7%) |
-| Fault recovery | 5.0% [6/120] | 0.0% [0/120] |
-| Honest failures | 100.0% [13/13] | n/a [0/0] |
-| Injection success | 0.0% [0/3] | 0.0% [0/3] |
-| Latency p50/p95 (S1) | 309/4442 ms | 0/1 ms |
+| Runtime | Node.js, TypeScript | One typed server process |
+| MCP server | FastMCP | Exposes tools to MCP-compatible clients |
+| Agent simulation | Strands Agents TypeScript SDK | Runs the model-driven comparison path |
+| Model provider | OpenRouter, OpenAI-compatible API | Optional model calls; replay mode remains available |
+| Policy and verification | In-repo TypeScript modules | Deterministic rule checks, state verification and receipts |
+| Persistence | Supabase / PostgreSQL | Memories, device state, API keys and action receipts |
+| Simulator UI | React, Vite, CSS | A/B comparison, ground truth and execution traces |
+| Adapters | Device twin, ntfy, Open-Meteo, TheMealDB, RSS | Demo actions and external data |
+| Quality checks | Vitest, Biome, GitHub Actions, gitleaks | Tests, linting and secret scanning |
+| Hosting | Render-compatible Node service | API, MCP endpoint and server-served UI |
 
-_L1 oracle harness, seed 7, 2026-10-09. Oracle = right-tool + report-what-the-tool-says (models ack-trusting behavior,
-not real Alexa+). Full results: `bench/results/2026-10-09.json`; chart: `bench/results/chart.svg`.
-Limits in `docs/BENCHMARK.md`._
+The stack is chosen to keep the demo inexpensive and inspectable. External services have free-tier constraints; the app can use in-memory storage and replay mode for local exploration.
 
-### What these results mean (plain language)
+## Repository guide
 
-**What we did:** we gave the same jobs (turn on lights, follow food rules,
-set reminders) to two versions of the assistant hundreds of times — one with
-ContextForge's safety checks on, one without — while randomly breaking things
-(weak signal, lost messages, dead devices), the way real homes break. An
-automated stand-in played the user so the test is repeatable.
+| Path | What you'll find |
+|---|---|
+| `src/core/policy.ts` | Policy decisions and constraint enforcement |
+| `src/core/verify.ts` | Action verification and recovery behavior |
+| `src/core/receipts.ts` | Action receipt creation |
+| `src/tools/` | Tools exposed to the assistant |
+| `src/adapters/` | Device twin and external-service adapters |
+| `simulator/api/` | Simulator routes and agent orchestration |
+| `simulator/web/` | A/B interface and Ground Truth panel |
+| `test/` | Unit, integration and live adapter tests |
+| `bench/` | Benchmark runner, report generator and recorded results |
+| `infra/` | Database schema, migrations, seed data and hosting config |
+| `docs/ARCHITECTURE.md` | Detailed architecture |
+| `docs/API.md` | Tool/API contract |
+| `docs/SECURITY.md` | Security model and threat considerations |
+| `docs/DEMO_SCRIPT.md` | Suggested hackathon demo sequence |
+| `docs/FRICTION_LOG.md` | Developer notes and feedback on tools used |
 
-**What each row means:**
-- *Silent failures* — the assistant said "done" but nothing actually happened.
-  The dangerous kind of wrong, because you'd never know. Ours: **zero**. Without
-  checks: **about 1 in 3**.
-- *Rule-breaking* — e.g. serving peanuts to someone with a peanut allergy.
-  Ours blocked every one (**0 in 204**); without enforcement, all went through.
-- *False alarms* — blocking something harmless (the cost of being strict).
-  Ours: **zero in 576 tries**.
-- *Recovery* — fixing a failed command by retrying: 5%. Low because some faults
-  (device offline) can't be retried into working — those become honest failures.
-- *Honest failures* — when it couldn't confirm, it said so **13 out of 13 times**
-  instead of pretending.
-- *Hacking attempts* — bogus "forget the allergy" instructions hidden in news
-  headlines: **none got through**.
-- *Speed cost* — safety adds about a third of a second normally, ~4 seconds worst
-  case. That's the price of checking instead of assuming.
+## Security and boundaries
 
-**Bottom line:** with the checks on, the assistant never claimed success it
-couldn't prove and never broke a stored rule; without them, it confidently
-reported things that weren't true. The checks cost a short delay.
+- API keys are hashed at rest and shown only when created.
+- User scope is derived from the authenticated key rather than a caller-supplied `user_id`.
+- Sensitive actions such as unlocking, purchases and removing safety constraints require confirmation.
+- External content is treated as untrusted and cannot directly rewrite standing rules.
+- Rate limits and secret scanning are included.
 
-## Try it in 60 seconds
+Read the [security notes](docs/SECURITY.md) for implementation details. This is a hackathon prototype, not a certification or a claim that every threat has been eliminated.
 
-1. Open https://contextforge-8ssj.onrender.com, press **Start** (guest key issued, 24h TTL).
-2. Type "I'm vegan and Maya has a peanut allergy" → hear the readback.
-3. "Plan dinner for four" → watch the columns diverge; check Ground Truth.
-4. Same server, any client: point MCP Inspector at `https://contextforge-8ssj.onrender.com/mcp` with
-   `Authorization: Bearer <key>` (mint one: `npm run keys:create -- --user demo
-   --mode forge` against your deploy). Same tools the simulator uses.
+## Current limitations
 
-## Architecture + tools
+- Devices are simulated. The current repository does not include a completed or validated Alexa+ add-on integration; compatibility, onboarding, authentication requirements and end-to-end enforcement coverage remain to be verified.
+- Ingredient matching uses heuristics and is not medical advice.
+- Reminder verification confirms scheduling/acceptance, not final delivery.
+- External services and free model tiers can be slow, unavailable or rate-limited.
+- Benchmark results are from controlled harnesses and should not be generalized to real-world assistants without further evaluation.
 
-One process: `/mcp` (FastMCP, stateless) → auth (key->user) → policy engine
-→ `runAction` (act, read back, retry) → adapters → receipts; plus `/health`,
-`/health/deep`, `/sim/*`, static UI. Diagram: `docs/ARCHITECTURE.md`.
-12 tools: `get_standing_rules`, `remember_rule`, `forget_memory`,
-`explain_last_action`, `confirm_action`, `set_device_state`, `set_reminder`,
-`update_shopping_list`, `find_recipe`, `get_weather`, `get_headlines`,
-`get_pantry`
-(contract: `docs/API.md`).
+## Judging guide
 
-## Run locally (5 commands)
+- **Problem and motivation:** [The problem Custos solves](#the-problem-custos-solves)
+- **Core technical contribution:** `src/core/policy.ts`, `src/core/verify.ts`, and tests
+- **Concept and mechanism:** [How it works](#how-it-works)
+- **Core implementation:** [`src/core/policy.ts`](src/core/policy.ts), [`src/core/verify.ts`](src/core/verify.ts), [`src/core/receipts.ts`](src/core/receipts.ts)
+- **Evidence and caveats:** [Benchmark methodology and results](docs/BENCHMARK.md)
+- **System design:** [Architecture and request lifecycle](docs/ARCHITECTURE.md)
+- **Optional visual context:** [Hosted simulator](https://custos-one-black.vercel.app)
 
-```
-npm install
-npm run check        # typecheck + lint + tests (93 green)
-npm run db:seed      # needs SUPABASE_URL + SERVICE_ROLE_KEY (.env)
-npm run dev          # :3000 — /mcp, /health/deep, /sim/*
-npm run smoke -- --base http://localhost:3000 --key <cf_...>
-```
+## Contributing and license
 
-Web UI: `npm run web:dev` (proxy to :3000) or `npm run web:build` (served by
-the same process). Benchmark: `npm run bench -- --quick && npm run bench:report`.
+Run `npm run check` before submitting changes. For UI work, also run `npm run web:build` and `npm run web:tokens`.
 
-## Security
+MIT License. © Vitoraos.
 
-Bearer keys (sha256 at rest, printed once), no `user_id` params, per-user
-scoping + RLS, confirm tokens for unlock/purchase/safety-removal, `untrusted`
-quarantine, rate limits, gitleaks CI. Details + threat model: `docs/SECURITY.md`.
-
-## Limitations (honest)
-
-Twin devices are simulated (verification pipeline is real, any adapter works);
-ingredient matching is heuristics, not medical advice; ntfy reminders verify
-*scheduling*, not delivery (ntfy has no pre-delivery read API — proven);
-ntfy delay 10s–3d; free-tier latencies; Alexa+ integration pending (same
-endpoint, any client).
-
-## Roadmap
-
-Real Alexa+ client, OAuth 2.1 resource-server mode, Home Assistant adapter,
-Kokoro voice, spend cap, `run_routine`.
-
-## Judging map
-
-Tech: `src/core` + `src/adapters` + tests. Design: one-process A/B simulator
-with Ground Truth. Impact: benchmark + receipts. Idea: enforcement at the
-tool boundary, not in the prompt.
-
-## License + acknowledgments
-
-MIT © Vitoraos. Built on FastMCP, Strands Agents SDK, Supabase, Render,
-ntfy.sh, Open-Meteo, TheMealDB — all free tiers. Friction log + product
-feedback: `docs/FRICTION_LOG.md`. What changed in-window: `docs/WHAT_CHANGED.md`.
+Built with FastMCP, Strands Agents SDK, Supabase, Render, ntfy, Open-Meteo and TheMealDB.
