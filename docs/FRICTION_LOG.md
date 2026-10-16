@@ -1,188 +1,53 @@
-# Friction Log — ContextForge
+# Developer friction log
 
-> A running diary of everything that slowed this build down, written for humans: what we expected,
-> what actually happened, and how we got past it. Newest entries first. This log doubles as the draft
-> for the submission's "product feedback for every tool/API/SDK used" section.
->
-> Structured index (Amazon submission format) — narrative entries follow below.
->
-> | Date | Product | Task attempted | Expected vs actual | Severity | Workaround | Suggestion |
-> |---|---|---|---|---|---|---|
-> | Oct 8 | ntfy.sh (poll API) | Read back a published message for verification | Expected the JSON API from the publishing docs; `GET /:topic/json?since=&poll=1` returns `application/x-ndjson` (one object per line), so `res.json()` fails on multi-message streams | minor | Parse NDJSON line-by-line with per-line Zod validation; skip `message_delete` events | Document the NDJSON shape + `poll=1` close-after-message behavior on the publishing page |
-> | Oct 8 | FastMCP 4.22.1 (positive) | `outputSchema` validation on tool returns | Expected silent schema drift; instead got precise errors (`evidence.expected: Invalid input…`) that caught a real bug (raw state stuffed into the evidence slot) on first run | n/a (praise) | Kept strict `outputSchema` on all 11 tools | Product feedback: validation messages are excellent; keep them this specific |
-> | Oct 5 | FastMCP 4.22.1 | Boot spike server on Windows, call over Streamable HTTP | Expected `127.0.0.1:4123` to accept; server binds IPv6 `localhost` only, `127.0.0.1` → ECONNREFUSED while `localhost` → 200 | minor | Use `http://localhost:<port>` in all dev/test clients; set `httpStream.host` explicitly for Render | Document default bind host; consider dual-binding or a startup log line showing the resolved address |
-> | Oct 2 | `npx serve` (npm cache) | Preview replay page on :3001 | Expected static server; got `ERR_MODULE_NOT_FOUND eastasianwidth` from corrupted cache | minor | Verified via Node built-in static server | (env-side, no upstream action) |
-> | Oct 2 | FastMCP (Streamable HTTP) | Raw-HTTP smoke test of MCP server | Expected JSON; got `4002/-32000 Not Acceptable` — missing `Accept` header (my bug) | minor | Always send `Accept: application/json, text/event-stream`, parse SSE `data:` lines | Keep the strict check; example raw-curl in docs would save 5 min |
-> | Oct 2 | Zod v4 | Port v2 spec idioms | Expected v3 idioms to compile; `z.record(z.any())` is v3 style | minor | Write v4 style throughout | n/a (our migration debt) |
-> | Oct 2 | OpenRouter free tier | Live workflow volume | 20/min, 50/day caps constrain retakes | major | One provider + quota-free replay mode; ~25 live runs/day budget | n/a (known free-tier limit) |
+I kept this log to remember where the tools got in my way, what I learned, and what I'd tell their maintainers. I focus on problems that cost real time or changed a design decision, rather than recording every routine command.
 
----
+## Summary
 
-## Oct 5 — Spike results: FastMCP binds IPv6 localhost on Windows (minor, real friction)
+| Date | Tool or dependency | What happened | How I handled it |
+|---|---|---|---|
+| 9 Oct | FastMCP 4.22.1 | Strict `outputSchema` validation caught a real mismatch between raw device state and the expected evidence shape. | I kept output schemas strict across the tools. The error was specific enough to locate the bug quickly. |
+| 8 Oct | ntfy polling API | The JSON endpoint returned newline-delimited JSON for multiple events, so calling `res.json()` on the whole response failed. | I parse each line separately, validate each event, and skip delete events. Clearer documentation of the stream format would help. |
+| 5 Oct | FastMCP on Windows | A request to `127.0.0.1:4123` failed with `ECONNREFUSED`, while `localhost:4123` worked against the same process. | I switched local clients to `localhost` and set the host explicitly for deployment. A startup log that names the resolved bind address would have saved debugging time. |
+| 2 Oct | `npx serve` | The local cached package failed with `ERR_MODULE_NOT_FOUND: eastasianwidth`; the server never started. | I stopped debugging the app and used Node's built-in server to verify the static files. This looked like a damaged local cache, not a project bug. |
+| 2 Oct | MCP Streamable HTTP | My raw HTTP test got `4002 / -32000 Not Acceptable` because I omitted the required `Accept` header. | I added `Accept: application/json, text/event-stream` and parsed the SSE `data:` frame. The server was right; my test client was incomplete. |
+| 2 Oct | Zod v4 | The older `z.record(z.any())` form from the draft did not match the installed Zod v4 API. | I updated schemas to the v4 form and checked the project against the installed package version. |
+| 2 Oct | OpenRouter free tier | The 20 requests/minute and 50 requests/day limits made repeated live demo runs expensive in quota. | I kept a single provider and made replay mode the fallback for quota-free rehearsals. |
+| 1 Oct | npm dependency resolution | Install failed because Strands required Zod v4 while the initial project spec pinned Zod v3. | I followed the installed SDK's peer requirements, upgraded Zod, and checked the resolved dependency tree. This was the biggest setup delay. |
+| 1 Oct | Initial spec / Strands TypeScript SDK | The draft depended on `createHarness()` and a LiteLLM provider path that were not available in the installed TypeScript SDK. | I checked the actual SDK docs and types, then used `OpenAIModel` with a custom OpenAI-compatible base URL. I should have verified the proposed imports before treating the spec as implementation-ready. |
+| 1 Oct | Initial spec / local scripts | A script used fixed Linux paths and a Unicode filename that did not survive the Windows shell's encoding cleanly. | I changed the script to resolve paths relative to itself and discover the target Markdown file instead of hard-coding the full filename. |
+| 1 Oct | Initial schema and adapter assumptions | Reviewing the initial spec exposed a nonexistent `created_at` column in an index, priority sorting that would be alphabetically wrong, and a malformed weather URL. | I fixed these before the affected paths shipped. They were cheap to catch in review and would have been more expensive after deployment. |
 
-Booting a FastMCP 4.22.1 spike server (`httpStream`, `stateless: true`) on Windows and calling
-it via raw fetch: `http://127.0.0.1:4123/mcp` → `ECONNREFUSED`, while `http://localhost:4123/mcp`
-→ `200` on the same process. The server binds IPv6 `localhost` only by default; nothing in the
-startup line (`Starting server in stateless mode on HTTP Stream at http://localhost:4123/mcp`)
-says which interface won. Ten minutes lost to suspecting my own code before trying `localhost`.
-Going forward every dev/test client uses `localhost`, and Render gets an explicit `httpStream.host`.
-Upstream ask: log the resolved bind address at startup, or dual-bind by default.
+## Notes from the build
 
-Same spike run closed S1–S5 (details in `docs/BUILD_ORDER.md` Phase 0): stateless `authenticate`
-→ per-request session readable in `execute`; `outputSchema` → `structuredContent` + text fallback;
-`getApp()` serves JSON + `streamSSE` + `serveStatic` alongside `/mcp`; Strands `McpClient`
-accepts `headers` (incl. `Authorization`); ntfy publish → id → `since=`+`poll=1` match → `DELETE`
-cancel all verified live. Blocked: S6/S7 need Supabase/OpenRouter keys (no `.env` yet) and the
-recording machine (browser TTS).
+### FastMCP: the error message was useful
 
----
+The schema validator caught a real output-shape bug early. I expected to spend time tracing a vague tool failure, but the message pointed to the mismatched field. I left `outputSchema` validation enabled rather than loosening the contract to get past the test.
 
-## Oct 2 — Simplification: OpenRouter-only, Cloudflare deleted, external keep-alive
+### Windows networking: `localhost` and `127.0.0.1` were not interchangeable
 
-Three cuts in one commit, all in the direction of less to own. First, the four-provider pool collapsed to
-a single OpenRouter endpoint. The pool existed to dodge the 50-request daily free cap, but it quadrupled
-key management and every take behaved slightly differently per provider; with twenty days for retakes, one
-provider at ~25 live workflows a day plus the quota-free replay is the calmer setup. `providers.ts` shrank
-to thirty lines, and `runWithFallback` kept its name and return shape so `workflow.ts` never noticed —
-though the rename is now a small lie we kept deliberately to avoid churn. The `usage` export died with the
-pool, which broke `execute_workflow.ts` exactly once (`TS2305`); removing the import and the `usage` spread
-fixed it, and the type checker confirmed the rest.
+My first instinct was to look for an application bug. The same server answered on `localhost`, which narrowed the issue to how the server bound its interface. I now use `localhost` for local testing and configure the host explicitly when deploying. FastMCP could make this easier to diagnose by printing the resolved address clearly at startup.
 
-Second, Cloudflare left the project entirely. Its API credentials existed only for Workers AI, which died
-with the pool, so the whole `infra/cloudflare/` tree followed — and with it the `wrangler` and tunnel
-references in the docs. The keep-alive cron moved to a free cron-job.org ping against `/health` instead of
-code, because the GitHub Actions alternative bills a minute per run and would burn through this private
-repo's 2,000 free minutes a month around day fourteen. No code, no minutes, no maintenance. Zero time lost
-to bugs; the work was all deletion, which is the best kind.
+### MCP's `Accept` header is easy to miss in a hand-written test
 
----
+The server rejected my first raw HTTP request because I had not declared that the client accepted both JSON and event streams. This was a client-side mistake, not a server defect. I added the header and parsed the SSE frame properly. A short raw-`curl` example in the docs would help people building their own smoke tests.
 
-## Oct 2 — `npx serve` refused to start (broken local cache, not our code)
+### Free model quotas changed how I rehearse
 
-I ran `npx serve demo/public -l 3001` to preview the replay page and got a wall of red:
-`ERR_MODULE_NOT_FOUND eastasianwidth`, thrown from deep inside `string-width` in the cached `serve`
-install. Nothing ever listened on port 3001. The demo files were fine — the package manager's local
-cache had a corrupted copy of `serve`, so this was purely environmental.
+OpenRouter's free tier is fine for development, but repeated runs burn through the daily cap quickly. I stopped treating live model calls as the only demo path and kept deterministic replays available. That gives me a predictable fallback for recording and judging without hiding the quota limitation.
 
-Rather than fight the cache, I verified all four assets (index.html, app.js, style.css,
-demo-fixtures.json) serve HTTP 200 using a small Node built-in static server. If `serve` still
-misbehaves at recording time, clearing the npx cache or pinning `serve` as a dev dependency will fix it.
-About ten minutes lost, minor severity.
+### The spec needed verification against the actual SDK
 
-## Oct 2 — Streamable HTTP rejected my test request (my bug, and a useful lesson)
+The early draft assumed a Strands TypeScript API that was not present in the installed package. Checking the types and documentation took less time than debugging code written against an imaginary import would have. I also caught the Zod major-version mismatch during installation. My takeaway: resolve the dependency tree and verify critical imports before expanding a long implementation plan.
 
-My first raw-HTTP smoke test of the MCP server came back with
-`4002/-32000 "Not Acceptable: Client must accept both application/json and text/event-stream"`.
-For a moment I suspected the server — but no, I had simply forgotten the `Accept` header. Streamable HTTP
-delivers responses as Server-Sent Events (`event: message` frames), so the server rightly insists clients
-declare they accept both JSON and event streams.
+## Feedback I'd give the maintainers
 
-The fix is a one-liner: always send `Accept: application/json, text/event-stream` and parse the `data:`
-line out of the SSE frame. Real Alexa+ clients already do this, so it will never bite in production — but
-anyone hand-rolling MCP HTTP calls will hit the same wall. Five minutes lost, minor.
+- **FastMCP:** keep the precise output-schema errors; log the resolved bind address at startup and document the default host behavior.
+- **ntfy:** make the newline-delimited response format and polling behavior more obvious in the API docs.
+- **MCP documentation:** include a minimal raw HTTP example with the required `Accept` header and an SSE response parser.
+- **OpenRouter:** the free-tier limits are clear enough to plan around, but a simple quota indicator would make repeated development runs easier to manage.
+- **Project/spec workflow:** verify package names, exports, peer dependencies and OS-specific paths against the installed toolchain before treating a proposed architecture as build-ready.
 
-## Oct 2 — Hardening the workflow runner beyond the spec
+## Adding an entry
 
-The v2 spec's `workflow.ts` worked as written, but reading it with adversarial eyes turned up three soft
-spots. First, `runStep` was private, so the retry and remediation paths couldn't be tested. Second, a
-planner running on a weak free model can hallucinate a tool name, which would have crashed the executor
-with a TypeError instead of degrading gracefully. Third, the spec used the Zod v3 idiom
-`z.record(z.any())`, and we had already moved to Zod v4.
-
-I exported the `Step`/`Trace` types and `checkPreferences`, made unknown tool names produce an error trace
-the verifier can see (instead of a crash), and switched to the v4 two-argument `z.record(z.string(), …)`
-form. Verification was satisfying: a poisoned recipe produced exactly 1 violation, the retry produced 0,
-and peanut, bad-JSON, error-step, and non-recipe edge cases all came back clean with zero false positives.
-Five minutes, minor.
-
-## Oct 2 — Resolving the spec's open question on reading Strands results
-
-The v2 spec carried an honest `VERIFY` marker: nobody had confirmed how to extract text from a Strands
-`invoke()` result in our SDK version — the draft used `String(result)` on faith. Digging into the
-installed `@strands-agents/sdk` 1.19.0 type definitions settled it: `AgentResult` has a `toString()`
-method that returns interrupts or structured output as JSON when present, and otherwise joins the text
-blocks. So the spec's guess was right, and I made it explicit — `providers.ts` now calls
-`result.toString()`, with a comment recording the SDK version so the next person doesn't re-derive it.
-Ten minutes of reading type definitions, minor.
-
-## Oct 1 — Dependency resolution blew up on install day
-
-The very first `npm install` failed outright: `@strands-agents/sdk@1.19.0` requires `zod@^4.1.12` as a peer,
-while our spec manifest pinned `zod@^3.0.0` — and `@modelcontextprotocol/sdk` and `openai` agreed with
-Strands, not us. The resolver refused to proceed (`ERESOLVE`), so nothing installed at all.
-
-The way forward was to side with the ecosystem over the spec: bump `zod` to `^4.1.12` (4.6.5 installed),
-then run `npm ls` and pin everything the resolver settled on — fastmcp 4.22.1, SDK 1.19.0, openai 6.49.0,
-supabase-js 2.117.2, tsx 4.23.15, TypeScript 5.9.3. Zod v4 stayed backward compatible for all our
-`z.object` schemas, and the later tool-registry tests confirmed it. Between the conflict and a first
-install attempt that hit the shell timeout (retry took 37 seconds), this cost about eleven minutes — the
-only major-severity entry of the build, and a lesson in pinning versions early.
-
-## Oct 1 — The spec's file paths didn't exist on Windows
-
-`update_spec.py` arrived with hardcoded Linux paths (`/mnt/user-data/uploads/…`, `/mnt/user-data/outputs/…`),
-and the spec file itself carries an em dash in its name (`ContextForge — …`), which shows up as a `�`
-replacement character in this machine's default encoding. Running the script as-is died immediately with
-`FileNotFoundError`.
-
-I renamed it to `tools/generate_v2_spec.py`, made it resolve paths from its own location, and — since the
-exact Unicode filename is a trap for every future script — made it auto-detect the first non-v2 Markdown
-file in `docs/spec/` instead of naming the file at all. It now prints `written 1729 lines, MISSING: []`,
-which is exactly what you want to see from a migration script. Ten minutes, major, and a standing rule for
-hackathon starters: relative paths, ASCII-safe filenames.
-
-## Oct 1 — Three spec bugs caught before they could bite (all pre-build)
-
-The v1 spec, the seed file's own comments, and the migration script triangulated three defects before a
-single line of project code existed — the cheapest possible time to find them:
-
-**A phantom column.** The schema indexed `workflow_executions(user_id, created_at DESC)`, but the table
-has `started_at` and no `created_at` at all. Running that `CREATE INDEX` would have failed on first
-contact with Supabase. The v2 schema indexes `started_at` instead (`infra/schema.sql`). Would have been a
-blocker; cost us zero minutes.
-
-**Alphabetical priorities.** Ordering conversation context by the text column `priority DESC` sorts
-*medium > low > high* — exactly backwards from intent. The v2 schema adds a generated `priority_rank`
-column (high=3, medium=2, low=1) and sorts on that; a live query later confirmed `priority_rank=3` comes
-back first. Major if uncaught; zero minutes.
-
-**A wrong weather URL.** The original `wttr.in` call embedded units in the format string (`?format=u3`),
-but units are a separate query flag (`?format=3&u` vs `&m`) — the format string only controls layout.
-Fixed in `src/agent/tools.ts`. Minor; zero minutes.
-
-## Oct 1 — The Strands TypeScript SDK had no `createHarness` (spec relied on it)
-
-This was the highest-stakes discovery of the project. The v1 spec built everything around
-`createHarness()` from `@strands-agents/harness` with `provider: 'litellm'` — but LiteLLM is a
-Python-only provider, and that package and function simply don't exist in the TypeScript SDK. Had we
-coded to the spec, nothing would have compiled.
-
-About twenty minutes in the Strands docs (especially the OpenAI provider page) revealed the intended
-route: the TypeScript SDK reaches any OpenAI-compatible endpoint through `OpenAIModel` with a custom
-`clientConfig: { baseURL }`. So `src/agent/providers.ts` uses one model class pointed at four different
-base URLs, with `runWithFallback()` rotating across them. Blocker severity, resolved by reading the
-actual SDK instead of trusting the draft. Feedback for the spec authors: verify imports against the
-installed package before finalizing.
-
-## Oct 1 — OpenRouter's free tier couldn't carry a development cycle
-
-The v1 plan assumed a single OpenRouter key would cover the whole build. The numbers say otherwise: 20
-requests per minute, **50 per day** (1,000 only after a $10 lifetime purchase), failed requests counting
-against the quota — while a single v1-style workflow burned roughly 8–10 LLM calls. One enthusiastic
-afternoon of testing would have ended development for the day.
-
-That constraint reshaped the architecture (the v2 redesign): a provider pool of Groq (30/min, 1,000/day)
-→ Cloudflare Workers AI (10,000 neurons/day) → Gemini → OpenRouter last, with automatic fallback; a
-deterministic executor that cut cost to 2 LLM calls per workflow; and `DEMO_MODE` plus the static replay
-page so recording never spends a single LLM call. Fifteen minutes of quota research that paid for the
-whole project. Blocker severity. Feedback for OpenRouter: the limits page is admirably precise — more
-providers should document free tiers this clearly.
-
----
-
-## How to add an entry
-
-When something costs you more than five minutes, add a section at the top in this same voice: date and
-tool as the heading, then what you expected, what actually happened (paste the error verbatim), how you
-got past it, roughly how long it took, and — when the friction belongs to an upstream tool — what you'd
-tell its authors. Future-you, the judges, and the submission's product-feedback section will all thank you.
+When a tool costs me meaningful time or forces a design change, I add the date, the expectation, what actually happened, the fix, and any feedback that might help the next developer. I keep the original error when it makes the issue reproducible.

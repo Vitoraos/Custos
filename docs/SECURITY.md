@@ -15,5 +15,5 @@ Threat model (asset / threat / mitigation / residual risk):
 
 Responsible disclosure: open a GitHub issue titled `[security]` (no exploit
 details) or contact the repo owner; please allow 7 days before any disclosure.
-See `docs/STACK.md` for the full tool surface and `docs/BENCHMARK.md` for the
-injection (S4) numbers.
+See the root `README.md` for the technology stack and `docs/BENCHMARK.md` for
+the injection (S4) results and their limitations.
