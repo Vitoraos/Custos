@@ -211,14 +211,26 @@ export default function App() {
         const left = (async () => {
           handleEvent({ col: "baseline", type: "column_start" });
           for (const fx of beat.alexa) {
-            await new Promise((res) => setTimeout(res, 350));
+            await new Promise((res) => setTimeout(res, 180));
             handleEvent({ col: "baseline", ...fx });
           }
           handleEvent({ col: "baseline", type: "column_done" });
         })();
+        // Watchdog: a stalled stream must not freeze the whole demo.
+        const ctrl = new AbortController();
+        const watchdog = setTimeout(() => ctrl.abort(), 45000);
         const right = (async () => {
-          for await (const ev of chat(gid, beat.input as string, ["forge"]))
-            handleEvent(ev);
+          try {
+            for await (const ev of chat(
+              gid,
+              beat.input as string,
+              ["forge"],
+              ctrl.signal,
+            ))
+              handleEvent(ev);
+          } finally {
+            clearTimeout(watchdog);
+          }
         })();
         await Promise.all([left, right]);
       }
@@ -248,7 +260,7 @@ export default function App() {
     const list = await ensureBeats();
     for (let i = 0; i < list.length; i++) {
       await runBeat(i, gid);
-      await new Promise((res) => setTimeout(res, 700));
+      await new Promise((res) => setTimeout(res, 120));
     }
   }
 

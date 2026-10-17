@@ -74,7 +74,7 @@
     }
   ],
   "devices": {
-    "kitchen_light": { "power": "on" },
+    "kitchen_light": { "power": "off" },
     "hall_light": { "power": "off" },
     "thermostat": { "temp_c": 22 },
     "front_door_lock": { "locked": true },

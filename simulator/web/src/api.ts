@@ -56,11 +56,13 @@ export async function* chat(
   guestId: string,
   text: string,
   cols?: ("forge" | "baseline")[],
+  signal?: AbortSignal,
 ): AsyncGenerator<SimEvent, void, void> {
   const r = await fetch(`${API}/sim/chat`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ guestId, text, ...(cols ? { cols } : {}) }),
+    ...(signal ? { signal } : {}),
   });
   if (!r.ok || !r.body) {
     const err = (await r.json().catch(() => ({ error: r.statusText }))) as {

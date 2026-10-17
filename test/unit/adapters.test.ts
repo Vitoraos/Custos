@@ -1,9 +1,34 @@
 import { describe, expect, it } from "vitest";
-import { DeviceTwin } from "../../src/adapters/devices/twin.js";
+import {
+  DeviceTwin,
+  normalizeDevice,
+} from "../../src/adapters/devices/twin.js";
 import { ShoppingLists } from "../../src/adapters/lists.js";
 import { MemoryStore } from "../../src/storage/store.js";
 
+describe("normalizeDevice", () => {
+  it("maps spoken names to canonical keys", () => {
+    expect(normalizeDevice("kitchen light")).toBe("kitchen_light");
+    expect(normalizeDevice("Kitchen Light")).toBe("kitchen_light");
+    expect(normalizeDevice("hall lights")).toBe("hall_light");
+    expect(normalizeDevice("front door lock")).toBe("front_door_lock");
+    expect(normalizeDevice("thermostat")).toBe("thermostat");
+  });
+  it("rejects unknown devices loudly", () => {
+    expect(() => normalizeDevice("bedroom lamp")).toThrow(/unknown device/);
+  });
+});
+
 describe("DeviceTwin", () => {
+  it("writes a spoken device name under its canonical key", async () => {
+    const t = new DeviceTwin(new MemoryStore());
+    await t.write(
+      "u",
+      { device: "kitchen light", attr: "power", value: "off" },
+      "k1",
+    );
+    expect(await t.read("u", "kitchen_light")).toEqual({ power: "off" });
+  });
   it("applies writes and reads them back", async () => {
     const t = new DeviceTwin(new MemoryStore());
     await t.write(

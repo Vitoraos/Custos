@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { fetchRecipe, type RecipeCardData } from "../api";
+import { stateWord, toolLabel } from "../humanize";
 import { foldSteps, type SimEventLike, type Step } from "../steps";
 import { badgeFor, type ToolTrace } from "../verdict";
 
@@ -34,50 +35,58 @@ function stepsForTurn(turn: Turn): Step[] {
   return foldSteps(events);
 }
 
-function PlanView({ steps }: { steps: Step[] }) {
-  if (steps.length === 0) return null;
-  return (
-    <ol className="plan">
-      {steps.map((s, i) => (
-        <li key={`${s.tool}-${s.attempt}`} className={`step ${s.state}`}>
-          <code>{s.tool}</code>
-          {s.attempt > 1 ? (
-            <span className="sub">retry {s.attempt}</span>
-          ) : null}{" "}
-          <span className="sub">{s.state}</span>
-          {s.note ? <span className="sub"> — {s.note}</span> : null}
-          {i === steps.length - 1 && s.args !== undefined ? (
-            <details className="trace">
-              <summary>args</summary>
-              <pre>{JSON.stringify(s.args, null, 1)}</pre>
-            </details>
-          ) : null}
-        </li>
-      ))}
-    </ol>
-  );
+function queryOf(t: ToolTrace): string {
+  const q = (t.args as { query?: unknown } | undefined)?.query;
+  return typeof q === "string" ? q : "";
 }
 
-function TraceView({ t, guestId }: { t: ToolTrace; guestId: string }) {
+// One clean timeline per turn: human labels, friendly states, and a click to
+// reveal what happened. Raw JSON hides under "Technical details".
+function Timeline({ turn, guestId }: { turn: Turn; guestId: string }) {
+  const steps = stepsForTurn(turn);
+  if (steps.length === 0) return null;
   return (
-    <details className="trace">
-      <summary>
-        tool {t.name}
-        {t.done && t.outcome ? ` → ${t.outcome}` : t.done ? " → done" : " …"}
-      </summary>
-      <pre>{JSON.stringify({ args: t.args, say: t.say }, null, 1)}</pre>
-      {t.name === "find_recipe" && t.done ? (
-        <RecipeCard
-          guestId={guestId}
-          query={
-            typeof (t.args as { query?: unknown } | undefined)?.query ===
-            "string"
-              ? ((t.args as { query: string }).query as string)
-              : ""
-          }
-        />
-      ) : null}
-    </details>
+    <ol className="timeline">
+      {steps.map((s) => {
+        const trace = [...turn.traces].reverse().find((t) => t.name === s.tool);
+        const detail = s.note ?? trace?.say;
+        return (
+          <li key={`${s.tool}-${s.attempt}`} className={`tstep ${s.state}`}>
+            <span className="dot" aria-hidden="true" />
+            <details>
+              <summary>
+                <span className="tstep-label">{toolLabel(s.tool)}</span>
+                {s.attempt > 1 ? (
+                  <span className="sub"> · retry {s.attempt}</span>
+                ) : null}
+                <span className="tstep-state">{stateWord(s.state)}</span>
+              </summary>
+              <div className="tstep-body">
+                {detail ? <p>{detail}</p> : null}
+                {s.tool === "find_recipe" && trace?.done ? (
+                  <RecipeCard guestId={guestId} query={queryOf(trace)} />
+                ) : null}
+                <details className="tech">
+                  <summary>Technical details</summary>
+                  <pre>
+                    {JSON.stringify(
+                      {
+                        tool: s.tool,
+                        args: trace?.args ?? s.args,
+                        outcome: trace?.outcome,
+                        say: trace?.say,
+                      },
+                      null,
+                      1,
+                    )}
+                  </pre>
+                </details>
+              </div>
+            </details>
+          </li>
+        );
+      })}
+    </ol>
   );
 }
 
@@ -225,14 +234,7 @@ export default function Column({
                   ) : null;
                 })()}
               </div>
-              <PlanView steps={stepsForTurn(it.turn)} />
-              {it.turn.traces.map((t) => (
-                <TraceView
-                  key={`${t.name}-${t.outcome ?? "open"}`}
-                  t={t}
-                  guestId={guestId}
-                />
-              ))}
+              <Timeline turn={it.turn} guestId={guestId} />
             </div>
           ),
         )}

@@ -190,6 +190,23 @@ describe("actions + receipts", () => {
       await c.close();
     }
   });
+  it("spoken device name + boolean value land on the canonical key", async () => {
+    const c = await client(keys.forge);
+    try {
+      const r = await call(c, "set_device_state", {
+        device: "kitchen light",
+        attr: "power",
+        value: false,
+      });
+      expect(r.outcome).toBe("verified");
+      expect(r.say).toContain("is off");
+      expect(await store.getDevice("alice", "kitchen_light")).toEqual({
+        power: "off",
+      });
+    } finally {
+      await c.close();
+    }
+  });
   it("lost_ack fault surfaces as unverified, never false-verified", async () => {
     await store.setFaults("alice", {
       profile: "lost_ack",

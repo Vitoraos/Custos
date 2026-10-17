@@ -193,8 +193,24 @@ export function actionTools(deps: Deps) {
       });
     };
 
+  // Models send power as true/false or "on"/"off" interchangeably. Normalize to
+  // the seeded "on"/"off" form BEFORE policy/verify so the read-back comparison
+  // and the stored value agree (and the say reads "is on", not "is false").
+  function normValue(
+    attr: string,
+    v: string | number | boolean,
+  ): string | number | boolean {
+    if (attr !== "power") return v;
+    if (v === true || v === "true") return "on";
+    if (v === false || v === "false") return "off";
+    return v;
+  }
+
   const runners: Record<string, Runner> = {
-    set_device_state: run(deviceSpec),
+    set_device_state: run(deviceSpec, (_rc, a) => ({
+      ...a,
+      value: normValue(a.attr, a.value),
+    })),
     set_reminder: run(reminderSpec, (rc, a) => ({
       ...a,
       topic: topicFor(rc.userId),
