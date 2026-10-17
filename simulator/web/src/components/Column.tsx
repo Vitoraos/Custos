@@ -142,6 +142,8 @@ export default function Column({
   truthDevices,
   stage,
   guestId,
+  disabled = false,
+  disabledNote = "paused",
 }: {
   name: "forge" | "baseline";
   title: string;
@@ -151,6 +153,8 @@ export default function Column({
   truthDevices?: Record<string, unknown>;
   stage: Stage;
   guestId: string;
+  disabled?: boolean;
+  disabledNote?: string;
 }) {
   const counts: Record<string, number> = {};
   let stepsDone = 0;
@@ -199,8 +203,9 @@ export default function Column({
 
   return (
     <section
-      className={`panel col-${name}`}
+      className={`panel col-${name}${disabled ? " disabled" : ""}`}
       aria-label={title}
+      aria-disabled={disabled || undefined}
       data-stage={stage}
     >
       <div className="col-head">
@@ -208,7 +213,8 @@ export default function Column({
           {title}
           <span className="sub">{sub}</span>
         </h2>
-        {stageNote} {tally ? <span className="tally">{tally}</span> : null}
+        {disabled ? <span className="sub">{disabledNote}</span> : stageNote}{" "}
+        {tally ? <span className="tally">{tally}</span> : null}
       </div>
       <div className="feed">
         {items.map((it) =>
