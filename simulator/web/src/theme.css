@@ -35,6 +35,7 @@
   /* ——— radii (two only) ——— */
   --r2: 6px;
   --r3: 12px;
+  --r-pill: 999px;
 
   /* ——— hairlines ——— */
   --bw: 1px;
@@ -332,8 +333,8 @@ header.app h1 {
   }
 }
 
-/* ——— plan timeline (derived step states) ——— */
-.plan {
+/* ——— turn timeline: one clean, clickable list of what happened ——— */
+.timeline {
   list-style: none;
   margin: var(--s2) 0 0;
   padding: 0;
@@ -342,16 +343,59 @@ header.app h1 {
   gap: var(--s1);
   font-size: var(--t-body-s);
 }
-.step code {
-  font-family: var(--mono);
+.tstep {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s2);
 }
-.step.done {
+.tstep .dot {
+  flex: none;
+  width: var(--s2);
+  height: var(--s2);
+  border-radius: 50%;
+  margin-top: var(--s3);
+  background: var(--ledger);
+}
+.tstep.done .dot {
+  background: var(--ok);
+}
+.tstep.failed .dot {
+  background: var(--danger);
+}
+.tstep.pending .dot {
+  background: var(--warn);
+}
+.tstep.working .dot {
+  background: var(--neutral);
+  animation: pulse 1.2s ease-in-out infinite;
+}
+.tstep summary {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s2);
+  cursor: pointer;
+  padding: var(--s1) 0;
+}
+.tstep.done .tstep-label {
   color: var(--ok);
 }
-.step.failed {
+.tstep.failed .tstep-label {
   color: var(--danger);
 }
-.step.pending {
+.tstep-state {
+  color: var(--ink-dim);
+  font-size: var(--t-caption);
+}
+.tstep-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+  margin-left: var(--s2);
+  padding-left: var(--s3);
+  border-left: var(--bw) solid var(--line);
+}
+.tstep-body p {
+  margin: 0;
   color: var(--ink-dim);
 }
 /* Staged columns: the waiting column dims until its turn. */
@@ -389,22 +433,18 @@ header.app h1 {
   width: var(--bw);
   background: var(--ledger);
 }
-.trace {
+.tech {
   display: flex;
   flex-direction: column;
   gap: var(--s1);
-  margin-left: var(--s3);
-  padding-left: var(--s3);
-  border-left: var(--bw) solid var(--line);
   font-size: var(--t-body-s);
 }
-.trace summary {
+.tech summary {
   cursor: pointer;
+  color: var(--ink-dim);
   font-family: var(--mono);
-  font-size: var(--t-body-s);
-  line-height: var(--lh-mono);
 }
-.trace pre {
+.tech pre {
   font-family: var(--mono);
   font-size: var(--t-body-s);
   line-height: var(--lh-mono);
@@ -533,22 +573,38 @@ header.app h1 {
 }
 .input {
   display: flex;
+  align-items: center;
   gap: var(--s2);
   margin-top: var(--s4);
   position: sticky;
-  bottom: 0;
-  background: var(--bg);
-  padding: var(--s2) 0;
+  bottom: var(--s2);
+  background: var(--card);
+  border: var(--bw) solid var(--line);
+  border-radius: var(--r-pill);
+  box-shadow: var(--lift);
+  padding: var(--s1) var(--s1) var(--s1) var(--s4);
+}
+.input:focus-within {
+  outline: var(--bw2) solid var(--teal);
+  outline-offset: var(--s1);
 }
 .input input {
   flex: 1;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
   font-size: var(--t-body);
-  padding: var(--s2) var(--s3);
+  padding: 0;
   min-height: var(--touch);
+}
+.input input:focus,
+.input input:focus-visible {
+  outline: none;
 }
 .input button {
   min-height: var(--touch);
-  padding: 0 var(--s4);
+  padding: 0 var(--s6);
+  border-radius: var(--r-pill);
 }
 
 /* ——— browser surfaces carry the ledger too ——— */

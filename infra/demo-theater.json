@@ -49,10 +49,9 @@
       ],
       "assertRight": [
         {
-          "kind": "device",
-          "device": "kitchen_light",
-          "attr": "power",
-          "equals": "on"
+          "kind": "receipt",
+          "tool": "set_device_state",
+          "outcome": "unverified"
         }
       ]
     },

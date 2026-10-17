@@ -19,6 +19,28 @@ export interface TwinCmd {
 }
 export type TwinState = Record<string, string | number | boolean>;
 
+const CANON = new Set<string>(TWIN_DEVICES);
+
+// Map a spoken name ("kitchen light", "hall lights") to its canonical key.
+// Without this the twin writes a phantom row under the raw name and verifies
+// against itself, so the UI (which reads canonical keys) never changes.
+export function normalizeDevice(name: string): string {
+  const slug = name
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+  for (const c of [
+    slug,
+    slug.replace(/_lights$/, "_light"),
+    slug.replace(/s$/, ""),
+  ])
+    if (CANON.has(c)) return c;
+  throw new Error(
+    `unknown device "${name}" — known: ${TWIN_DEVICES.join(", ")}`,
+  );
+}
+
 function mulberry(seed: number): () => number {
   let s = seed | 0;
   return () => {
@@ -49,14 +71,15 @@ export class DeviceTwin implements ActionAdapter<TwinCmd, TwinState> {
     cmd: TwinCmd,
     idemKey: string,
   ): Promise<{ ackId?: string }> {
+    const device = normalizeDevice(cmd.device);
     const fault = await this.store.getFaults(userId);
     const p = Number(fault.params.p ?? 0.3);
     const seed = Number(fault.params.seed ?? 1);
     const ms = Number(fault.params.ms ?? 2000);
-    const rand = (): number => draw(seed + cmd.device.length, idemKey);
+    const rand = (): number => draw(seed + device.length, idemKey);
     const apply = async (): Promise<void> => {
-      const cur = (await this.store.getDevice(userId, cmd.device)) ?? {};
-      await this.store.setDevice(userId, cmd.device, {
+      const cur = (await this.store.getDevice(userId, device)) ?? {};
+      await this.store.setDevice(userId, device, {
         ...cur,
         [cmd.attr]: cmd.value,
       });
@@ -82,6 +105,7 @@ export class DeviceTwin implements ActionAdapter<TwinCmd, TwinState> {
     return { ackId: `twin-${Date.now()}` };
   }
   async read(userId: string, device: string): Promise<TwinState> {
-    return ((await this.store.getDevice(userId, device)) ?? {}) as TwinState;
+    return ((await this.store.getDevice(userId, normalizeDevice(device))) ??
+      {}) as TwinState;
   }
 }
