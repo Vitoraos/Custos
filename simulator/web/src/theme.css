@@ -51,18 +51,19 @@
   --card-h: 30vh;
   --touch: 40px;
 
-  /* ——— colour: page + text (ledger paper) ——— */
-  --bg: #f5f2e9;
-  --panel: #fffdf6;
-  --ink: #211d15;
+  /* ——— colour: page + text (ledger paper; page 85%, surfaces 100%) ——— */
+  --paper: #f5f2e9;
+  --bg: rgb(245 242 233 / 85%);
+  --panel: var(--paper);
+  --ink: #1c1810;
   --ink-dim: #6f6759;
   --line: #ddd3bd;
   --ledger: #e9e2cf;
 
-  /* ——— colour: columns ——— */
-  --custos: #146c2e;
-  --custos-ink: #0d4d20;
-  --custos-tint: #146c2e18;
+  /* ——— colour: columns (brand accent = teal; baseline stays warm to contrast) ——— */
+  --custos: var(--teal);
+  --custos-ink: var(--teal-ink);
+  --custos-tint: var(--teal-tint);
   --baseline: #9a3412;
   --baseline-ink: #7c2d12;
   --baseline-tint: #9a341218;
@@ -78,37 +79,44 @@
   --neutral-bg: #e8edf3;
 
   /* ——— colour: bubbles + chips ——— */
-  --bubble-you: #e8eefc;
+  --bubble-you: #e0efec;
   --bubble-asst: #efede8;
   --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 
-  /* ——— font, teal accent, floating cards, page gradient ——— */
-  --font: ui-rounded, "Segoe UI", "Trebuchet MS", system-ui, sans-serif;
+  /* ——— font (humanist sans), teal accent, surfaces, page gradient ——— */
+  --font:
+    Candara, Optima, "Gill Sans Nova", "Trebuchet MS", "Segoe UI", Ubuntu,
+    system-ui, sans-serif;
   --teal: #0d9488;
   --teal-ink: #0f766e;
   --teal-tint: #0d94881f;
-  --card: #ffffff;
-  --paper-2: #efe9d8;
+  --card: var(--paper);
+  --teal-wash: #cfe7e3;
+  --paper-2: #e9e0cc;
   --lift: 0 3px 8px rgba(33, 29, 21, 0.16);
-  --page: linear-gradient(
-    165deg,
-    #d8ebe7 0%,
-    var(--bg) 42%,
-    var(--paper-2) 100%
-  );
+  /* page = paper at 85% layered over a teal gradient (teal reads through) */
+  --page:
+    linear-gradient(var(--bg), var(--bg)),
+    linear-gradient(
+      160deg,
+      var(--teal-wash) 0%,
+      var(--paper) 45%,
+      var(--paper-2) 100%
+    );
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #14120e;
-    --panel: #1f1c15;
+    --paper: #14120e;
+    --bg: rgb(20 18 14 / 85%);
+    --panel: #1c1912;
     --ink: #ece5d3;
     --ink-dim: #a89e88;
     --line: #373126;
     --ledger: #28241a;
-    --custos: #4cc38a;
-    --custos-ink: #a7e8c7;
-    --custos-tint: #4cc38a1f;
+    --custos: var(--teal);
+    --custos-ink: var(--teal-ink);
+    --custos-tint: var(--teal-tint);
     --baseline: #f59e0b;
     --baseline-ink: #fcd34d;
     --baseline-tint: #f59e0b1f;
@@ -120,20 +128,23 @@
     --danger-bg: #3a0d0b;
     --neutral: #94a3b8;
     --neutral-bg: #232b36;
-    --bubble-you: #2b3a55;
+    --bubble-you: #123c38;
     --bubble-asst: #262420;
     --teal: #2dd4bf;
     --teal-ink: #5eead4;
     --teal-tint: #2dd4bf1f;
-    --card: #1f1c15;
-    --paper-2: #14120e;
+    --card: #1c1912;
+    --teal-wash: #10302d;
+    --paper-2: #0f1d1b;
     --lift: 0 3px 8px rgba(0, 0, 0, 0.5);
-    --page: linear-gradient(
-      165deg,
-      #0f2b29 0%,
-      var(--bg) 42%,
-      var(--paper-2) 100%
-    );
+    --page:
+      linear-gradient(var(--bg), var(--bg)),
+      linear-gradient(
+        160deg,
+        var(--teal-wash) 0%,
+        var(--paper) 45%,
+        var(--paper-2) 100%
+      );
   }
 }
 
@@ -181,7 +192,7 @@ header.app {
   position: sticky;
   top: 0;
   z-index: 10;
-  background: var(--bg);
+  background: var(--panel);
   display: flex;
   flex-wrap: wrap;
   gap: var(--s3);
@@ -626,6 +637,22 @@ header.app h1 {
 .receipt::-webkit-scrollbar-thumb {
   background: var(--line);
   border-radius: var(--r2);
+}
+
+/* Custos-only mode: comparison column stays in place, greyed and inert.
+   (Kept after the .feed rules so specificity never descends.) */
+.panel.disabled {
+  filter: grayscale(1);
+  opacity: 0.6;
+}
+.panel.disabled .feed {
+  opacity: 0.8;
+  pointer-events: none;
+}
+p.hint {
+  color: var(--ink-dim);
+  font-size: var(--t-body-s);
+  margin: var(--s3) 0 0;
 }
 
 /* Last block wins: reduced-motion override needs no !important. */

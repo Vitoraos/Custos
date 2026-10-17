@@ -29,6 +29,10 @@ export default function App() {
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [muted, setMuted] = useState(false);
+  // One column at a time: ▶ Play runs the scripted WITHOUT-Custos demo alone
+  // (scripting), then Custos is driven prompt by prompt (scriptDone).
+  const [scripting, setScripting] = useState(false);
+  const [scriptDone, setScriptDone] = useState(false);
   const [speaking, setSpeaking] = useState(false);
   const [beats, setBeats] = useState<TheaterBeat[] | null>(null);
   const [disclaimer, setDisclaimer] = useState("");
@@ -52,6 +56,7 @@ export default function App() {
       setGuestId(d.guestId);
       setUserMsgs([]);
       setTurns([]);
+      setScriptDone(false);
       partial.current = { forge: "", baseline: "" };
       turnId.current = { forge: null, baseline: null };
       setGround(await truth(d.guestId));
@@ -170,21 +175,54 @@ export default function App() {
     }
   }
 
+  // Manual turns run Custos alone (the WITHOUT column is scripted, never
+  // live). A pasted scripted prompt also re-applies that beat's fault and
+  // scores both phases' end-state checks.
   async function send(text: string) {
     const t = text.trim();
-    if (!t || busy || !guestId) return;
+    if (!t || busy || scripting || !scriptDone || !guestId) return;
+    const list = beats ?? (await ensureBeats());
+    const idx = list.findIndex(
+      (b) => b.input && b.input.toLowerCase() === t.toLowerCase(),
+    );
+    const beat = idx >= 0 ? list[idx] : undefined;
     setBusy(true);
     setUserMsgs((m) => [...m, { id: nid(), text: t }]);
     setLive({ forge: "idle", baseline: "idle" });
     setInput("");
+    if (beat) setBeatIndex(idx);
     try {
-      for await (const ev of chat(guestId, t)) handleEvent(ev);
+      if (beat) await theaterFault(guestId, beat.id);
+      // Watchdog: a stalled stream must not wedge the composer.
+      const ctrl = new AbortController();
+      const watchdog = setTimeout(() => ctrl.abort(), 45000);
+      try {
+        for await (const ev of chat(guestId, t, ["forge"], ctrl.signal))
+          handleEvent(ev);
+      } finally {
+        clearTimeout(watchdog);
+      }
     } finally {
       setBusy(false);
       try {
         setGround(await truth(guestId));
       } catch {
         // ignore
+      }
+      if (beat) {
+        try {
+          const [leftA, rightA] = await Promise.all([
+            theaterAssert(guestId, beat.id, "left"),
+            theaterAssert(guestId, beat.id, "right"),
+          ]);
+          setAsserts((a) => ({
+            ...a,
+            [`${beat.id}:left`]: leftA.results,
+            [`${beat.id}:right`]: rightA.results,
+          }));
+        } catch {
+          // ignore
+        }
       }
     }
   }
@@ -197,7 +235,9 @@ export default function App() {
     return t.beats;
   }
 
-  // One beat: the simulated column (fixtures) and Custos (live) run together.
+  // One beat of the scripted run: the WITHOUT-Custos column plays its canned
+  // fixtures alone. Custos never runs here - it is driven afterwards, prompt
+  // by prompt (see docs/DEMO-PROMPTS.md), and the checks are scored then.
   async function runBeat(i: number, gid: string) {
     const list = await ensureBeats();
     const beat = list[i];
@@ -208,41 +248,13 @@ export default function App() {
       await theaterFault(gid, beat.id);
       if (beat.input) {
         setUserMsgs((m) => [...m, { id: nid(), text: beat.input as string }]);
-        const left = (async () => {
-          handleEvent({ col: "baseline", type: "column_start" });
-          for (const fx of beat.alexa) {
-            await new Promise((res) => setTimeout(res, 180));
-            handleEvent({ col: "baseline", ...fx });
-          }
-          handleEvent({ col: "baseline", type: "column_done" });
-        })();
-        // Watchdog: a stalled stream must not freeze the whole demo.
-        const ctrl = new AbortController();
-        const watchdog = setTimeout(() => ctrl.abort(), 45000);
-        const right = (async () => {
-          try {
-            for await (const ev of chat(
-              gid,
-              beat.input as string,
-              ["forge"],
-              ctrl.signal,
-            ))
-              handleEvent(ev);
-          } finally {
-            clearTimeout(watchdog);
-          }
-        })();
-        await Promise.all([left, right]);
+        handleEvent({ col: "baseline", type: "column_start" });
+        for (const fx of beat.alexa) {
+          await new Promise((res) => setTimeout(res, 180));
+          handleEvent({ col: "baseline", ...fx });
+        }
+        handleEvent({ col: "baseline", type: "column_done" });
       }
-      const [leftA, rightA] = await Promise.all([
-        theaterAssert(gid, beat.id, "left"),
-        theaterAssert(gid, beat.id, "right"),
-      ]);
-      setAsserts((a) => ({
-        ...a,
-        [`${beat.id}:left`]: leftA.results,
-        [`${beat.id}:right`]: rightA.results,
-      }));
       setGround(await truth(gid));
       setBeatIndex(Math.min(i + 1, list.length - 1));
     } finally {
@@ -250,17 +262,25 @@ export default function App() {
     }
   }
 
-  // Play: re-seed the household, then run every beat end to end.
+  // Play: re-seed the household, then run the whole scripted WITHOUT-Custos
+  // demo on its own. When it finishes, Custos wakes up and takes the prompts.
   async function playDemo() {
-    if (busy) return;
+    if (busy || scripting) return;
     const gid = await boot();
     if (!gid) return;
     setAsserts({});
     setBeatIndex(0);
-    const list = await ensureBeats();
-    for (let i = 0; i < list.length; i++) {
-      await runBeat(i, gid);
-      await new Promise((res) => setTimeout(res, 120));
+    setScripting(true);
+    try {
+      const list = await ensureBeats();
+      for (let i = 0; i < list.length; i++) {
+        await runBeat(i, gid);
+        await new Promise((res) => setTimeout(res, 120));
+      }
+    } finally {
+      setScripting(false);
+      setScriptDone(true);
+      setBeatIndex(0);
     }
   }
 
@@ -277,7 +297,7 @@ export default function App() {
           <button
             type="button"
             onClick={() => void playDemo()}
-            disabled={busy || !guestId}
+            disabled={busy || scripting || !guestId}
           >
             ▶ Play demo
           </button>
@@ -346,6 +366,19 @@ export default function App() {
               })}
             </section>
           ) : null}
+          {scripting ? (
+            <p className="hint">
+              Scripted run in progress: the WITHOUT-Custos column is playing the
+              whole demo on its own. Custos stays parked until it finishes.
+            </p>
+          ) : null}
+          {scriptDone && !scripting ? (
+            <p className="hint">
+              Script finished. Paste the prompts from docs/DEMO-PROMPTS.md into
+              the box one at a time — each one wakes Custos alone and scores
+              that beat's checks.
+            </p>
+          ) : null}
           <div className="cols">
             <Column
               name="baseline"
@@ -356,6 +389,8 @@ export default function App() {
               truthDevices={devices}
               stage={live.baseline}
               guestId={guestId}
+              disabled={scriptDone && !scripting}
+              disabledNote="paused — script already played"
             />
             <Column
               name="forge"
@@ -366,6 +401,12 @@ export default function App() {
               truthDevices={devices}
               stage={live.forge}
               guestId={guestId}
+              disabled={scripting || !scriptDone}
+              disabledNote={
+                scripting
+                  ? "parked — scripted run in progress"
+                  : "press ▶ Play first"
+              }
             />
           </div>
           <TruthPanel ground={ground} />
@@ -379,10 +420,12 @@ export default function App() {
             <input
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="type a request…"
+              placeholder={
+                scriptDone ? "paste a prompt for Custos…" : "press ▶ Play first"
+              }
               aria-label="Message"
             />
-            <button type="submit" disabled={busy}>
+            <button type="submit" disabled={busy || scripting || !scriptDone}>
               Send
             </button>
           </form>
