@@ -60,6 +60,44 @@ async function columnAgent(
   return ready;
 }
 
+// Agent-boundary recipe gate.
+// The SDK's McpTool drops structuredContent, so the tool's `say` text is the
+// only authoritative signal that survives at this layer. find_recipe's `say`
+// shapes (src/tools/reads.ts):
+//   ok:      "<name>. Checked against your rules."
+//   blocked: "Every candidate conflicts with a standing rule. <reason>"
+// The model has been observed confabulating a blocked recipe ("Jiggs Dinner")
+// into its final answer, so we never surface a recipe the tool did not pick.
+export interface RecipeOutcome {
+  blocked: boolean;
+  picked?: string;
+  say: string;
+}
+
+const RECIPE_MARKER = ". Checked against your rules.";
+const RECIPE_BLOCKED = "Every candidate conflicts";
+
+/** Pure parse of a find_recipe `say` into the tool's authoritative outcome. */
+export function recipeOutcome(say: string): RecipeOutcome | null {
+  const s = say.trim();
+  if (!s) return null;
+  if (s.startsWith(RECIPE_BLOCKED)) return { blocked: true, say: s };
+  const i = s.indexOf(RECIPE_MARKER);
+  const picked = (i >= 0 ? s.slice(0, i) : s).trim();
+  return { blocked: false, picked: picked || undefined, say: s };
+}
+
+/** Pure gate: the surfaced recipe must equal the tool's `picked`, never free-text. */
+export function gateFinal(
+  modelText: string,
+  recipe?: RecipeOutcome | null,
+): string {
+  if (!recipe) return modelText;
+  if (recipe.blocked) return recipe.say;
+  if (recipe.picked && modelText.includes(recipe.picked)) return modelText;
+  return recipe.say;
+}
+
 function deltaText(ev: { event?: unknown }): string {
   // Defensive walk of ModelStreamEvent shapes -> text delta, else "".
   const stack: unknown[] = [ev.event];
@@ -136,6 +174,8 @@ export async function* runColumn(
     };
     return;
   }
+  // Last authoritative recipe outcome this turn (see gateFinal above).
+  let recipe: RecipeOutcome | null = null;
   try {
     for await (const ev of agent.stream(text) as AsyncGenerator<
       { type?: string } & Record<string, unknown>,
@@ -159,6 +199,10 @@ export async function* runColumn(
         const raw = (ev as { result?: unknown }).result;
         const { outcome, say, text: full } = toolResultOutcome(raw);
         const use = (ev as { toolUse?: { name?: string } }).toolUse;
+        if (use?.name === "find_recipe") {
+          const parsed = recipeOutcome(say ?? full);
+          if (parsed) recipe = parsed;
+        }
         yield {
           col,
           type: "tool_result",
@@ -169,11 +213,8 @@ export async function* runColumn(
         };
       } else if (t === "agentResultEvent") {
         const res = (ev as { result?: { toString(): string } }).result;
-        yield {
-          col,
-          type: "final",
-          text: String(res?.toString?.() ?? res ?? ""),
-        };
+        const text = String(res?.toString?.() ?? res ?? "");
+        yield { col, type: "final", text: gateFinal(text, recipe) };
       }
     }
   } catch (e) {

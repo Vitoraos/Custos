@@ -5,6 +5,9 @@ export interface Voice {
   readonly speaking: boolean;
 }
 
+// Minimum gap between utterances so rapid demo events don't clip each other.
+const GAP_MS = 180;
+
 class WebSpeechVoice implements Voice {
   private queue: string[] = [];
   private busy = false;
@@ -34,14 +37,12 @@ class WebSpeechVoice implements Voice {
     const next = this.queue.shift() as string;
     return new Promise((resolve) => {
       const u = new SpeechSynthesisUtterance(next);
-      u.onend = () => {
+      const resume = () => {
         this.busy = false;
-        void this.drain().then(resolve);
+        window.setTimeout(() => void this.drain().then(resolve), GAP_MS);
       };
-      u.onerror = () => {
-        this.busy = false;
-        void this.drain().then(resolve);
-      };
+      u.onend = resume;
+      u.onerror = resume;
       window.speechSynthesis.speak(u);
     });
   }

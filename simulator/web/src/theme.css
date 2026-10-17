@@ -50,12 +50,13 @@
   --card-h: 30vh;
   --touch: 40px;
 
-  /* ——— colour: page + text ——— */
-  --bg: #f7f6f3;
-  --panel: #ffffff;
-  --ink: #1c1a17;
-  --ink-dim: #6b655a;
-  --line: #e2ddd2;
+  /* ——— colour: page + text (ledger paper) ——— */
+  --bg: #f5f2e9;
+  --panel: #fffdf6;
+  --ink: #211d15;
+  --ink-dim: #6f6759;
+  --line: #ddd3bd;
+  --ledger: #e9e2cf;
 
   /* ——— colour: columns ——— */
   --custos: #146c2e;
@@ -79,15 +80,31 @@
   --bubble-you: #e8eefc;
   --bubble-asst: #efede8;
   --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  /* ——— font, teal accent, floating cards, page gradient ——— */
+  --font: ui-rounded, "Segoe UI", "Trebuchet MS", system-ui, sans-serif;
+  --teal: #0d9488;
+  --teal-ink: #0f766e;
+  --teal-tint: #0d94881f;
+  --card: #ffffff;
+  --paper-2: #efe9d8;
+  --lift: 0 3px 8px rgba(33, 29, 21, 0.16);
+  --page: linear-gradient(
+    165deg,
+    #d8ebe7 0%,
+    var(--bg) 42%,
+    var(--paper-2) 100%
+  );
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #141311;
-    --panel: #1e1c19;
-    --ink: #ece7dd;
-    --ink-dim: #a39c8e;
-    --line: #35322b;
+    --bg: #14120e;
+    --panel: #1f1c15;
+    --ink: #ece5d3;
+    --ink-dim: #a89e88;
+    --line: #373126;
+    --ledger: #28241a;
     --custos: #4cc38a;
     --custos-ink: #a7e8c7;
     --custos-tint: #4cc38a1f;
@@ -104,16 +121,28 @@
     --neutral-bg: #232b36;
     --bubble-you: #2b3a55;
     --bubble-asst: #262420;
+    --teal: #2dd4bf;
+    --teal-ink: #5eead4;
+    --teal-tint: #2dd4bf1f;
+    --card: #1f1c15;
+    --paper-2: #14120e;
+    --lift: 0 3px 8px rgba(0, 0, 0, 0.5);
+    --page: linear-gradient(
+      165deg,
+      #0f2b29 0%,
+      var(--bg) 42%,
+      var(--paper-2) 100%
+    );
   }
 }
 
 /* ——— base ——— */
 body {
-  font-family:
-    ui-sans-serif, system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-family: var(--font);
   font-size: var(--t-body);
   line-height: var(--lh-body);
-  background: var(--bg);
+  background: var(--page);
+  background-attachment: fixed;
   color: var(--ink);
   margin: 0;
   padding: 0 var(--s4) var(--s8);
@@ -146,7 +175,7 @@ main {
   font-size: var(--t-body);
 }
 
-/* ——— header (sticky) ——— */
+/* ——— docket header (double-entry rule) ——— */
 header.app {
   position: sticky;
   top: 0;
@@ -158,6 +187,7 @@ header.app {
   align-items: center;
   justify-content: space-between;
   padding: var(--s3) 0;
+  border-top: var(--bw2) solid var(--ink);
   border-bottom: var(--bw) solid var(--line);
 }
 header.app h1 {
@@ -262,11 +292,14 @@ header.app h1 {
   color: var(--ink-dim);
 }
 
-/* ——— verdict badges (text + icon, never colour-alone) ——— */
+/* ——— verdict stamps (text-first, never colour-alone) ——— */
 .badge {
   display: inline-block;
+  font-family: var(--mono);
   font-size: var(--t-caption);
   font-weight: 600;
+  text-transform: uppercase;
+  border: var(--bw) solid currentColor;
   border-radius: var(--r2);
   padding: 0 var(--s2);
   margin-left: var(--s2);
@@ -326,11 +359,35 @@ header.app h1 {
   opacity: 0.45;
 }
 
-/* ——— per-turn tool timeline ——— */
+/* ——— ledger entries: numbered turns beside a witness rule ——— */
+.feed {
+  counter-reset: entry;
+}
 .turn {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: var(--s2);
+  padding-left: var(--s12);
+  counter-increment: entry;
+}
+.turn::before {
+  content: counter(entry, decimal-leading-zero);
+  position: absolute;
+  left: 0;
+  top: 0;
+  font-family: var(--mono);
+  font-size: var(--t-caption);
+  color: var(--ink-dim);
+}
+.turn::after {
+  content: "";
+  position: absolute;
+  left: var(--s8);
+  top: 0;
+  bottom: 0;
+  width: var(--bw);
+  background: var(--ledger);
 }
 .trace {
   display: flex;
@@ -338,11 +395,8 @@ header.app h1 {
   gap: var(--s1);
   margin-left: var(--s3);
   padding-left: var(--s3);
-  border-left: var(--bw2) solid var(--line);
+  border-left: var(--bw) solid var(--line);
   font-size: var(--t-body-s);
-}
-.col-forge .trace {
-  border-color: var(--custos-tint);
 }
 .trace summary {
   cursor: pointer;
@@ -365,18 +419,35 @@ header.app h1 {
   grid-template-columns: repeat(auto-fit, minmax(var(--tile-min), 1fr));
   gap: var(--s3);
 }
+.truth-grid h3 {
+  margin-top: var(--s4);
+  margin-bottom: var(--s1);
+}
+.truth-grid h3:first-child {
+  margin-top: 0;
+}
+.tally,
+.tile .state,
+.receipt,
+.receipt-log {
+  font-variant-numeric: tabular-nums;
+}
 .truth h2 {
   font-size: var(--t-h2);
   line-height: var(--lh-head);
 }
 .tiles {
   display: flex;
+  flex-direction: row;
   flex-wrap: wrap;
+  align-items: stretch;
   gap: var(--s2);
 }
 .tile {
   border: var(--bw) solid var(--line);
   border-radius: var(--r2);
+  background: var(--card);
+  box-shadow: var(--lift);
   padding: var(--s2) var(--s3);
   font-size: var(--t-body-s);
   min-width: calc(var(--s8) * 4);
@@ -478,6 +549,27 @@ header.app h1 {
 .input button {
   min-height: var(--touch);
   padding: 0 var(--s4);
+}
+
+/* ——— browser surfaces carry the ledger too ——— */
+::selection {
+  background: var(--teal-tint);
+}
+:focus-visible {
+  outline: var(--bw2) solid var(--teal);
+  outline-offset: var(--s1);
+}
+.input input {
+  caret-color: var(--teal);
+}
+.feed::-webkit-scrollbar,
+.receipt::-webkit-scrollbar {
+  width: var(--s2);
+}
+.feed::-webkit-scrollbar-thumb,
+.receipt::-webkit-scrollbar-thumb {
+  background: var(--line);
+  border-radius: var(--r2);
 }
 
 /* Last block wins: reduced-motion override needs no !important. */

@@ -34,20 +34,12 @@ function stepsForTurn(turn: Turn): Step[] {
   return foldSteps(events);
 }
 
-const STEP_ICON: Record<Step["state"], string> = {
-  working: "⟳",
-  done: "✓",
-  failed: "✗",
-  pending: "…",
-};
-
 function PlanView({ steps }: { steps: Step[] }) {
   if (steps.length === 0) return null;
   return (
     <ol className="plan">
       {steps.map((s, i) => (
         <li key={`${s.tool}-${s.attempt}`} className={`step ${s.state}`}>
-          <span aria-hidden="true">{STEP_ICON[s.state]}</span>{" "}
           <code>{s.tool}</code>
           {s.attempt > 1 ? (
             <span className="sub">retry {s.attempt}</span>
@@ -70,7 +62,7 @@ function TraceView({ t, guestId }: { t: ToolTrace; guestId: string }) {
   return (
     <details className="trace">
       <summary>
-        ⚙ {t.name}
+        tool {t.name}
         {t.done && t.outcome ? ` → ${t.outcome}` : t.done ? " → done" : " …"}
       </summary>
       <pre>{JSON.stringify({ args: t.args, say: t.say }, null, 1)}</pre>
@@ -189,7 +181,7 @@ export default function Column({
   );
   const stageNote =
     stage === "running" ? (
-      <span className="badge pending">⟳ working</span>
+      <span className="badge pending">working</span>
     ) : stage === "done" ? (
       <span className="badge info">done</span>
     ) : (

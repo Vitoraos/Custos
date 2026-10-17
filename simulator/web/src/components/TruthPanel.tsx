@@ -85,21 +85,25 @@ export default function TruthPanel({
                 ))
               )}
             </div>
-            <h3>Shopping list</h3>
             {shopping.length === 0 ? null : (
-              <ul>
-                {shopping.map((item) => (
-                  <li key={item}>{item}</li>
-                ))}
-              </ul>
+              <>
+                <h3>Shopping list</h3>
+                <ul>
+                  {shopping.map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ul>
+              </>
             )}
-            <h3>Pantry</h3>
             {pantry.length === 0 ? null : (
-              <ul>
-                {pantry.map((item) => (
-                  <li key={item}>{item}</li>
-                ))}
-              </ul>
+              <>
+                <h3>Pantry</h3>
+                <ul>
+                  {pantry.map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ul>
+              </>
             )}
           </div>
           <div>

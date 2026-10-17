@@ -29,8 +29,6 @@ export default function App() {
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [muted, setMuted] = useState(false);
-  const [mode, setMode] = useState<"ab" | "forge" | "replay" | "demo">("ab");
-  const [replayName, setReplayName] = useState("dinner.json");
   const [speaking, setSpeaking] = useState(false);
   const [beats, setBeats] = useState<TheaterBeat[] | null>(null);
   const [disclaimer, setDisclaimer] = useState("");
@@ -47,7 +45,7 @@ export default function App() {
   });
   const timer = useRef(0);
 
-  const boot = useCallback(async () => {
+  const boot = useCallback(async (): Promise<string | null> => {
     setLoadError("");
     try {
       const d = await loadDemo();
@@ -57,17 +55,19 @@ export default function App() {
       partial.current = { forge: "", baseline: "" };
       turnId.current = { forge: null, baseline: null };
       setGround(await truth(d.guestId));
+      return d.guestId;
     } catch (e) {
       setLoadError(
         `Could not load the demo household: ${(e as Error).message}. Is the backend running?`,
       );
+      return null;
     }
   }, []);
 
-  // Recording build: no guest flow, the demo household loads itself.
+  // Recording build: the demo household loads itself; there is no other mode.
   useEffect(() => {
     void boot();
-    const t = window.setInterval(() => setSpeaking(voice.speaking), 500);
+    const t = window.setInterval(() => setSpeaking(voice.speaking), 300);
     return () => window.clearInterval(t);
   }, [boot]);
 
@@ -100,8 +100,12 @@ export default function App() {
     setTurns((ts) => ts.map((t) => (t.id === id ? fn(t) : t)));
   }
 
+  // Voice streams every surfaced event live; the queue serialises + spaces them.
+  function say(text?: string) {
+    if (!muted && text) void voice.speak(text);
+  }
+
   function handleEvent(ev: SimEvent) {
-    if (mode === "forge" && ev.col === "baseline") return;
     if (ev.type === "column_start") {
       setLive((l) => ({ ...l, [ev.col]: "running" }));
       return;
@@ -146,12 +150,15 @@ export default function App() {
         }
         return { ...t, traces };
       });
+      // Named results are the real after-tool event; voice their authoritative
+      // `say` live (find_recipe's say names the tool's picked recipe).
+      if (ev.name) say(ev.say);
     } else if (ev.type === "final" && ev.text) {
       const id = ensureTurn(ev.col);
       partial.current[ev.col] = "";
       turnId.current[ev.col] = null;
       patchTurn(id, (t) => ({ ...t, text: ev.text as string, finished: true }));
-      if (!muted) void voice.speak(ev.text);
+      say(ev.text);
     } else if (ev.type === "error") {
       const id = ensureTurn(ev.col);
       turnId.current[ev.col] = null;
@@ -190,66 +197,62 @@ export default function App() {
     return t.beats;
   }
 
-  async function runBeat(i: number) {
+  // One beat: the simulated column (fixtures) and Custos (live) run together.
+  async function runBeat(i: number, gid: string) {
     const list = await ensureBeats();
     const beat = list[i];
-    if (!beat || busy || !guestId) return;
+    if (!beat || !gid) return;
     setBusy(true);
     setBeatIndex(i);
     try {
-      await theaterFault(guestId, beat.id);
+      await theaterFault(gid, beat.id);
       if (beat.input) {
         setUserMsgs((m) => [...m, { id: nid(), text: beat.input as string }]);
-        // Left column: scripted fixtures, staggered for readability.
-        for (const fx of beat.alexa) {
-          await new Promise((res) => setTimeout(res, 350));
-          handleEvent({ col: "baseline", ...fx });
-        }
-        // Right column: always live.
-        for await (const ev of chat(guestId, beat.input, ["forge"]))
-          handleEvent(ev);
+        const left = (async () => {
+          handleEvent({ col: "baseline", type: "column_start" });
+          for (const fx of beat.alexa) {
+            await new Promise((res) => setTimeout(res, 350));
+            handleEvent({ col: "baseline", ...fx });
+          }
+          handleEvent({ col: "baseline", type: "column_done" });
+        })();
+        const right = (async () => {
+          for await (const ev of chat(gid, beat.input as string, ["forge"]))
+            handleEvent(ev);
+        })();
+        await Promise.all([left, right]);
       }
-      const left = await theaterAssert(guestId, beat.id, "left");
-      const right = await theaterAssert(guestId, beat.id, "right");
+      const [leftA, rightA] = await Promise.all([
+        theaterAssert(gid, beat.id, "left"),
+        theaterAssert(gid, beat.id, "right"),
+      ]);
       setAsserts((a) => ({
         ...a,
-        [`${beat.id}:left`]: left.results,
-        [`${beat.id}:right`]: right.results,
+        [`${beat.id}:left`]: leftA.results,
+        [`${beat.id}:right`]: rightA.results,
       }));
-      setGround(await truth(guestId));
+      setGround(await truth(gid));
       setBeatIndex(Math.min(i + 1, list.length - 1));
     } finally {
       setBusy(false);
     }
   }
 
-  async function restartDemo() {
+  // Play: re-seed the household, then run every beat end to end.
+  async function playDemo() {
+    if (busy) return;
+    const gid = await boot();
+    if (!gid) return;
     setAsserts({});
     setBeatIndex(0);
-    await boot();
-  }
-
-  async function playReplay() {
-    setBusy(true);
-    try {
-      const r = await fetch(`/replays/${replayName}`);
-      if (!r.ok) throw new Error("no such replay");
-      const events = (await r.json()) as { at: number; ev: SimEvent }[];
-      const t0 = Date.now();
-      for (const { at, ev } of events) {
-        const wait = t0 + at - Date.now();
-        if (wait > 0) await new Promise((res) => setTimeout(res, wait));
-        handleEvent(ev);
-      }
-    } catch {
-      setUserMsgs((m) => [...m, { id: nid(), text: "replay failed to load" }]);
-    } finally {
-      setBusy(false);
+    const list = await ensureBeats();
+    for (let i = 0; i < list.length; i++) {
+      await runBeat(i, gid);
+      await new Promise((res) => setTimeout(res, 700));
     }
   }
 
   const devices = (ground.devices as Record<string, unknown> | undefined) ?? {};
-  const show: Col[] = mode === "forge" ? ["forge"] : ["forge", "baseline"];
 
   return (
     <main>
@@ -259,16 +262,13 @@ export default function App() {
           {speaking ? <span className="speaking"> ● speaking</span> : null}
         </h1>
         <div className="controls">
-          <select
-            value={mode}
-            onChange={(e) => setMode(e.target.value as typeof mode)}
-            aria-label="Mode"
+          <button
+            type="button"
+            onClick={() => void playDemo()}
+            disabled={busy || !guestId}
           >
-            <option value="ab">A/B</option>
-            <option value="forge">Custos only</option>
-            <option value="replay">Replay</option>
-            <option value="demo">Demo</option>
-          </select>
+            ▶ Play demo
+          </button>
           <button
             type="button"
             onClick={() => {
@@ -278,49 +278,6 @@ export default function App() {
           >
             {muted ? "🔇 muted" : "🔊 voice"}
           </button>
-          <button
-            type="button"
-            onClick={() => void boot()}
-            disabled={busy || !guestId}
-            title="Re-seed the demo household"
-          >
-            Reset demo data
-          </button>
-          {mode === "demo" && (
-            <>
-              <button
-                type="button"
-                onClick={() => void runBeat(beatIndex)}
-                disabled={busy || !beats}
-              >
-                Next
-              </button>
-              <button
-                type="button"
-                onClick={() => void restartDemo()}
-                disabled={busy}
-              >
-                Restart demo
-              </button>
-            </>
-          )}
-          {mode === "replay" && (
-            <>
-              <input
-                value={replayName}
-                onChange={(e) => setReplayName(e.target.value)}
-                size={18}
-                aria-label="Replay file"
-              />
-              <button
-                type="button"
-                onClick={() => void playReplay()}
-                disabled={busy}
-              >
-                Play
-              </button>
-            </>
-          )}
         </div>
       </header>
       {loadError ? (
@@ -336,7 +293,7 @@ export default function App() {
       ) : null}
       {guestId ? (
         <>
-          {mode === "demo" && beats ? (
+          {beats ? (
             <section className="panel" aria-label="Demo director">
               <p className="sub">{disclaimer}</p>
               <h2>
@@ -378,18 +335,16 @@ export default function App() {
             </section>
           ) : null}
           <div className="cols">
-            {show.includes("baseline") && (
-              <Column
-                name="baseline"
-                title="WITHOUT guard + verification"
-                sub="memory only, raw acks"
-                userMsgs={userMsgs}
-                turns={turns.filter((t) => t.col === "baseline")}
-                truthDevices={devices}
-                stage={live.baseline}
-                guestId={guestId}
-              />
-            )}
+            <Column
+              name="baseline"
+              title="WITHOUT guard + verification"
+              sub="memory only, raw acks"
+              userMsgs={userMsgs}
+              turns={turns.filter((t) => t.col === "baseline")}
+              truthDevices={devices}
+              stage={live.baseline}
+              guestId={guestId}
+            />
             <Column
               name="forge"
               title="WITH Custos"
