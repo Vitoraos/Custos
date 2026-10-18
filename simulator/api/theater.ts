@@ -25,6 +25,11 @@ export type Assertion =
   | { kind: "shopping-contains"; items: string[] }
   | { kind: "shopping-excludes"; items: string[] }
   | { kind: "receipt"; tool: string; outcome: string };
+// What the memory-only column leaves behind: raw writes, no guard, no
+// verification and - the point - no receipts.
+export type NaiveEffect =
+  | { kind: "device"; device: string; state: Record<string, unknown> }
+  | { kind: "list-add"; list: string; items: string[] };
 export interface Beat {
   id: string;
   caption: string;
@@ -32,6 +37,7 @@ export interface Beat {
   input: string | null;
   fault: TheaterFault | null;
   alexa: SyntheticEvent[];
+  naive: NaiveEffect[];
   assertLeft: Assertion[];
   assertRight: Assertion[];
 }
@@ -46,13 +52,14 @@ export const THEATER_DISCLAIMER = (bundle as { disclaimer: string }).disclaimer;
 
 export function listBeats(): Pick<
   Beat,
-  "id" | "caption" | "narration" | "input"
+  "id" | "caption" | "narration" | "input" | "alexa"
 >[] {
-  return BEATS.map(({ id, caption, narration, input }) => ({
+  return BEATS.map(({ id, caption, narration, input, alexa }) => ({
     id,
     caption,
     narration,
     input,
+    alexa,
   }));
 }
 
@@ -143,5 +150,26 @@ export async function applyBeatFault(
     });
   } else {
     await store.setFaults(userId, { profile: "none", params: {} });
+  }
+}
+
+// The memory-only column's damage, applied straight to ground state. No
+// policy, no read-back, no receipt - which is exactly why it can claim
+// success and leave nothing behind to prove it.
+export async function applyNaiveEffects(
+  store: Store,
+  userId: string,
+  beatId: string,
+): Promise<void> {
+  const beat = getBeat(beatId);
+  if (!beat) throw new Error(`unknown beat: ${beatId}`);
+  for (const e of beat.naive) {
+    if (e.kind === "device") await store.setDevice(userId, e.device, e.state);
+    else
+      await store.applyListOps(
+        userId,
+        e.list,
+        e.items.map((item) => ({ op: "add" as const, item })),
+      );
   }
 }
