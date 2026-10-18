@@ -8,6 +8,7 @@ import {
   theater,
   theaterAssert,
   theaterFault,
+  theaterNaive,
   truth,
 } from "./api";
 import Column, { type Turn, type UserMsg } from "./components/Column";
@@ -49,25 +50,34 @@ export default function App() {
   });
   const timer = useRef(0);
 
-  const boot = useCallback(async (): Promise<string | null> => {
-    setLoadError("");
-    try {
-      const d = await loadDemo();
-      setGuestId(d.guestId);
-      setUserMsgs([]);
-      setTurns([]);
-      setScriptDone(false);
-      partial.current = { forge: "", baseline: "" };
-      turnId.current = { forge: null, baseline: null };
-      setGround(await truth(d.guestId));
-      return d.guestId;
-    } catch (e) {
-      setLoadError(
-        `Could not load the demo household: ${(e as Error).message}. Is the backend running?`,
-      );
-      return null;
-    }
-  }, []);
+  // Re-seeds the demo household and re-binds keys for the same guest. With
+  // keepTranscript the columns stay on screen - used between the scripted run
+  // and the Custos run so both assistants face an identical house.
+  const boot = useCallback(
+    async (keepTranscript = false): Promise<string | null> => {
+      setLoadError("");
+      try {
+        const d = await loadDemo();
+        setGuestId(d.guestId);
+        if (!keepTranscript) {
+          setUserMsgs([]);
+          setTurns([]);
+          setScriptDone(false);
+        }
+        partial.current = { forge: "", baseline: "" };
+        turnId.current = { forge: null, baseline: null };
+        setLive({ forge: "idle", baseline: "idle" });
+        setGround(await truth(d.guestId));
+        return d.guestId;
+      } catch (e) {
+        setLoadError(
+          `Could not load the demo household: ${(e as Error).message}. Is the backend running?`,
+        );
+        return null;
+      }
+    },
+    [],
+  );
 
   // Recording build: the demo household loads itself; there is no other mode.
   useEffect(() => {
@@ -177,7 +187,9 @@ export default function App() {
 
   // Manual turns run Custos alone (the WITHOUT column is scripted, never
   // live). A pasted scripted prompt also re-applies that beat's fault and
-  // scores both phases' end-state checks.
+  // scores the Custos column's end-state checks. The simulated column's own
+  // checks were recorded when the script played - re-scoring them now would
+  // read the freshly re-seeded house and flip them.
   async function send(text: string) {
     const t = text.trim();
     if (!t || busy || scripting || !scriptDone || !guestId) return;
@@ -193,9 +205,10 @@ export default function App() {
     if (beat) setBeatIndex(idx);
     try {
       if (beat) await theaterFault(guestId, beat.id);
-      // Watchdog: a stalled stream must not wedge the composer.
+      // Watchdog: a stalled stream must not wedge the composer. Loose, since
+      // the last beat asks for five things in one prompt.
       const ctrl = new AbortController();
-      const watchdog = setTimeout(() => ctrl.abort(), 45000);
+      const watchdog = setTimeout(() => ctrl.abort(), 90000);
       try {
         for await (const ev of chat(guestId, t, ["forge"], ctrl.signal))
           handleEvent(ev);
@@ -211,15 +224,8 @@ export default function App() {
       }
       if (beat) {
         try {
-          const [leftA, rightA] = await Promise.all([
-            theaterAssert(guestId, beat.id, "left"),
-            theaterAssert(guestId, beat.id, "right"),
-          ]);
-          setAsserts((a) => ({
-            ...a,
-            [`${beat.id}:left`]: leftA.results,
-            [`${beat.id}:right`]: rightA.results,
-          }));
+          const rightA = await theaterAssert(guestId, beat.id, "right");
+          setAsserts((a) => ({ ...a, [`${beat.id}:right`]: rightA.results }));
         } catch {
           // ignore
         }
@@ -236,8 +242,9 @@ export default function App() {
   }
 
   // One beat of the scripted run: the WITHOUT-Custos column plays its canned
-  // fixtures alone. Custos never runs here - it is driven afterwards, prompt
-  // by prompt (see docs/DEMO-PROMPTS.md), and the checks are scored then.
+  // fixtures, its raw writes land in ground state (no guard, no read-back, no
+  // receipt), and that beat's checks score what it left behind. Custos never
+  // runs here - it takes the same prompts afterwards.
   async function runBeat(i: number, gid: string) {
     const list = await ensureBeats();
     const beat = list[i];
@@ -245,7 +252,6 @@ export default function App() {
     setBusy(true);
     setBeatIndex(i);
     try {
-      await theaterFault(gid, beat.id);
       if (beat.input) {
         setUserMsgs((m) => [...m, { id: nid(), text: beat.input as string }]);
         handleEvent({ col: "baseline", type: "column_start" });
@@ -255,15 +261,24 @@ export default function App() {
         }
         handleEvent({ col: "baseline", type: "column_done" });
       }
+      await theaterNaive(gid, beat.id);
       setGround(await truth(gid));
-      setBeatIndex(Math.min(i + 1, list.length - 1));
+      try {
+        const leftA = await theaterAssert(gid, beat.id, "left");
+        setAsserts((a) => ({ ...a, [`${beat.id}:left`]: leftA.results }));
+      } catch {
+        // ignore
+      }
+      // Hold so the beat's checks stay readable before the next prompt.
+      await new Promise((res) => setTimeout(res, 1400));
     } finally {
       setBusy(false);
     }
   }
 
-  // Play: re-seed the household, then run the whole scripted WITHOUT-Custos
-  // demo on its own. When it finishes, Custos wakes up and takes the prompts.
+  // Play: run the whole scripted WITHOUT-Custos demo alone, then put the house
+  // back to where it started. The transcript and the simulated column's
+  // already-scored checks stay on screen; Custos wakes up on a clean house.
   async function playDemo() {
     if (busy || scripting) return;
     const gid = await boot();
@@ -277,6 +292,7 @@ export default function App() {
         await runBeat(i, gid);
         await new Promise((res) => setTimeout(res, 120));
       }
+      await boot(true);
     } finally {
       setScripting(false);
       setScriptDone(true);
@@ -347,12 +363,22 @@ export default function App() {
                 const key = `${beats[beatIndex]?.id}:${phase}`;
                 const list = asserts[key];
                 if (!list) return null;
+                const passed = list.filter((r) => r.pass).length;
                 return (
                   <div key={phase}>
                     <h3>
                       {phase === "left" ? "Simulated column" : "Custos column"}{" "}
                       checks
                     </h3>
+                    {list.length ? (
+                      <p className="sub">
+                        {passed} of {list.length} passed
+                      </p>
+                    ) : (
+                      <p className="sub">
+                        no ground-truth checks for this beat
+                      </p>
+                    )}
                     <ul>
                       {list.map((r) => (
                         <li key={r.description}>

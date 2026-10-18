@@ -21,7 +21,7 @@
       "start": "22:00",
       "end": "07:00",
       "tz": "Africa/Lagos",
-      "applies": ["lights", "notifications"],
+      "applies": ["notifications"],
       "evidence": "Quiet hours 10pm to 7am Lagos time"
     },
     {
@@ -38,12 +38,6 @@
       "kind": "confirm_required",
       "action": "unlock",
       "evidence": "Unlocking doors needs confirmation"
-    },
-    {
-      "profile": "household",
-      "kind": "confirm_required",
-      "action": "purchase",
-      "evidence": "Purchases need confirmation"
     }
   ],
   "facts": [
@@ -74,11 +68,11 @@
     }
   ],
   "devices": {
-    "kitchen_light": { "power": "off" },
+    "kitchen_light": { "power": "on" },
     "hall_light": { "power": "off" },
     "thermostat": { "temp_c": 22 },
     "front_door_lock": { "locked": true },
-    "coffee_maker": { "power": "off" }
+    "coffee_maker": { "power": "on" }
   },
   "shopping": [],
   "pantry": ["rice", "olive oil", "garlic", "onions"],

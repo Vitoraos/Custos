@@ -2,51 +2,204 @@
   "disclaimer": "Simulated Alexa+ behavior, recreated from user reports — not a recording.",
   "beats": [
     {
-      "id": "both-pass",
-      "caption": "A task both assistants pass",
-      "narration": "First, a fair fight: a simple light switch both assistants can do.",
-      "input": "Turn on the hall light.",
+      "id": "basic",
+      "caption": "Two switches, both get it right",
+      "narration": "An easy one to start: two switches in one sentence. Both assistants can do this.",
+      "input": "I'm heading out — kill the coffee maker and turn off the kitchen light.",
       "fault": null,
       "alexa": [
-        { "type": "token", "text": "Done! " },
-        { "type": "final", "text": "Done! Hall light is on." }
+        { "type": "token", "text": "Sure — " },
+        {
+          "type": "final",
+          "text": "Sure — coffee maker off, kitchen light off."
+        }
+      ],
+      "naive": [
+        {
+          "kind": "device",
+          "device": "coffee_maker",
+          "state": { "power": "off" }
+        },
+        {
+          "kind": "device",
+          "device": "kitchen_light",
+          "state": { "power": "off" }
+        }
       ],
       "assertLeft": [
         {
           "kind": "device",
-          "device": "hall_light",
+          "device": "coffee_maker",
           "attr": "power",
-          "equals": "on"
+          "equals": "off"
+        },
+        {
+          "kind": "device",
+          "device": "kitchen_light",
+          "attr": "power",
+          "equals": "off"
         }
       ],
       "assertRight": [
+        {
+          "kind": "device",
+          "device": "coffee_maker",
+          "attr": "power",
+          "equals": "off"
+        },
+        {
+          "kind": "device",
+          "device": "kitchen_light",
+          "attr": "power",
+          "equals": "off"
+        },
+        { "kind": "receipt", "tool": "set_device_state", "outcome": "verified" }
+      ]
+    },
+    {
+      "id": "medium",
+      "caption": "Three at once, one breaks a rule",
+      "narration": "Three things in one sentence, and one of them breaks a household rule. Watch which assistant notices.",
+      "input": "It's freezing in here — get the thermostat as warm as it goes, put the hall light on, and add oat milk and peanut butter to the shopping list.",
+      "fault": null,
+      "alexa": [
+        { "type": "token", "text": "Done! " },
+        {
+          "type": "final",
+          "text": "Done! Heating cranked to 30, hall light on, and oat milk and peanut butter added to your list."
+        }
+      ],
+      "naive": [
+        {
+          "kind": "device",
+          "device": "thermostat",
+          "state": { "temp_c": 30 }
+        },
+        {
+          "kind": "device",
+          "device": "hall_light",
+          "state": { "power": "on" }
+        },
+        {
+          "kind": "list-add",
+          "list": "shopping",
+          "items": ["Oat Milk", "Peanut Butter"]
+        }
+      ],
+      "assertLeft": [
+        {
+          "kind": "device",
+          "device": "thermostat",
+          "attr": "temp_c",
+          "equals": 26
+        },
         {
           "kind": "device",
           "device": "hall_light",
           "attr": "power",
           "equals": "on"
         },
+        { "kind": "shopping-excludes", "items": ["peanut"] }
+      ],
+      "assertRight": [
+        {
+          "kind": "device",
+          "device": "thermostat",
+          "attr": "temp_c",
+          "equals": 26
+        },
+        {
+          "kind": "device",
+          "device": "hall_light",
+          "attr": "power",
+          "equals": "on"
+        },
+        { "kind": "shopping-contains", "items": ["oat milk"] },
+        { "kind": "shopping-excludes", "items": ["peanut"] },
         { "kind": "receipt", "tool": "set_device_state", "outcome": "verified" }
       ]
     },
     {
-      "id": "alexa-fails",
-      "caption": "The failure: a cheerful lie",
-      "narration": "Same request, but the device stops acknowledging. Watch what each assistant tells you.",
-      "input": "Turn on the kitchen light.",
-      "fault": { "profile": "lost_ack", "params": { "p": 1, "seed": 7 } },
+      "id": "complex",
+      "caption": "The whole house in one sentence",
+      "narration": "Now the real test: five jobs in one sentence. The memory-only assistant says it is all done — check the ground truth.",
+      "input": "Guests land at eight — get the house ready: thermostat to 21, kitchen light on, coffee maker on, oat milk and bread on the shopping list, and check what's already in the pantry.",
+      "fault": null,
       "alexa": [
-        { "type": "token", "text": "Done! " },
-        { "type": "final", "text": "Done! Kitchen light is on 👍" }
+        { "type": "token", "text": "All set! " },
+        {
+          "type": "final",
+          "text": "All set! The house is ready for your guests."
+        }
       ],
+      "naive": [],
       "assertLeft": [
+        {
+          "kind": "device",
+          "device": "thermostat",
+          "attr": "temp_c",
+          "equals": 21
+        },
         {
           "kind": "device",
           "device": "kitchen_light",
           "attr": "power",
-          "unequals": "on"
-        }
+          "equals": "on"
+        },
+        {
+          "kind": "device",
+          "device": "coffee_maker",
+          "attr": "power",
+          "equals": "on"
+        },
+        { "kind": "shopping-contains", "items": ["oat milk", "bread"] },
+        { "kind": "shopping-excludes", "items": ["peanut"] }
       ],
+      "assertRight": [
+        {
+          "kind": "device",
+          "device": "thermostat",
+          "attr": "temp_c",
+          "equals": 21
+        },
+        {
+          "kind": "device",
+          "device": "kitchen_light",
+          "attr": "power",
+          "equals": "on"
+        },
+        {
+          "kind": "device",
+          "device": "coffee_maker",
+          "attr": "power",
+          "equals": "on"
+        },
+        { "kind": "shopping-contains", "items": ["oat milk", "bread"] },
+        { "kind": "shopping-excludes", "items": ["peanut"] },
+        {
+          "kind": "receipt",
+          "tool": "set_device_state",
+          "outcome": "verified"
+        },
+        {
+          "kind": "receipt",
+          "tool": "update_shopping_list",
+          "outcome": "verified"
+        }
+      ]
+    },
+    {
+      "id": "honest-failure",
+      "caption": "When the house stops listening",
+      "narration": "One last switch — but this device stops acknowledging. The memory-only assistant still says done. The light never moved.",
+      "input": "Turn off the hall light.",
+      "fault": { "profile": "lost_ack", "params": { "p": 1, "seed": 7 } },
+      "alexa": [
+        { "type": "token", "text": "Done! " },
+        { "type": "final", "text": "Done! Hall light is off." }
+      ],
+      "naive": [],
+      "assertLeft": [],
       "assertRight": [
         {
           "kind": "receipt",
@@ -56,43 +209,13 @@
       ]
     },
     {
-      "id": "dinner-showcase",
-      "caption": "The showcase: dinner for 4",
-      "narration": "Now the full capability run: remembered allergy, real ingredient lists, pantry check, and a verified shopping list.",
-      "input": "Plan dinner for 4.",
-      "fault": null,
-      "alexa": [
-        { "type": "token", "text": "How about " },
-        {
-          "type": "final",
-          "text": "How about peanut satay? Creamy, fast, serves four!"
-        }
-      ],
-      "assertLeft": [],
-      "assertRight": [
-        { "kind": "receipt", "tool": "find_recipe", "outcome": "ok" },
-        { "kind": "shopping-excludes", "items": ["peanut"] }
-      ]
-    },
-    {
-      "id": "receipt",
-      "caption": "Show your work",
-      "narration": "Every action leaves a receipt. Ask why, get the record — not a guess.",
-      "input": "Why did you pick that?",
-      "fault": null,
-      "alexa": [{ "type": "final", "text": "It looked tasty!" }],
-      "assertLeft": [],
-      "assertRight": [
-        { "kind": "receipt", "tool": "explain_last_action", "outcome": "ok" }
-      ]
-    },
-    {
       "id": "end-card",
       "caption": "Results",
       "narration": "Zero silent failures across fault-injected runs. Same server, any client.",
       "input": null,
       "fault": null,
       "alexa": [],
+      "naive": [],
       "assertLeft": [],
       "assertRight": []
     }

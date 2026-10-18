@@ -19,6 +19,7 @@ import {
 import { fetchRecipe } from "./recipes.js";
 import {
   applyBeatFault,
+  applyNaiveEffects,
   assertBeat,
   getBeat,
   listBeats,
@@ -155,6 +156,17 @@ export function mountSim(
     if (!g || !body?.beat) return c.json({ error: "need guestId + beat" }, 400);
     if (!getBeat(body.beat)) return c.json({ error: "unknown beat" }, 404);
     await applyBeatFault(store, g.userId, body.beat);
+    return c.json({ ok: true });
+  });
+  app.post("/sim/theater/naive", async (c) => {
+    const body = (await c.req.json().catch(() => null)) as {
+      guestId?: string;
+      beat?: string;
+    } | null;
+    const g = body?.guestId ? getGuest(body.guestId) : null;
+    if (!g || !body?.beat) return c.json({ error: "need guestId + beat" }, 400);
+    if (!getBeat(body.beat)) return c.json({ error: "unknown beat" }, 404);
+    await applyNaiveEffects(store, g.userId, body.beat);
     return c.json({ ok: true });
   });
   app.post("/sim/theater/assert", async (c) => {

@@ -167,3 +167,17 @@ export async function theaterAssert(
   if (!r.ok) throw new Error("theater assert failed");
   return r.json();
 }
+
+// The scripted WITHOUT-Custos column's raw writes: applied to ground state
+// with no guard, no read-back and no receipt.
+export async function theaterNaive(
+  guestId: string,
+  beat: string,
+): Promise<void> {
+  const r = await fetch(`${API}/sim/theater/naive`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ guestId, beat }),
+  });
+  if (!r.ok) throw new Error("theater naive failed");
+}

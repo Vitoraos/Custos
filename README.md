@@ -142,6 +142,15 @@ The server hosts the simulator and MCP endpoint in one process. The MCP interfac
 
 The stack is chosen to keep the demo inexpensive and inspectable. External services have free-tier constraints; the app can use in-memory storage and replay mode for local exploration.
 
+### Hosted deployments
+
+| Service | What it serves | Project settings |
+|---|---|---|
+| Render | API, MCP endpoint and server-served UI | `infra/render.yaml`; backend only, never runs the simulator build |
+| Vercel | The A/B simulator UI (`simulator/web`) | **Root Directory `simulator/web`**, env `VITE_API_BASE` = the Render URL |
+
+A Vercel build that fails with `The specified Root Directory "<x>" does not exist` means the project's Root Directory points at a folder that is not in the repo - set it to `simulator/web` under Settings -> Build and Deployment.
+
 ## Repository guide
 
 | Path | What you'll find |
