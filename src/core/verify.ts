@@ -419,10 +419,16 @@ async function execute<Args, Cmd, State>(
         afterRetryError.state,
       );
     }
-    return finish("error", sayError(), {
-      writeError: true,
-      observed: afterRetryError.state,
-    });
+    return finish(
+      "unverified",
+      sayUnverified(
+        spec.verifiedWhat(args),
+        afterRetryError.state === null
+          ? "the device state could not be read"
+          : spec.unverifiedObserved(args),
+      ),
+      { writeError: true, observed: afterRetryError.state },
+    );
   }
   const second = await observe();
   if (second.ok)
