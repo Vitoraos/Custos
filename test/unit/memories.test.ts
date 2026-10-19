@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { loadConstraints } from "../../src/storage/memories.js";
+import { loadConstraints, remember } from "../../src/storage/memories.js";
 import { MemoryStore } from "../../src/storage/store.js";
 
 // Regression: Postgres timestamptz comes back "+00:00", not "Z". A stricter
@@ -7,7 +7,6 @@ import { MemoryStore } from "../../src/storage/store.js";
 describe("loadConstraints with real PG timestamps", () => {
   it("loads rows whose createdAt uses +00:00 offset + fractional seconds", async () => {
     const store = new MemoryStore();
-    // Bypass insertMemory (which stamps Z-time) to mimic a real PG row.
     const pgRow = {
       id: "pg1",
       userId: "u",
@@ -28,10 +27,47 @@ describe("loadConstraints with real PG timestamps", () => {
       expiresAt: null,
       revokedAt: null,
     } as const;
-    // @ts-expect-error test seam: MemoryStore keeps rows in a private map keyed user|id
-    store.memories.set("u|pg1", { ...pgRow });
+    // @ts-expect-error test seam: exercise a PostgreSQL-shaped legacy row.
+    store.memories.set(JSON.stringify(["u", "pg1"]), { ...pgRow });
     const rules = await loadConstraints(store, "u");
     expect(rules).toHaveLength(1);
     expect(rules[0].kind).toBe("device_limit");
+  });
+
+  it("does not load expired constraints", async () => {
+    const store = new MemoryStore();
+    await remember(store, "u", {
+      profile: "household",
+      kind: "constraint",
+      payload: {
+        kind: "allergen",
+        allergen: "peanut",
+        severity: "severe",
+      },
+      source: "explicit",
+      evidence: null,
+      expiresAt: new Date(Date.now() - 60_000).toISOString(),
+    });
+
+    expect(await loadConstraints(store, "u")).toHaveLength(0);
+  });
+
+  it("rejects malformed memory payloads before persistence", async () => {
+    const store = new MemoryStore();
+    await expect(
+      remember(store, "u", {
+        profile: "household",
+        kind: "constraint",
+        payload: {
+          kind: "allergen",
+          allergen: "peanuts-not-in-schema",
+          severity: "severe",
+        },
+        source: "explicit",
+        evidence: null,
+      }),
+    ).rejects.toThrow("memory: invalid constraint payload");
+
+    expect(await store.listMemories("u")).toHaveLength(0);
   });
 });

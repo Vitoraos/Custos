@@ -53,10 +53,8 @@ describe("MemoryStore isolation and copy semantics", () => {
       expiresAt: null,
     });
     (record.payload as { text: string }).text = "corrupted";
-    expect((await store.getMemory("u", record.id)?.then((m) => m?.payload)) as {
-      kind: string;
-      text: string;
-    }).toEqual({ kind: "fact", text: "prefers tea" });
+    const read = await store.getMemory("u", record.id);
+    expect(read?.payload).toEqual({ kind: "fact", text: "prefers tea" });
 
     const key = {
       userId: "u",
