@@ -577,3 +577,34 @@ describe("fail-closed policy validation", () => {
     expect(result.verdict).toBe("block");
   });
 });
+
+  it("blocks invalid action values such as NaN instead of treating them as in-range", () => {
+    const rule = base({
+      kind: "device_limit",
+      device: "thermostat",
+      attr: "temp_c",
+      min: 18,
+      max: 26,
+      profile: "household",
+      source: "explicit",
+      createdAt: NOW.toISOString(),
+    } as unknown as Constraint);
+    const result = evaluate([rule], {
+      type: "device_set",
+      device: "thermostat",
+      attr: "temp_c",
+      value: Number.NaN,
+      at: NOW,
+    }, ctx());
+    expect(result.verdict).toBe("block");
+    expect(result.reasons[0].text).toContain("invalid values");
+  });
+
+  it("blocks reminders with invalid timestamps", () => {
+    const result = evaluate([], {
+      type: "reminder",
+      at: new Date(Number.NaN),
+      text: "Call Mum",
+    }, ctx());
+    expect(result.verdict).toBe("block");
+  });
