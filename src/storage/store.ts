@@ -1,6 +1,5 @@
 // Persistence behind an interface. MemoryStore covers unit tests + offline dev;
-// SupabaseStore (service role) lands when SUPABASE creds exist — same interface,
-// so swapping is one file. Every method is user-scoped (tenant isolation).
+// SupabaseStore is the durable production backend. Every operation is tenant-scoped.
 export interface DeviceRow {
   device: string;
   state: Record<string, unknown>;
@@ -60,6 +59,15 @@ export interface Store {
   insertKey(keyHash: string, row: KeyRecord): Promise<void>;
 }
 
+// JSON-encoding a tuple avoids collisions when a component contains the delimiter.
+function tupleKey(...parts: string[]): string {
+  return JSON.stringify(parts);
+}
+
+function clone<T>(value: T): T {
+  return structuredClone(value);
+}
+
 export function dedupeKey(item: string): string {
   return item
     .toLowerCase()
@@ -75,108 +83,141 @@ export class MemoryStore implements Store {
   private memories = new Map<string, MemoryRecord>();
   private keys = new Map<string, KeyRecord>();
   private seq = 0;
+
   async ping(): Promise<{ ok: boolean }> {
     return { ok: true };
   }
+
   async getDevice(
     userId: string,
     device: string,
   ): Promise<Record<string, unknown> | null> {
-    return this.devices.get(`${userId}|${device}`) ?? null;
+    const state = this.devices.get(tupleKey(userId, device));
+    return state ? clone(state) : null;
   }
+
   async setDevice(
     userId: string,
     device: string,
     state: Record<string, unknown>,
   ): Promise<void> {
-    this.devices.set(`${userId}|${device}`, state);
+    this.devices.set(tupleKey(userId, device), clone(state));
   }
+
   async getFaults(userId: string): Promise<FaultRow> {
-    return this.faults.get(userId) ?? { profile: "none", params: {} };
+    const row = this.faults.get(userId);
+    return row ? clone(row) : { profile: "none", params: {} };
   }
+
   async setFaults(userId: string, row: FaultRow): Promise<void> {
-    this.faults.set(userId, row);
+    this.faults.set(userId, clone(row));
   }
+
   async listItems(userId: string, list: string): Promise<string[]> {
-    return [...(this.lists.get(`${userId}|${list}`) ?? [])];
+    return [...(this.lists.get(tupleKey(userId, list)) ?? [])];
   }
+
   async applyListOps(
     userId: string,
     list: string,
     ops: ListOp[],
   ): Promise<string[]> {
-    const key = `${userId}|${list}`;
-    const cur = this.lists.get(key) ?? [];
-    const seen = new Set(cur.map(dedupeKey));
-    const out = [...cur];
-    for (const o of ops) {
-      const k = dedupeKey(o.item);
-      if (o.op === "add") {
-        if (!seen.has(k) && k.length > 0) {
-          seen.add(k);
-          out.push(o.item.trim());
+    const key = tupleKey(userId, list);
+    const out = [...(this.lists.get(key) ?? [])];
+
+    for (const operation of ops) {
+      if (
+        !operation ||
+        (operation.op !== "add" && operation.op !== "remove") ||
+        typeof operation.item !== "string"
+      ) {
+        throw new Error("store: invalid list operation");
+      }
+
+      const item = operation.item.trim();
+      const normalized = dedupeKey(item);
+      if (!normalized) continue;
+
+      if (operation.op === "add") {
+        if (!out.some((existing) => dedupeKey(existing) === normalized)) {
+          out.push(item);
         }
       } else {
-        const i = out.findIndex((x) => dedupeKey(x) === k);
-        if (i >= 0) {
-          out.splice(i, 1);
-          seen.delete(k);
+        // Match Supabase semantics: remove every normalized duplicate.
+        for (let i = out.length - 1; i >= 0; i--) {
+          if (dedupeKey(out[i]) === normalized) out.splice(i, 1);
         }
       }
     }
+
     this.lists.set(key, out);
     return [...out];
   }
+
   async insertMemory(
     r: Omit<MemoryRecord, "id" | "createdAt" | "lastUsedAt" | "revokedAt">,
   ): Promise<MemoryRecord> {
     this.seq++;
     const rec: MemoryRecord = {
-      ...r,
+      ...clone(r),
       id: `mem_${Date.now().toString(36)}_${this.seq}`,
       createdAt: new Date().toISOString(),
       lastUsedAt: null,
       revokedAt: null,
     };
-    this.memories.set(`${r.userId}|${rec.id}`, rec);
-    return rec;
+    this.memories.set(tupleKey(r.userId, rec.id), clone(rec));
+    return clone(rec);
   }
+
   async listMemories(userId: string): Promise<MemoryRecord[]> {
-    return [...this.memories.values()].filter((m) => m.userId === userId);
+    return [...this.memories.values()]
+      .filter((memory) => memory.userId === userId)
+      .map(clone);
   }
+
   async getMemory(userId: string, id: string): Promise<MemoryRecord | null> {
-    const m = this.memories.get(`${userId}|${id}`);
-    return m ?? null;
+    const memory = this.memories.get(tupleKey(userId, id));
+    return memory ? clone(memory) : null;
   }
+
   async revokeMemory(userId: string, id: string): Promise<MemoryRecord | null> {
-    const m = await this.getMemory(userId, id);
-    if (!m || m.status === "revoked") return m;
+    const memory = await this.getMemory(userId, id);
+    if (!memory || memory.status === "revoked") return memory;
+
     const next: MemoryRecord = {
-      ...m,
+      ...memory,
       status: "revoked",
       revokedAt: new Date().toISOString(),
     };
-    this.memories.set(`${userId}|${id}`, next);
-    return next;
+    this.memories.set(tupleKey(userId, id), clone(next));
+    return clone(next);
   }
+
   async deleteMemory(userId: string, id: string): Promise<boolean> {
-    return this.memories.delete(`${userId}|${id}`);
+    return this.memories.delete(tupleKey(userId, id));
   }
+
   async touchMemory(userId: string, id: string): Promise<void> {
-    const m = await this.getMemory(userId, id);
-    if (m)
-      this.memories.set(`${userId}|${id}`, {
-        ...m,
-        lastUsedAt: new Date().toISOString(),
-      });
+    const memory = await this.getMemory(userId, id);
+    if (memory) {
+      this.memories.set(
+        tupleKey(userId, id),
+        clone({ ...memory, lastUsedAt: new Date().toISOString() }),
+      );
+    }
   }
+
   async getKey(
     keyHash: string,
   ): Promise<(KeyRecord & { keyHash: string }) | null> {
-    const k = this.keys.get(keyHash);
-    return k ? { ...k, keyHash } : null;
+    const key = this.keys.get(keyHash);
+    return key ? { ...key, keyHash } : null;
   }
+
   async insertKey(keyHash: string, row: KeyRecord): Promise<void> {
-    this.keys.set(keyHash, row);
+    if (this.keys.has(keyHash)) {
+      throw new Error("store: API key hash already exists");
+    }
+    this.keys.set(keyHash, clone(row));
   }
 }

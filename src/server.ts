@@ -36,11 +36,23 @@ export function resolveStore(): {
 } {
   const url = process.env.SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (url && key)
+
+  if (Boolean(url) !== Boolean(key)) {
+    throw new Error(
+      "Storage configuration is incomplete: set both SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.",
+    );
+  }
+  if (url && key) {
     return {
       store: new SupabaseStore(createClient(url, key)),
       backend: "supabase",
     };
+  }
+  if (process.env.NODE_ENV === "production") {
+    throw new Error(
+      "Persistent storage is required in production. Configure SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.",
+    );
+  }
   return { store: new MemoryStore(), backend: "memory" };
 }
 
