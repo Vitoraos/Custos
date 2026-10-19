@@ -76,23 +76,37 @@ const ruleInput = z.discriminatedUnion("kind", [
   }),
 ]);
 
-function memoryDescription(rec: { kind: string; profile: string; payload: unknown }): string {
+function memoryDescription(rec: {
+  kind: string;
+  profile: string;
+  payload: unknown;
+}): string {
   const payload =
-    rec.payload !== null && typeof rec.payload === "object" && !Array.isArray(rec.payload)
+    rec.payload !== null &&
+    typeof rec.payload === "object" &&
+    !Array.isArray(rec.payload)
       ? (rec.payload as Record<string, unknown>)
       : {};
   const kind = typeof payload.kind === "string" ? payload.kind : rec.kind;
   switch (kind) {
     case "allergen":
-      return `${String(payload.allergen ?? "unknown")} allergy (${String(payload.severity ?? "unspecified")})`;
+      return `${String(payload.allergen ?? "unknown")} allergy (${String(
+        payload.severity ?? "unspecified",
+      )})`;
     case "diet":
       return `${String(payload.value ?? "unknown")} diet`;
     case "quiet_hours":
-      return `quiet hours ${String(payload.start ?? "?")}–${String(payload.end ?? "?")} ${String(payload.tz ?? "unknown timezone")}`;
+      return `quiet hours ${String(payload.start ?? "?")}–${String(
+        payload.end ?? "?",
+      )} ${String(payload.tz ?? "unknown timezone")}`;
     case "device_limit":
-      return `${String(payload.device ?? "unknown device")} ${String(payload.attr ?? "unknown attribute")} limit`;
+      return `${String(payload.device ?? "unknown device")} ${String(
+        payload.attr ?? "unknown attribute",
+      )} limit`;
     case "confirm_required":
-      return `confirmation required before ${String(payload.action ?? "unknown action")}`;
+      return `confirmation required before ${String(
+        payload.action ?? "unknown action",
+      )}`;
     case "fact":
     case "instruction":
       return typeof payload.text === "string" ? payload.text : kind;
