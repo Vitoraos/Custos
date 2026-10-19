@@ -72,7 +72,9 @@ function validatePayload(input: {
         ? factSchema.safeParse(candidate)
         : instructionSchema.safeParse(candidate);
   if (!parsed.success) {
-    throw new Error(`memory: invalid ${input.kind} payload: ${parsed.error.message}`);
+    throw new Error(
+      `memory: invalid ${input.kind} payload: ${parsed.error.message}`,
+    );
   }
 }
 

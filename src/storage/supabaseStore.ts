@@ -102,7 +102,9 @@ export class SupabaseStore implements Store {
       .order("created_at")
       .order("id");
     if (error) fail(error);
-    return (data ?? []).map((row) => requiredString(row.item, "list_items.item"));
+    return (data ?? []).map((row) =>
+      requiredString(row.item, "list_items.item"),
+    );
   }
 
   async applyListOps(
@@ -281,11 +283,15 @@ export class SupabaseStore implements Store {
     }
     const createdAt = requiredString(d.created_at, "memories.created_at");
     if (!Number.isFinite(Date.parse(createdAt))) {
-      throw new Error("store: invalid database timestamp for memories.created_at");
+      throw new Error(
+        "store: invalid database timestamp for memories.created_at",
+      );
     }
     const expiresAt = nullableString(d.expires_at, "memories.expires_at");
     if (expiresAt !== null && !Number.isFinite(Date.parse(expiresAt))) {
-      throw new Error("store: invalid database timestamp for memories.expires_at");
+      throw new Error(
+        "store: invalid database timestamp for memories.expires_at",
+      );
     }
     const revokedAt = nullableString(d.revoked_at, "memories.revoked_at");
     const lastUsedAt = nullableString(d.last_used_at, "memories.last_used_at");

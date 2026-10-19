@@ -29,7 +29,7 @@ begin
     v_item := btrim(coalesce(v_op ->> 'item', ''));
     v_key := coalesce(v_op ->> 'dedupe_key', '');
 
-    if v_action not in ('add', 'remove') then
+    if v_action is null or v_action not in ('add', 'remove') then
       raise exception 'invalid list operation';
     end if;
     if v_item = '' or v_key = '' then
