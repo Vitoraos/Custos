@@ -114,7 +114,7 @@ describe("runAction", () => {
       ctx,
     );
     expect(r.outcome).toBe("unverified");
-    expect(r.say).toContain("could not confirm");
+    expect(r.say).toContain("couldn't confirm");
   });
   it("offline adapter reports error", async () => {
     const { ctx, twin } = base([], new FakeDeviceTwin("offline"));
