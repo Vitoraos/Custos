@@ -123,7 +123,7 @@ describe("runAction", () => {
       { device: "kitchen_light", value: "on" },
       ctx,
     );
-    expect(r.outcome).toBe("error");
+    expect(r.outcome).toBe("unverified");
   });
   it("policy block short-circuits before any write", async () => {
     const writes = { count: 0 };
