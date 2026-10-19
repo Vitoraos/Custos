@@ -141,6 +141,30 @@ function minuteBucket(d: Date): string {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+const WRITE_TIMEOUT_MS = 5_000;
+const READ_TIMEOUT_MS = 1_500;
+
+async function withTimeout<T>(
+  operation: Promise<T>,
+  timeoutMs: number,
+  label: string,
+): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      operation,
+      new Promise<T>((_, reject) => {
+        timer = setTimeout(
+          () => reject(new Error(`${label} timed out after ${timeoutMs}ms`)),
+          timeoutMs,
+        );
+      }),
+    ]);
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
+  }
+}
+
 // In-flight dedupe: concurrent identical calls share one execution/receipt.
 const inFlight = new Map<string, Promise<ToolResult>>();
 
@@ -210,10 +234,10 @@ async function execute<Args, Cmd, State>(
   // Baseline mode: memory without enforcement — raw ack, no guard, no verify.
   if (ctx.mode === "baseline") {
     try {
-      const ack = await spec.adapter.write(
-        ctx.userId,
-        spec.toCommand(args),
-        key,
+      const ack = await withTimeout(
+        spec.adapter.write(ctx.userId, spec.toCommand(args), key),
+        WRITE_TIMEOUT_MS,
+        "action write",
       );
       const say = ack.ackText ?? "Done.";
       const saved = await receipts.insert({
@@ -310,21 +334,25 @@ async function execute<Args, Cmd, State>(
   };
   let attempts = 0;
   const observe = async (): Promise<{ ok: boolean; state: State | null }> => {
-    for (const wait of [300, 700, 1200]) {
-      await sleep(wait);
+    let lastState: State | null = null;
+    let elapsedMs = 0;
+    // Read at approximately 300ms, 700ms, and 1200ms after the write.
+    for (const targetElapsedMs of [300, 700, 1200]) {
+      await sleep(targetElapsedMs - elapsedMs);
+      elapsedMs = targetElapsedMs;
       try {
-        const state = await spec.adapter.read(ctx.userId, target);
+        const state = await withTimeout(
+          spec.adapter.read(ctx.userId, target),
+          READ_TIMEOUT_MS,
+          "state read-back",
+        );
+        lastState = state;
         if (match(state)) return { ok: true, state };
       } catch {
         // Read errors count as mismatch; the retry covers transient faults.
       }
     }
-    try {
-      const state = await spec.adapter.read(ctx.userId, target);
-      return { ok: match(state), state };
-    } catch {
-      return { ok: false, state: null };
-    }
+    return { ok: false, state: lastState };
   };
 
   const finish = async (
@@ -355,11 +383,17 @@ async function execute<Args, Cmd, State>(
     return { outcome, say, evidence, receiptId: saved.id };
   };
 
+  // A write can throw after the remote side effect succeeded (lost ACK).
+  // Always read back before deciding that the action failed.
   try {
     attempts = 1;
-    await spec.adapter.write(ctx.userId, spec.toCommand(args), key);
+    await withTimeout(
+      spec.adapter.write(ctx.userId, spec.toCommand(args), key),
+      WRITE_TIMEOUT_MS,
+      "action write",
+    );
   } catch {
-    return finish("error", sayError(), { writeError: true });
+    // The read-back below determines whether the write actually took effect.
   }
   const first = await observe();
   if (first.ok)
@@ -372,7 +406,19 @@ async function execute<Args, Cmd, State>(
     attempts = 2;
     await spec.adapter.write(ctx.userId, spec.toCommand(args), key);
   } catch {
-    return finish("error", sayError(), { writeError: true });
+    // The retry may also have succeeded despite a lost acknowledgement.
+    const afterRetryError = await observe();
+    if (afterRetryError.ok) {
+      return finish(
+        "verified_after_retry",
+        sayVerifiedAfterRetry(spec.verifiedWhat(args)),
+        afterRetryError.state,
+      );
+    }
+    return finish("error", sayError(), {
+      writeError: true,
+      observed: afterRetryError.state,
+    });
   }
   const second = await observe();
   if (second.ok)
