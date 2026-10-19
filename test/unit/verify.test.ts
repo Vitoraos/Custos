@@ -215,6 +215,23 @@ describe("runAction", () => {
     ]);
     expect(a.receiptId).toBe(b.receiptId);
   });
+  it("verifies the side effect when a write throws after losing its acknowledgement", async () => {
+    const twin = new FakeDeviceTwin();
+    twin.write = async (_userId, cmd) => {
+      twin.set(cmd.device, cmd.value);
+      throw new Error("acknowledgement lost after the write");
+    };
+    const { ctx } = base([], twin);
+    const result = await runAction(
+      spec(twin),
+      { device: "kitchen_light", value: "on" },
+      { ...ctx, minuteBucket: "lost-ack" },
+    );
+    expect(result.outcome).toBe("verified");
+    expect(result.evidence?.observed).toEqual({ power: "on" });
+    expect(result.receiptId).toBeDefined();
+  });
+
   it("baseline mode returns raw ack without guard or verification", async () => {
     const twin = new FakeDeviceTwin("lost_ack"); // would be unverified in forge
     const { ctx } = base([peanutRule], twin);
