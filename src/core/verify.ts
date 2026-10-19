@@ -404,7 +404,11 @@ async function execute<Args, Cmd, State>(
     );
   try {
     attempts = 2;
-    await spec.adapter.write(ctx.userId, spec.toCommand(args), key);
+    await withTimeout(
+      spec.adapter.write(ctx.userId, spec.toCommand(args), key),
+      WRITE_TIMEOUT_MS,
+      "action retry",
+    );
   } catch {
     // The retry may also have succeeded despite a lost acknowledgement.
     const afterRetryError = await observe();
