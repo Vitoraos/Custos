@@ -355,11 +355,13 @@ async function execute<Args, Cmd, State>(
     return { outcome, say, evidence, receiptId: saved.id };
   };
 
+  // A write can throw after the remote side effect succeeded (lost ACK).
+  // Always read back before deciding that the action failed.
   try {
     attempts = 1;
     await spec.adapter.write(ctx.userId, spec.toCommand(args), key);
   } catch {
-    return finish("error", sayError(), { writeError: true });
+    // The read-back below determines whether the write actually took effect.
   }
   const first = await observe();
   if (first.ok)
@@ -372,7 +374,19 @@ async function execute<Args, Cmd, State>(
     attempts = 2;
     await spec.adapter.write(ctx.userId, spec.toCommand(args), key);
   } catch {
-    return finish("error", sayError(), { writeError: true });
+    // The retry may also have succeeded despite a lost acknowledgement.
+    const afterRetryError = await observe();
+    if (afterRetryError.ok) {
+      return finish(
+        "verified_after_retry",
+        sayVerifiedAfterRetry(spec.verifiedWhat(args)),
+        afterRetryError.state,
+      );
+    }
+    return finish("error", sayError(), {
+      writeError: true,
+      observed: afterRetryError.state,
+    });
   }
   const second = await observe();
   if (second.ok)
