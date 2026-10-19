@@ -519,13 +519,17 @@ describe("fail-closed policy validation", () => {
       source: "explicit",
       createdAt: NOW.toISOString(),
     } as unknown as Constraint);
-    const result = evaluate([bad], {
-      type: "device_set",
-      device: "thermostat",
-      attr: "temp_c",
-      value: 22,
-      at: NOW,
-    }, ctx());
+    const result = evaluate(
+      [bad],
+      {
+        type: "device_set",
+        device: "thermostat",
+        attr: "temp_c",
+        value: 22,
+        at: NOW,
+      },
+      ctx(),
+    );
     expect(result.verdict).toBe("block");
   });
 
@@ -540,13 +544,18 @@ describe("fail-closed policy validation", () => {
       source: "explicit",
       createdAt: NOW.toISOString(),
     } as unknown as Constraint);
-    expect(verdict([q], {
-      type: "device_set",
-      device: "hall_light",
-      attr: "power",
-      value: "on",
-      at: NOW,
-    })).toBe("block");
+    expect(
+      verdict(
+        [q],
+        {
+          type: "device_set",
+          device: "hall_light",
+          attr: "power",
+          value: "on",
+          at: NOW,
+        },
+      ),
+    ).toBe("block");
   });
 
   it("fails closed on unknown device classes during active quiet hours", () => {
@@ -560,13 +569,18 @@ describe("fail-closed policy validation", () => {
       source: "explicit",
       createdAt: NOW.toISOString(),
     } as unknown as Constraint);
-    expect(verdict([q], {
-      type: "device_set",
-      device: "mystery_endpoint",
-      attr: "mode",
-      value: "on",
-      at: NOW,
-    })).toBe("block");
+    expect(
+      verdict(
+        [q],
+        {
+          type: "device_set",
+          device: "mystery_endpoint",
+          attr: "mode",
+          value: "on",
+          at: NOW,
+        },
+      ),
+    ).toBe("block");
   });
 
   it("blocks an invalid evaluation clock", () => {
@@ -576,7 +590,6 @@ describe("fail-closed policy validation", () => {
     });
     expect(result.verdict).toBe("block");
   });
-});
 
   it("blocks invalid action values such as NaN instead of treating them as in-range", () => {
     const rule = base({
@@ -589,22 +602,31 @@ describe("fail-closed policy validation", () => {
       source: "explicit",
       createdAt: NOW.toISOString(),
     } as unknown as Constraint);
-    const result = evaluate([rule], {
-      type: "device_set",
-      device: "thermostat",
-      attr: "temp_c",
-      value: Number.NaN,
-      at: NOW,
-    }, ctx());
+    const result = evaluate(
+      [rule],
+      {
+        type: "device_set",
+        device: "thermostat",
+        attr: "temp_c",
+        value: Number.NaN,
+        at: NOW,
+      },
+      ctx(),
+    );
     expect(result.verdict).toBe("block");
     expect(result.reasons[0].text).toContain("invalid values");
   });
 
   it("blocks reminders with invalid timestamps", () => {
-    const result = evaluate([], {
-      type: "reminder",
-      at: new Date(Number.NaN),
-      text: "Call Mum",
-    }, ctx());
+    const result = evaluate(
+      [],
+      {
+        type: "reminder",
+        at: new Date(Number.NaN),
+        text: "Call Mum",
+      },
+      ctx(),
+    );
     expect(result.verdict).toBe("block");
   });
+});
