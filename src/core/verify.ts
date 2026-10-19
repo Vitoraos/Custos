@@ -334,29 +334,25 @@ async function execute<Args, Cmd, State>(
   };
   let attempts = 0;
   const observe = async (): Promise<{ ok: boolean; state: State | null }> => {
-    for (const wait of [300, 700, 1200]) {
-      await sleep(wait);
+    let lastState: State | null = null;
+    let elapsedMs = 0;
+    // Read at approximately 300ms, 700ms, and 1200ms after the write.
+    for (const targetElapsedMs of [300, 700, 1200]) {
+      await sleep(targetElapsedMs - elapsedMs);
+      elapsedMs = targetElapsedMs;
       try {
         const state = await withTimeout(
           spec.adapter.read(ctx.userId, target),
           READ_TIMEOUT_MS,
           "state read-back",
         );
+        lastState = state;
         if (match(state)) return { ok: true, state };
       } catch {
         // Read errors count as mismatch; the retry covers transient faults.
       }
     }
-    try {
-      const state = await withTimeout(
-        spec.adapter.read(ctx.userId, target),
-        READ_TIMEOUT_MS,
-        "state read-back",
-      );
-      return { ok: match(state), state };
-    } catch {
-      return { ok: false, state: null };
-    }
+    return { ok: false, state: lastState };
   };
 
   const finish = async (
