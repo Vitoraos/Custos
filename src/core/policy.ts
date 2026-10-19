@@ -1,5 +1,5 @@
 // Deterministic, fail-closed policy: rules in, verdict out. Pure functions, no I/O.
-import type { Allergen, Constraint } from "./constraints.js";
+import { constraintSchema, type Allergen, type Constraint } from "./constraints.js";
 import { matchAllergens, matchDiet } from "./matcher.js";
 
 export type ProposedAction =
@@ -36,9 +36,9 @@ export interface EvalContext {
 }
 
 function active(r: Constraint, now: Date): boolean {
-  // external-source rules stay dormant until a user confirms them (poisoning guard).
+  // External-source rules stay dormant until a user confirms them (poisoning guard).
   if (r.source === "external") return false;
-  if (r.expiresAt && new Date(r.expiresAt) <= now) return false;
+  if (r.expiresAt && Date.parse(r.expiresAt) <= now.getTime()) return false;
   return true;
 }
 
@@ -51,21 +51,17 @@ function toMinutes(hhmm: string): number {
   return h * 60 + m;
 }
 
-// Wall-clock minutes in tz (handles DST via Intl; falls back to UTC on bad tz).
+// Wall-clock minutes in tz (handles DST via Intl; invalid zones are rejected by schema).
 function nowInTz(now: Date, tz: string): number {
-  try {
-    const parts = new Intl.DateTimeFormat("en-GB", {
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false,
-      timeZone: tz,
-    }).formatToParts(now);
-    const h = Number(parts.find((p) => p.type === "hour")?.value ?? 0);
-    const m = Number(parts.find((p) => p.type === "minute")?.value ?? 0);
-    return (h === 24 ? 0 : h) * 60 + m;
-  } catch {
-    return now.getUTCHours() * 60 + now.getUTCMinutes();
-  }
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+    timeZone: tz,
+  }).formatToParts(now);
+  const h = Number(parts.find((p) => p.type === "hour")?.value ?? 0);
+  const m = Number(parts.find((p) => p.type === "minute")?.value ?? 0);
+  return (h === 24 ? 0 : h) * 60 + m;
 }
 
 function quietActive(
@@ -77,7 +73,9 @@ function quietActive(
   const cur = nowInTz(now, tz);
   const s = toMinutes(start);
   const e = toMinutes(end);
-  return s <= e ? cur >= s && cur < e : cur >= s || cur < e; // overnight wrap
+  // Equal endpoints are treated as all-day quiet hours, never as an accidental bypass.
+  if (s === e) return true;
+  return s < e ? cur >= s && cur < e : cur >= s || cur < e;
 }
 
 function deviceDomain(
@@ -101,11 +99,55 @@ function isUnlock(device: string, value: unknown): boolean {
   );
 }
 
+function invalidPolicy(reason: string, constraintId = "policy:invalid"): Evaluation {
+  return {
+    verdict: "block",
+    reasons: [{ constraintId, text: reason }],
+    checked: constraintId === "policy:invalid" ? [] : [constraintId],
+  };
+}
+
 export function evaluate(
   rules: Constraint[],
   action: ProposedAction,
   ctx: EvalContext,
 ): Evaluation {
+  // Do not let invalid clocks or corrupt persisted rules turn into an implicit allow.
+  if (!(ctx.now instanceof Date) || !Number.isFinite(ctx.now.getTime())) {
+    return invalidPolicy("Policy evaluation time is invalid.");
+  }
+  if (
+    !Array.isArray(ctx.profiles) ||
+    ctx.profiles.some((profile) => typeof profile !== "string" || !profile.trim())
+  ) {
+    return invalidPolicy("Policy profile context is invalid.");
+  }
+  for (const candidate of rules as unknown[]) {
+    const parsed = constraintSchema.safeParse(candidate);
+    if (!parsed.success) {
+      const id =
+        candidate && typeof candidate === "object" &&
+        "id" in candidate && typeof candidate.id === "string"
+          ? candidate.id
+          : "policy:invalid-rule";
+      return invalidPolicy(
+        "A stored safety rule is invalid. No action was allowed.",
+        id,
+      );
+    }
+    if (
+      parsed.data.kind === "device_limit" &&
+      parsed.data.min !== undefined &&
+      parsed.data.max !== undefined &&
+      parsed.data.min > parsed.data.max
+    ) {
+      return invalidPolicy(
+        "A stored device limit has an invalid range. No action was allowed.",
+        parsed.data.id,
+      );
+    }
+  }
+
   const reasons: Reason[] = [];
   const checked: string[] = [];
   let needConfirm = false;
@@ -148,24 +190,26 @@ export function evaluate(
     }
 
     if (r.kind === "quiet_hours") {
+      const domain =
+        action.type === "device_set"
+          ? deviceDomain(action.device, action.attr)
+          : null;
       const appliesNow =
         (action.type === "device_set" &&
-          r.applies.includes(
-            deviceDomain(action.device, action.attr) ?? "lights",
-          )) ||
+          (domain === null || r.applies.includes(domain))) ||
         (action.type === "reminder" && r.applies.includes("notifications"));
+      const actionTime =
+        action.type === "reminder" ? action.at : ctx.now;
       if (
         appliesNow &&
-        quietActive(
-          r.start,
-          r.end,
-          r.tz,
-          action.type === "reminder" ? action.at : ctx.now,
-        )
+        quietActive(r.start, r.end, r.tz, actionTime)
       ) {
         reasons.push({
           constraintId: r.id,
-          text: `Quiet hours (${r.start}–${r.end} ${r.tz}) cover this action.`,
+          text:
+            action.type === "device_set" && domain === null
+              ? `Quiet hours (${r.start}–${r.end} ${r.tz}) conservatively block this unclassified device action.`
+              : `Quiet hours (${r.start}–${r.end} ${r.tz}) cover this action.`,
         });
       }
     }
