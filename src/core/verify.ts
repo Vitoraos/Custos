@@ -141,6 +141,30 @@ function minuteBucket(d: Date): string {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+const WRITE_TIMEOUT_MS = 5_000;
+const READ_TIMEOUT_MS = 1_500;
+
+async function withTimeout<T>(
+  operation: Promise<T>,
+  timeoutMs: number,
+  label: string,
+): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      operation,
+      new Promise<T>((_, reject) => {
+        timer = setTimeout(
+          () => reject(new Error(`${label} timed out after ${timeoutMs}ms`)),
+          timeoutMs,
+        );
+      }),
+    ]);
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
+  }
+}
+
 // In-flight dedupe: concurrent identical calls share one execution/receipt.
 const inFlight = new Map<string, Promise<ToolResult>>();
 
@@ -210,10 +234,10 @@ async function execute<Args, Cmd, State>(
   // Baseline mode: memory without enforcement — raw ack, no guard, no verify.
   if (ctx.mode === "baseline") {
     try {
-      const ack = await spec.adapter.write(
-        ctx.userId,
-        spec.toCommand(args),
-        key,
+      const ack = await withTimeout(
+        spec.adapter.write(ctx.userId, spec.toCommand(args), key),
+        WRITE_TIMEOUT_MS,
+        "action write",
       );
       const say = ack.ackText ?? "Done.";
       const saved = await receipts.insert({
@@ -313,14 +337,22 @@ async function execute<Args, Cmd, State>(
     for (const wait of [300, 700, 1200]) {
       await sleep(wait);
       try {
-        const state = await spec.adapter.read(ctx.userId, target);
+        const state = await withTimeout(
+          spec.adapter.read(ctx.userId, target),
+          READ_TIMEOUT_MS,
+          "state read-back",
+        );
         if (match(state)) return { ok: true, state };
       } catch {
         // Read errors count as mismatch; the retry covers transient faults.
       }
     }
     try {
-      const state = await spec.adapter.read(ctx.userId, target);
+      const state = await withTimeout(
+        spec.adapter.read(ctx.userId, target),
+        READ_TIMEOUT_MS,
+        "state read-back",
+      );
       return { ok: match(state), state };
     } catch {
       return { ok: false, state: null };
@@ -359,7 +391,11 @@ async function execute<Args, Cmd, State>(
   // Always read back before deciding that the action failed.
   try {
     attempts = 1;
-    await spec.adapter.write(ctx.userId, spec.toCommand(args), key);
+    await withTimeout(
+      spec.adapter.write(ctx.userId, spec.toCommand(args), key),
+      WRITE_TIMEOUT_MS,
+      "action write",
+    );
   } catch {
     // The read-back below determines whether the write actually took effect.
   }
