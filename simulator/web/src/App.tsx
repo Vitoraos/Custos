@@ -379,7 +379,7 @@ export default function App() {
                         no ground-truth checks for this beat
                       </p>
                     )}
-                    <ul>
+                    <ul className="checks-list">
                       {list.map((r) => (
                         <li key={r.description}>
                           {r.pass ? "✓" : "×"} {r.description}{" "}
