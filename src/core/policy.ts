@@ -99,6 +99,47 @@ function isUnlock(device: string, value: unknown): boolean {
   );
 }
 
+function isValidAction(action: ProposedAction): boolean {
+  if (!action || typeof action !== "object") return false;
+  switch (action.type) {
+    case "recipe":
+      return (
+        typeof action.name === "string" &&
+        action.name.trim().length > 0 &&
+        Array.isArray(action.ingredients) &&
+        action.ingredients.every((item) => typeof item === "string" && item.trim()) &&
+        Array.isArray(action.servingFor) &&
+        action.servingFor.every((profile) => typeof profile === "string" && profile.trim())
+      );
+    case "device_set":
+      return (
+        typeof action.device === "string" &&
+        action.device.trim().length > 0 &&
+        typeof action.attr === "string" &&
+        action.attr.trim().length > 0 &&
+        action.at instanceof Date &&
+        Number.isFinite(action.at.getTime()) &&
+        (typeof action.value === "string" ||
+          typeof action.value === "boolean" ||
+          (typeof action.value === "number" && Number.isFinite(action.value)))
+      );
+    case "shopping_add":
+      return (
+        Array.isArray(action.items) &&
+        action.items.every((item) => typeof item === "string" && item.trim())
+      );
+    case "reminder":
+      return (
+        action.at instanceof Date &&
+        Number.isFinite(action.at.getTime()) &&
+        typeof action.text === "string" &&
+        action.text.trim().length > 0
+      );
+    default:
+      return false;
+  }
+}
+
 function invalidPolicy(reason: string, constraintId = "policy:invalid"): Evaluation {
   return {
     verdict: "block",
@@ -115,6 +156,12 @@ export function evaluate(
   // Do not let invalid clocks or corrupt persisted rules turn into an implicit allow.
   if (!(ctx.now instanceof Date) || !Number.isFinite(ctx.now.getTime())) {
     return invalidPolicy("Policy evaluation time is invalid.");
+  }
+  if (!Array.isArray(rules)) {
+    return invalidPolicy("Stored safety rules are unavailable.");
+  }
+  if (!isValidAction(action)) {
+    return invalidPolicy("The requested action contains invalid values.");
   }
   if (
     !Array.isArray(ctx.profiles) ||
