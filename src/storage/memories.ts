@@ -85,9 +85,8 @@ export async function loadConstraints(
   const out: Constraint[] = [];
   const now = Date.now();
   for (const memory of await store.listMemories(userId)) {
-    if (memory.kind !== "constraint" || !isCurrentlyActive(memory, now)) {
-      continue;
-    }
+    if (memory.kind !== "constraint" || memory.status !== "active") continue;
+
     const payload = isRecord(memory.payload) ? memory.payload : {};
     const parsed = constraintSchema.safeParse({
       ...payload,
@@ -95,11 +94,23 @@ export async function loadConstraints(
       profile: memory.profile,
       source: memory.source,
       createdAt: memory.createdAt,
-      // The database columns are authoritative. A stale payload field must not
-      // override the canonical expiration column when it is null.
+      // Database columns are authoritative; malformed values must not silently
+      // disappear from enforcement, and payload fields cannot override them.
       expiresAt: memory.expiresAt ?? undefined,
     });
-    if (parsed.success) out.push(parsed.data);
+    if (!parsed.success) {
+      // Fail closed. Silently dropping a corrupt active rule can turn a block
+      // into an allow, which is worse than temporarily refusing the action.
+      throw new Error(
+        `memory: active constraint ${memory.id} failed validation: ${parsed.error.message}`,
+      );
+    }
+
+    const expiresAt = parsed.data.expiresAt
+      ? Date.parse(parsed.data.expiresAt)
+      : null;
+    if (expiresAt !== null && expiresAt <= now) continue;
+    out.push(parsed.data);
   }
   return out;
 }
