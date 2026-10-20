@@ -223,26 +223,29 @@ export function schedulingTools(deps: Deps) {
             attempts: 1,
             latencyMs: Date.now() - started,
           });
-          return envelope({
-            outcome: "verified",
-            say,
-            data: record,
-            receiptId: receipt.id,
-            evidence: {
-              expected: {
-                target: args.target,
-                [args.attr]: args.value,
-                scheduledAt: instant.toISOString(),
+          return envelope(
+            {
+              outcome: "verified",
+              say,
+              data: record,
+              receiptId: receipt.id,
+              evidence: {
+                expected: {
+                  target: args.target,
+                  [args.attr]: args.value,
+                  scheduledAt: instant.toISOString(),
+                },
+                observed: {
+                  persisted: true,
+                  status: record.status,
+                  id: record.id,
+                },
+                source: "scheduled_actions database row",
+                checkedAt: new Date().toISOString(),
               },
-              observed: {
-                persisted: true,
-                status: record.status,
-                id: record.id,
-              },
-              source: "scheduled_actions database row",
-              checkedAt: new Date().toISOString(),
             },
-          }, c);
+            c,
+          );
         } catch (e) {
           return envelope(
             {
