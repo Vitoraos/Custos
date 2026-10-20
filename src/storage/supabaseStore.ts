@@ -10,7 +10,7 @@ import {
   type MemoryRecord,
   type ScheduledActionRecord,
   type ScheduledActionStatus,
-  type Store
+  type Store,
 } from "./store.js";
 
 const PAGE_SIZE = 500;
