@@ -35,8 +35,10 @@ describe("scheduled action worker", () => {
     expect(saved[0].evidence.observed).toEqual({ power: "on" });
   });
 
-  it("does not execute another tenant's schedule", async () => {
+  it("keeps execution state isolated by tenant", async () => {
     const store = new MemoryStore();
+    await store.setDevice("tenant-a", "hall_light", { power: "off" });
+    await store.setDevice("tenant-b", "hall_light", { power: "off" });
     await store.createScheduledAction({
       userId: "tenant-b",
       runId: "run-worker",
@@ -54,9 +56,8 @@ describe("scheduled action worker", () => {
       new Date("2026-10-20T12:26:00.000Z"),
     );
     expect(result.claimed).toBe(1);
-    expect(await store.getDevice("tenant-b", "hall_light")).toBeNull();
-    expect((await store.listScheduledActions("tenant-b"))[0].status).toBe(
-      "verified",
-    );
+    expect((await store.getDevice("tenant-a", "hall_light"))?.power).toBe("off");
+    expect((await store.getDevice("tenant-b", "hall_light"))?.power).toBe("on");
+    expect((await store.listScheduledActions("tenant-b"))[0].status).toBe("verified");
   });
 });
