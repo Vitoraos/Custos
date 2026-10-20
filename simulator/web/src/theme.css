@@ -1147,20 +1147,19 @@ header.app {
   box-shadow: var(--lift-card);
 }
 
-.show-truth .show-device strong,
-.show-truth .show-device span,
-.show-truth .show-truth .show-device small {
+.show-truth .show-device strong {
   color: var(--ink);
 }
 
-.show-truth .show-truth .show-device span {
+.show-truth .show-device span {
+  color: var(--ink);
   font-weight: 700;
 }
 
-.show-device small {
+.show-truth .show-device small {
+  color: var(--ink);
   font-size: var(--t-caption);
 }
-
 .show-error {
   border-color: var(--danger);
 }
