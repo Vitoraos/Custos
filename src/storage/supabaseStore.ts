@@ -9,6 +9,7 @@ import type {
   Store,
   ScheduledActionRecord,
   ScheduledActionStatus,
+  canTransitionScheduledStatus,
 } from "./store.js";
 import { dedupeKey } from "./store.js";
 
@@ -264,7 +265,16 @@ export class SupabaseStore implements Store {
       if (existing.error) fail(existing.error);
       if (!existing.data) fail(error);
       const d = existing.data;
-      if (d.target !== row.target || d.scheduled_at !== row.scheduledAt || JSON.stringify(d.desired_state) !== JSON.stringify(row.desiredState)) throw new Error("schedule: idempotency key reused with different action");
+      if (
+        d.target !== row.target ||
+        d.scheduled_at !== row.scheduledAt ||
+        d.timezone !== row.timezone ||
+        d.local_scheduled_at !== row.localScheduledAt ||
+        d.run_id !== row.runId ||
+        JSON.stringify(d.desired_state) !== JSON.stringify(row.desiredState)
+      ) {
+        throw new Error("schedule: idempotency key reused with different action");
+      }
       return this.scheduledRow(d);
     }
     if (error) fail(error);
@@ -277,15 +287,41 @@ export class SupabaseStore implements Store {
     if (error) fail(error);
     return (data ?? []).map(row => this.scheduledRow(row));
   }
-  async updateScheduledAction(userId: string, id: string, status: ScheduledActionStatus, evidence?: Record<string, unknown>): Promise<ScheduledActionRecord | null> {
-    const existing = await this.db.from("scheduled_actions").select("evidence").eq("user_id", userId).eq("id", id).maybeSingle();
+  async updateScheduledAction(
+    userId: string,
+    id: string,
+    status: ScheduledActionStatus,
+    evidence?: Record<string, unknown>,
+  ): Promise<ScheduledActionRecord | null> {
+    const existing = await this.db
+      .from("scheduled_actions")
+      .select("status,evidence")
+      .eq("user_id", userId)
+      .eq("id", id)
+      .maybeSingle();
     if (existing.error) fail(existing.error);
     if (!existing.data) return null;
+    const previousStatus = existing.data.status as ScheduledActionStatus;
+    if (!canTransitionScheduledStatus(previousStatus, status)) {
+      throw new Error("schedule: invalid status transition " + previousStatus + " -> " + status);
+    }
     const merged = { ...(existing.data.evidence ?? {}), ...(evidence ?? {}) };
-    const { data, error } = await this.db.from("scheduled_actions").update({ status, evidence: merged, updated_at: new Date().toISOString() }).eq("user_id", userId).eq("id", id).select("*").maybeSingle();
+    const { data, error } = await this.db
+      .from("scheduled_actions")
+      .update({
+        status,
+        evidence: merged,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("user_id", userId)
+      .eq("id", id)
+      .eq("status", previousStatus)
+      .select("*")
+      .maybeSingle();
     if (error) fail(error);
     return data ? this.scheduledRow(data) : null;
   }
+
   private scheduledRow(value: unknown): ScheduledActionRecord {
     const d = asRecord(value, "scheduled_actions row");
     const status = requiredString(d.status, "scheduled_actions.status") as ScheduledActionStatus;
