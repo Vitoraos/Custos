@@ -53,10 +53,13 @@ type Showcase = {
 type RunState = "idle" | "running" | "done" | "error";
 const STEPS = [
   "Understand the request",
-  "Baseline attempts the tasks",
-  "Custos applies household rules",
-  "Plan dinner intelligently",
-  "Inspect receipts and ground truth",
+  "Baseline schedules coffee",
+  "Baseline misses the school context",
+  "Baseline claims dinner is handled",
+  "Custos schedules coffee",
+  "Custos derives the hall-light time",
+  "Custos plans dinner and updates the shopping list",
+  "Inspect receipts and independent state",
 ];
 
 async function runShowcase(): Promise<Showcase> {
@@ -158,8 +161,8 @@ export default function App() {
   }
 
   const stepIndex = Math.max(0, Math.min(STEPS.length - 1, stage === 0 ? 0 : stage - 1));
-  const baselineVisible = stage >= 3 ? 3 : stage >= 2 ? 1 : 0;
-  const custosVisible = stage >= 5 ? 3 : stage >= 4 ? 2 : 0;
+  const baselineVisible = stage >= 4 ? 3 : stage >= 3 ? 2 : stage >= 2 ? 1 : 0;
+  const custosVisible = stage >= 7 ? 3 : stage >= 6 ? 2 : stage >= 5 ? 1 : 0;
 
   return (
     <main className="showcase-app">
