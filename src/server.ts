@@ -12,8 +12,8 @@ import {
   type Session,
   sha256Hex,
 } from "./auth.js";
-import { rateLimit } from "./rateLimit.js";
 import { SupabaseReceipts } from "./core/receipts.js";
+import { rateLimit } from "./rateLimit.js";
 import { MemoryStore, type Store } from "./storage/store.js";
 import { SupabaseStore } from "./storage/supabaseStore.js";
 import { accountabilityTools, type Runner } from "./tools/accountability.js";
@@ -79,7 +79,9 @@ export function createServer(
 
   const deps = createDeps(
     active,
-    active instanceof SupabaseStore ? new SupabaseReceipts(active.client) : undefined,
+    active instanceof SupabaseStore
+      ? new SupabaseReceipts(active.client)
+      : undefined,
   );
   const actions = actionTools(deps);
   const mem = memoryTools(deps);
@@ -90,7 +92,13 @@ export function createServer(
   const acc = accountabilityTools(deps, runners);
   const reads = readTools(deps);
   const scheduling = schedulingTools(deps);
-  for (const t of [...mem.tools, ...acc, ...actions.tools, ...reads, ...scheduling]) {
+  for (const t of [
+    ...mem.tools,
+    ...acc,
+    ...actions.tools,
+    ...reads,
+    ...scheduling,
+  ]) {
     server.addTool(t as Parameters<typeof server.addTool>[0]);
   }
 
