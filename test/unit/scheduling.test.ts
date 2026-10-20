@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { localToInstant } from "../../src/tools/scheduling.js";
 import { MemoryStore } from "../../src/storage/store.js";
+import { localToInstant } from "../../src/tools/scheduling.js";
 
 describe("localToInstant", () => {
   it("normalizes Lagos wall time to UTC", () => {
