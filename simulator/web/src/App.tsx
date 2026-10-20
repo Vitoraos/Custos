@@ -185,7 +185,7 @@ function humanize(value: string): string {
     kitchen_light: "Kitchen light",
     hall_light: "Hall light",
   };
-  return labels[value] ?? value.replaceAll("_", " ").replace(/\\b\\w/g, (letter) => letter.toUpperCase());
+  return labels[value] ?? value.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
 function ReceiptCard({ receipt }: { receipt: Receipt }) {
