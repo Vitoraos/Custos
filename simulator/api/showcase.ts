@@ -132,7 +132,7 @@ export async function runShowcase(
   const pantryBefore = await store.listItems(custosUser, "pantry");
   const shoppingBefore = await store.listItems(custosUser, "shopping");
   const normalize = (value: string) =>
-    value.toLowerCase().replace(/[^a-z0-9\\s]/g, "").replace(/\\s+/g, " ").trim();
+    value.toLowerCase().replace(/[^a-z0-9\s]/g, "").replace(/\s+/g, " ").trim();
   const alreadyAvailable = new Set(
     [...pantryBefore, ...shoppingBefore].map(normalize),
   );
@@ -157,7 +157,7 @@ export async function runShowcase(
       ? `Added to shopping list: ${missingIngredients.join(", ")}.`
       : "Everything needed is already in the pantry or shopping list.",
     "Beef excluded for Maya's allergy.",
-  ].join("\\n");
+  ].join("\n");
   const notificationTopic = topicFor(custosUser);
   let notification: { id: string; deliverAtMs: number; text: string } | null = null;
   try {
