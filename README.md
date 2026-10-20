@@ -83,7 +83,7 @@ Open **http://localhost:3000**. The server serves the API and the built simulato
 1. Copy `.env.example` to `.env`.
 2. Add your Supabase project URL and **server-side service-role key** if you want persistent storage. Keep the service-role key private and never expose it in frontend code.
 3. Add an OpenRouter API key if you want live model-driven conversations. Without it, select Replay mode; free-tier quotas can run out.
-4. If using Supabase, apply the schema/migration and seed data as described in [the database setup](infra/migrations/001_v3.sql) and run:
+4. If using Supabase, apply [the base schema](infra/migrations/001_v3.sql), then apply [the scheduled-actions and receipt migration](infra/migrations/003_scheduled_actions.sql), and seed data as described below. Migration `003_scheduled_actions.sql` adds durable future-device schedules and stores the spoken receipt text needed for idempotent replay. Then run:
 
 ```bash
 npm run db:seed
@@ -157,14 +157,14 @@ A Vercel build that fails with `The specified Root Directory "<x>" does not exis
 |---|---|
 | `src/core/policy.ts` | Policy decisions and constraint enforcement |
 | `src/core/verify.ts` | Action verification and recovery behavior |
-| `src/core/receipts.ts` | Action receipt creation |
-| `src/tools/` | Tools exposed to the assistant |
+| `src/core/receipts.ts` | In-memory test receipts and tenant-scoped durable Supabase receipts |
+| `src/tools/scheduling.ts` | Timezone-aware, policy-checked future device scheduling |\n| `src/core/scheduledWorker.ts` | Due-schedule execution and device-twin read-back verification |\n| `src/tools/` | Tools exposed to the assistant |
 | `src/adapters/` | Device twin and external-service adapters |
 | `simulator/api/` | Simulator routes and agent orchestration |
 | `simulator/web/` | A/B interface and Ground Truth panel |
 | `test/` | Unit, integration and live adapter tests |
 | `bench/` | Benchmark runner, report generator and recorded results |
-| `infra/` | Database schema, migrations, seed data and hosting config |
+| `infra/` | Database schema, migrations, seed data and hosting config |\n| `infra/migrations/003_scheduled_actions.sql` | Durable schedules and receipt replay data |
 | `docs/ARCHITECTURE.md` | Detailed architecture |
 | `docs/API.md` | Tool/API contract |
 | `docs/SECURITY.md` | Security model and threat considerations |
