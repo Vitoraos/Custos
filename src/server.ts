@@ -20,6 +20,7 @@ import { actionTools } from "./tools/actions.js";
 import { createDeps } from "./tools/context.js";
 import { memoryTools } from "./tools/memory.js";
 import { readTools } from "./tools/reads.js";
+import { schedulingTools } from "./tools/scheduling.js";
 
 const INSTRUCTIONS =
   "Before tasks involving food, devices, purchases or reminders, call get_standing_rules. " +
@@ -84,7 +85,8 @@ export function createServer(
   };
   const acc = accountabilityTools(deps, runners);
   const reads = readTools(deps);
-  for (const t of [...mem.tools, ...acc, ...actions.tools, ...reads]) {
+  const scheduling = schedulingTools(deps);
+  for (const t of [...mem.tools, ...acc, ...actions.tools, ...reads, ...scheduling]) {
     server.addTool(t as Parameters<typeof server.addTool>[0]);
   }
 
@@ -95,6 +97,7 @@ export function createServer(
   // CORS alone never stops non-browser callers.
   const MIN = 60_000;
   app.use("/sim/guest", rateLimit({ windowMs: MIN, max: 10 }));
+  app.use("/sim/showcase", rateLimit({ windowMs: MIN, max: 12 }));
   app.use("/sim/chat", rateLimit({ windowMs: MIN, max: 60 }));
   app.use("/sim/faults", rateLimit({ windowMs: MIN, max: 60 }));
   app.use("/sim/truth", rateLimit({ windowMs: MIN, max: 120 }));
