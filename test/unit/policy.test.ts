@@ -78,13 +78,13 @@ describe("allergen blocks", () => {
   it("blocks common beef ingredient aliases and respects explicit beef-free labels", () => {
     const mayaBeefRule = allergen("beef", "Maya", "severe");
     expect(
-      verdict([mayaBeefRule], recipe(["ground beef tacos"], ["Maya"])),
+      verdict([mayaBeefRule], recipe(["ground beef tacos"], ["Maya"]), ctx(["Maya"])),
     ).toBe("block");
-    expect(verdict([mayaBeefRule], recipe(["beef broth"], ["Maya"]))).toBe(
+    expect(verdict([mayaBeefRule], recipe(["beef broth"], ["Maya"]), ctx(["Maya"]))).toBe(
       "block",
     );
     expect(
-      verdict([mayaBeefRule], recipe(["beef-free vegetable chili"], ["Maya"])),
+      verdict([mayaBeefRule], recipe(["beef-free vegetable chili"], ["Maya"]), ctx(["Maya"])),
     ).toBe("allow");
   });
 
@@ -522,7 +522,7 @@ describe("scheduled device actions evaluate quiet hours at their target time", (
     const result = evaluate(
       [rule],
       {
-        type: "device_set",
+        type: "device_schedule",
         device: "hall_light",
         attr: "power",
         value: "on",
