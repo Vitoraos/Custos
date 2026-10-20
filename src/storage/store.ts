@@ -285,7 +285,7 @@ export class MemoryStore implements Store {
     const now = new Date().toISOString();
     const record: ScheduledActionRecord = {
       ...clone(row),
-      id: `sched_\${Date.now().toString(36)}_\${++this.seq}`,
+      id: `sched_${Date.now().toString(36)}_${++this.seq}`,
       createdAt: now,
       updatedAt: now,
     };
@@ -313,7 +313,7 @@ export class MemoryStore implements Store {
     const prior = this.scheduled.get(key);
     if (!prior) return null;
     if (!canTransitionScheduledStatus(prior.status, status)) {
-      throw new Error(`schedule: invalid status transition \${prior.status} -> \${status}`);
+      throw new Error(`schedule: invalid status transition ${prior.status} -> ${status}`);
     }
     const next = {
       ...prior,
