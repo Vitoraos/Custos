@@ -23,7 +23,7 @@ export function rateLimit(opts: LimiterOptions) {
   const keyOf = opts.key ?? DEFAULT_KEY;
   const now = opts.now ?? Date.now;
   const hits = new Map<string, number[]>();
-  return async (c: Context, next: Next): Promise<Response | void> => {
+  return async (c: Context, next: Next): Promise<Response | undefined> => {
     const t = now();
     const k = keyOf(c);
     const window = (hits.get(k) ?? []).filter((ts) => ts > t - windowMs);

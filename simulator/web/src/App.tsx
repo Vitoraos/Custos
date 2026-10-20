@@ -1,460 +1,316 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  type AssertResult,
-  chat,
-  loadDemo,
-  type SimEvent,
-  type TheaterBeat,
-  theater,
-  theaterAssert,
-  theaterFault,
-  theaterNaive,
-  truth,
-} from "./api";
-import Column, { type Turn, type UserMsg } from "./components/Column";
-import TruthPanel from "./components/TruthPanel";
-import type { ToolTrace } from "./verdict";
+import { useState } from "react";
 import { voice } from "./voice";
+import "./theme.css";
 
-let nextId = 1;
-const nid = (): number => nextId++;
+const API =
+  (
+    import.meta as unknown as { env?: { VITE_API_BASE?: string } }
+  ).env?.VITE_API_BASE?.replace(/\/$/, "") ?? "";
 
-type Col = "forge" | "baseline";
+type Action = {
+  title: string;
+  status: string;
+  evidence: string;
+  localTime?: string;
+  recordId?: string;
+  recipe?: string;
+};
+type Receipt = {
+  tool: string;
+  outcome: string;
+  target: string;
+  status: string;
+  id?: string;
+  evidence: unknown;
+};
+type Showcase = {
+  runId: string;
+  timezone: string;
+  prompt: string;
+  disclosure: string;
+  note: string;
+  rules: { id: string; profile: string; summary: string; evidence: string }[];
+  baseline: {
+    label: string;
+    summary: string;
+    status: string;
+    actions: Action[];
+    receipts: Receipt[];
+  };
+  custos: {
+    label: string;
+    summary: string;
+    status: string;
+    actions: Action[];
+    receipts: Receipt[];
+  };
+  deviceTruth: Record<string, Record<string, Record<string, unknown>>>;
+};
+type RunState = "idle" | "running" | "done" | "error";
+
+async function runShowcase(): Promise<Showcase> {
+  const response = await fetch(`${API}/sim/showcase`, {
+    method: "POST",
+  });
+  const body = await response.json();
+  if (!response.ok) throw new Error(body.error ?? "Showcase run failed");
+  return body as Showcase;
+}
+
+function State({ value }: { value: string }) {
+  const cls =
+    value === "scheduled" || value === "policy verified" || value === "verified"
+      ? "show-state good"
+      : value === "not scheduled" ||
+          value === "unverified" ||
+          value === "rule not checked"
+        ? "show-state bad"
+        : "show-state neutral";
+  return <span className={cls}>{value}</span>;
+}
+
+function ActionList({ actions }: { actions: Action[] }) {
+  return (
+    <div className="show-actions">
+      {actions.map((action) => (
+        <article className="show-action" key={action.title}>
+          <div className="show-action-title">
+            <strong>{action.title}</strong>
+            <State value={action.status} />
+          </div>
+          {action.recipe ? (
+            <p className="show-recipe">{action.recipe}</p>
+          ) : null}
+          <p>{action.evidence}</p>
+          {action.recordId ? (
+            <details>
+              <summary>Schedule record ID</summary>
+              <code>{action.recordId}</code>
+            </details>
+          ) : null}
+        </article>
+      ))}
+    </div>
+  );
+}
 
 export default function App() {
-  const [guestId, setGuestId] = useState("");
-  const [loadError, setLoadError] = useState("");
-  const [userMsgs, setUserMsgs] = useState<UserMsg[]>([]);
-  const [turns, setTurns] = useState<Turn[]>([]);
-  const [ground, setGround] = useState<Record<string, unknown>>({});
-  const [input, setInput] = useState("");
-  const [busy, setBusy] = useState(false);
+  const [state, setState] = useState<RunState>("idle");
+  const [data, setData] = useState<Showcase | null>(null);
+  const [error, setError] = useState("");
   const [muted, setMuted] = useState(false);
-  // One column at a time: ▶ Play runs the scripted WITHOUT-Custos demo alone
-  // (scripting), then Custos is driven prompt by prompt (scriptDone).
-  const [scripting, setScripting] = useState(false);
-  const [scriptDone, setScriptDone] = useState(false);
-  const [speaking, setSpeaking] = useState(false);
-  const [beats, setBeats] = useState<TheaterBeat[] | null>(null);
-  const [disclaimer, setDisclaimer] = useState("");
-  const [beatIndex, setBeatIndex] = useState(0);
-  const [asserts, setAsserts] = useState<Record<string, AssertResult[]>>({});
-  const [live, setLive] = useState<Record<Col, "idle" | "running" | "done">>({
-    forge: "idle",
-    baseline: "idle",
-  });
-  const partial = useRef<Record<Col, string>>({ forge: "", baseline: "" });
-  const turnId = useRef<Record<Col, number | null>>({
-    forge: null,
-    baseline: null,
-  });
-  const timer = useRef(0);
 
-  // Re-seeds the demo household and re-binds keys for the same guest. With
-  // keepTranscript the columns stay on screen - used between the scripted run
-  // and the Custos run so both assistants face an identical house.
-  const boot = useCallback(
-    async (keepTranscript = false): Promise<string | null> => {
-      setLoadError("");
-      try {
-        const d = await loadDemo();
-        setGuestId(d.guestId);
-        if (!keepTranscript) {
-          setUserMsgs([]);
-          setTurns([]);
-          setScriptDone(false);
-        }
-        partial.current = { forge: "", baseline: "" };
-        turnId.current = { forge: null, baseline: null };
-        setLive({ forge: "idle", baseline: "idle" });
-        setGround(await truth(d.guestId));
-        return d.guestId;
-      } catch (e) {
-        setLoadError(
-          `Could not load the demo household: ${(e as Error).message}. Is the backend running?`,
+  async function play() {
+    if (state === "running") return;
+    setState("running");
+    setError("");
+    setData(null);
+    try {
+      const result = await runShowcase();
+      setData(result);
+      setState("done");
+      if (!muted) {
+        void voice.speak(
+          `${result.custos.summary} Schedule records were saved. The physical devices have not changed yet.`,
         );
-        return null;
       }
-    },
-    [],
-  );
-
-  // Recording build: the demo household loads itself; there is no other mode.
-  useEffect(() => {
-    void boot();
-    const t = window.setInterval(() => setSpeaking(voice.speaking), 300);
-    return () => window.clearInterval(t);
-  }, [boot]);
-
-  useEffect(() => {
-    if (!guestId) return;
-    window.clearInterval(timer.current);
-    timer.current = window.setInterval(async () => {
-      try {
-        setGround(await truth(guestId));
-      } catch {
-        // server away; keep last truth
-      }
-    }, 1000);
-    return () => window.clearInterval(timer.current);
-  }, [guestId]);
-
-  function ensureTurn(col: Col): number {
-    if (turnId.current[col] == null) {
-      const id = nid();
-      turnId.current[col] = id;
-      setTurns((ts) => [
-        ...ts,
-        { id, col, text: "", traces: [], finished: false },
-      ]);
-    }
-    return turnId.current[col] as number;
-  }
-
-  function patchTurn(id: number, fn: (t: Turn) => Turn) {
-    setTurns((ts) => ts.map((t) => (t.id === id ? fn(t) : t)));
-  }
-
-  // Voice streams every surfaced event live; the queue serialises + spaces them.
-  function say(text?: string) {
-    if (!muted && text) void voice.speak(text);
-  }
-
-  function handleEvent(ev: SimEvent) {
-    if (ev.type === "column_start") {
-      setLive((l) => ({ ...l, [ev.col]: "running" }));
-      return;
-    }
-    if (ev.type === "column_done") {
-      setLive((l) => ({ ...l, [ev.col]: "done" }));
-      return;
-    }
-    if (ev.type === "token") {
-      partial.current[ev.col] += ev.text ?? "";
-      const id = ensureTurn(ev.col);
-      const text = partial.current[ev.col];
-      patchTurn(id, (t) => ({ ...t, text }));
-    } else if (ev.type === "tool_call") {
-      const id = ensureTurn(ev.col);
-      const trace: ToolTrace = {
-        name: ev.name ?? "?",
-        args: ev.args,
-        done: false,
-      };
-      patchTurn(id, (t) => ({ ...t, traces: [...t.traces, trace] }));
-    } else if (ev.type === "tool_result") {
-      const id = ensureTurn(ev.col);
-      patchTurn(id, (t) => {
-        const traces = [...t.traces];
-        const i = traces.map((x) => x.name).lastIndexOf(ev.name ?? "");
-        const idx = i >= 0 ? i : traces.length - 1;
-        if (idx < 0) {
-          traces.push({
-            name: ev.name ?? "?",
-            outcome: ev.outcome,
-            say: ev.say,
-            done: true,
-          });
-        } else {
-          traces[idx] = {
-            ...traces[idx],
-            outcome: ev.outcome,
-            say: ev.say,
-            done: true,
-          };
-        }
-        return { ...t, traces };
-      });
-      // Named results are the real after-tool event; voice their authoritative
-      // `say` live (find_recipe's say names the tool's picked recipe).
-      if (ev.name) say(ev.say);
-    } else if (ev.type === "final" && ev.text) {
-      const id = ensureTurn(ev.col);
-      partial.current[ev.col] = "";
-      turnId.current[ev.col] = null;
-      patchTurn(id, (t) => ({ ...t, text: ev.text as string, finished: true }));
-      say(ev.text);
-    } else if (ev.type === "error") {
-      const id = ensureTurn(ev.col);
-      turnId.current[ev.col] = null;
-      patchTurn(id, (t) => ({
-        ...t,
-        text: `Error: ${ev.text}`,
-        finished: true,
-      }));
+    } catch (e) {
+      setError((e as Error).message);
+      setState("error");
     }
   }
-
-  // Manual turns run Custos alone (the WITHOUT column is scripted, never
-  // live). A pasted scripted prompt also re-applies that beat's fault and
-  // scores the Custos column's end-state checks. The simulated column's own
-  // checks were recorded when the script played - re-scoring them now would
-  // read the freshly re-seeded house and flip them.
-  async function send(text: string) {
-    const t = text.trim();
-    if (!t || busy || scripting || !scriptDone || !guestId) return;
-    const list = beats ?? (await ensureBeats());
-    const idx = list.findIndex(
-      (b) => b.input && b.input.toLowerCase() === t.toLowerCase(),
-    );
-    const beat = idx >= 0 ? list[idx] : undefined;
-    setBusy(true);
-    setUserMsgs((m) => [...m, { id: nid(), text: t }]);
-    setLive({ forge: "idle", baseline: "idle" });
-    setInput("");
-    if (beat) setBeatIndex(idx);
-    try {
-      if (beat) await theaterFault(guestId, beat.id);
-      // Watchdog: a stalled stream must not wedge the composer. Loose, since
-      // the last beat asks for five things in one prompt.
-      const ctrl = new AbortController();
-      const watchdog = setTimeout(() => ctrl.abort(), 90000);
-      try {
-        for await (const ev of chat(guestId, t, ["forge"], ctrl.signal))
-          handleEvent(ev);
-      } finally {
-        clearTimeout(watchdog);
-      }
-    } finally {
-      setBusy(false);
-      try {
-        setGround(await truth(guestId));
-      } catch {
-        // ignore
-      }
-      if (beat) {
-        try {
-          const rightA = await theaterAssert(guestId, beat.id, "right");
-          setAsserts((a) => ({ ...a, [`${beat.id}:right`]: rightA.results }));
-        } catch {
-          // ignore
-        }
-      }
-    }
-  }
-
-  async function ensureBeats(): Promise<TheaterBeat[]> {
-    if (beats) return beats;
-    const t = await theater();
-    setDisclaimer(t.disclaimer);
-    setBeats(t.beats);
-    return t.beats;
-  }
-
-  // One beat of the scripted run: the WITHOUT-Custos column plays its canned
-  // fixtures, its raw writes land in ground state (no guard, no read-back, no
-  // receipt), and that beat's checks score what it left behind. Custos never
-  // runs here - it takes the same prompts afterwards.
-  async function runBeat(i: number, gid: string) {
-    const list = await ensureBeats();
-    const beat = list[i];
-    if (!beat || !gid) return;
-    setBusy(true);
-    setBeatIndex(i);
-    try {
-      if (beat.input) {
-        setUserMsgs((m) => [...m, { id: nid(), text: beat.input as string }]);
-        handleEvent({ col: "baseline", type: "column_start" });
-        for (const fx of beat.alexa) {
-          await new Promise((res) => setTimeout(res, 180));
-          handleEvent({ col: "baseline", ...fx });
-        }
-        handleEvent({ col: "baseline", type: "column_done" });
-      }
-      await theaterNaive(gid, beat.id);
-      setGround(await truth(gid));
-      try {
-        const leftA = await theaterAssert(gid, beat.id, "left");
-        setAsserts((a) => ({ ...a, [`${beat.id}:left`]: leftA.results }));
-      } catch {
-        // ignore
-      }
-      // Hold so the beat's checks stay readable before the next prompt.
-      await new Promise((res) => setTimeout(res, 1400));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  // Play: run the whole scripted WITHOUT-Custos demo alone, then put the house
-  // back to where it started. The transcript and the simulated column's
-  // already-scored checks stay on screen; Custos wakes up on a clean house.
-  async function playDemo() {
-    if (busy || scripting) return;
-    const gid = await boot();
-    if (!gid) return;
-    setAsserts({});
-    setBeatIndex(0);
-    setScripting(true);
-    try {
-      const list = await ensureBeats();
-      for (let i = 0; i < list.length; i++) {
-        await runBeat(i, gid);
-        await new Promise((res) => setTimeout(res, 120));
-      }
-      await boot(true);
-    } finally {
-      setScripting(false);
-      setScriptDone(true);
-      setBeatIndex(0);
-    }
-  }
-
-  const devices = (ground.devices as Record<string, unknown> | undefined) ?? {};
 
   return (
-    <main>
-      <header className="app">
-        <h1>
-          Custos simulator
-          {speaking ? <span className="speaking"> ● speaking</span> : null}
-        </h1>
+    <main className="showcase-app">
+      <header className="app showcase-header">
+        <div className="brand-block">
+          <p className="eyebrow">ACCOUNTABILITY FOR AI ASSISTANTS</p>
+          <h1>Custos</h1>
+        </div>
         <div className="controls">
           <button
             type="button"
-            onClick={() => void playDemo()}
-            disabled={busy || scripting || !guestId}
+            onClick={() => void play()}
+            disabled={state === "running"}
           >
-            ▶ Play demo
+            {state === "running"
+              ? "Running comparison…"
+              : state === "done"
+                ? "↻ Run again"
+                : "▶ Run comparison"}
           </button>
           <button
             type="button"
+            className="secondary-button"
             onClick={() => {
-              setMuted(!muted);
-              if (!muted) voice.cancel();
+              const next = !muted;
+              setMuted(next);
+              if (next) voice.cancel();
             }}
           >
-            {muted ? "🔇 muted" : "🔊 voice"}
+            {muted ? "Voice off" : "Voice summary on"}
           </button>
         </div>
       </header>
-      {loadError ? (
-        <section className="panel" role="alert">
-          {loadError}
+
+      <section className="prompt-card showcase-prompt">
+        <p className="eyebrow">ONE REQUEST · THREE OBLIGATIONS</p>
+        <p className="prompt-copy">
+          Make coffee for me at 8am, turn on the hall light 5 minutes before my
+          daughter is back from school, and prepare dinner for me and my
+          daughter.
+        </p>
+        <p className="prompt-context">
+          A confident “Done” is not proof. Compare standing rules, persisted
+          schedules, policy decisions, and independent device state.
+        </p>
+      </section>
+
+      {error ? (
+        <section className="panel show-error" role="alert">
+          <strong>Comparison failed.</strong>
+          <p>{error}</p>
+          <button type="button" onClick={() => void play()}>
+            Retry run
+          </button>
         </section>
       ) : null}
-      {!guestId && !loadError ? (
-        <section className="start" aria-label="Loading">
-          <h1>Custos simulator</h1>
-          <p>Loading the demo household…</p>
+
+      {state === "idle" ? (
+        <section className="show-start">
+          <h2>Can the assistant prove it?</h2>
+          <p>
+            Run a deterministic scenario against isolated household state. The
+            baseline is a controlled simulation, not a live Alexa+ integration.
+          </p>
+          <button type="button" onClick={() => void play()}>
+            ▶ Run the full comparison
+          </button>
         </section>
       ) : null}
-      {guestId ? (
+
+      {state === "running" ? (
+        <section className="show-start" aria-live="polite">
+          <h2>Checking the evidence</h2>
+          <p>
+            Seeding isolated state, evaluating the dinner rule, and verifying
+            schedule records.
+          </p>
+          <div className="show-progress">
+            <span />
+          </div>
+        </section>
+      ) : null}
+
+      {data ? (
         <>
-          {beats ? (
-            <section className="panel" aria-label="Demo director">
-              <p className="sub">{disclaimer}</p>
-              <h2>
-                Beat {beatIndex + 1} of {beats.length}:{" "}
-                {beats[beatIndex]?.caption}
-              </h2>
-              <p>{beats[beatIndex]?.narration}</p>
-              <div className="chips" aria-hidden="true">
-                {beats.map((b, i) => (
-                  <span
-                    key={b.id}
-                    className={`chip${i === beatIndex ? " open" : ""}`}
+          <p className="show-disclosure">{data.disclosure}</p>
+          <div className="show-workspace">
+            <section className="panel show-rules" aria-label="Standing rules">
+              <p className="eyebrow">HOUSEHOLD CONTEXT</p>
+              <h2>Rules that must survive the request</h2>
+              {data.rules.map((rule) => (
+                <article className="show-rule" key={rule.id}>
+                  <span className="rule-profile">{rule.profile}</span>
+                  <strong>{rule.summary}</strong>
+                  <p>{rule.evidence}</p>
+                </article>
+              ))}
+              <div className="show-derivation">
+                <span className="eyebrow">TIME DERIVATION</span>
+                <strong>1:30 PM − 5 minutes = 1:25 PM</strong>
+                <p>
+                  School return time is context. The derived schedule is
+                  persisted separately.
+                </p>
+              </div>
+              <p className="show-small">
+                Run ID <code>{data.runId}</code>
+              </p>
+            </section>
+
+            <section className="panel show-column baseline-column">
+              <div className="show-column-head">
+                <div>
+                  <p className="eyebrow">CONTROLLED SIMULATION</p>
+                  <h2>Without Custos</h2>
+                  <p>
+                    Memory-only baseline · no guard or independent verification
+                  </p>
+                </div>
+                <State value={data.baseline.status} />
+              </div>
+              <blockquote>{data.baseline.summary}</blockquote>
+              <ActionList actions={data.baseline.actions} />
+              <div className="show-proof-empty">
+                <strong>No receipts</strong>
+                <p>
+                  There are no persisted schedule records or policy evidence
+                  supporting the claim.
+                </p>
+              </div>
+            </section>
+
+            <section className="panel show-column custos-column">
+              <div className="show-column-head">
+                <div>
+                  <p className="eyebrow">POLICY + PERSISTENCE + EVIDENCE</p>
+                  <h2>With Custos</h2>
+                  <p>
+                    Same request · typed rule checks · durable schedule records
+                  </p>
+                </div>
+                <State value={data.custos.status} />
+              </div>
+              <blockquote>{data.custos.summary}</blockquote>
+              <ActionList actions={data.custos.actions} />
+              <div className="show-receipts">
+                <div className="show-receipts-head">
+                  <h3>Evidence receipts</h3>
+                  <span>{data.custos.receipts.length} records</span>
+                </div>
+                {data.custos.receipts.map((receipt, i) => (
+                  <details
+                    className="show-receipt"
+                    key={receipt.id ?? receipt.tool + i}
+                    open={i === 0}
                   >
-                    {i + 1}. {b.caption}
-                  </span>
+                    <summary>
+                      <strong>{receipt.tool}</strong>
+                      <State value={receipt.outcome} />
+                    </summary>
+                    <p>
+                      {receipt.target} · {receipt.status}
+                    </p>
+                    <pre>{JSON.stringify(receipt.evidence, null, 2)}</pre>
+                  </details>
                 ))}
               </div>
-              {(["left", "right"] as const).map((phase) => {
-                const key = `${beats[beatIndex]?.id}:${phase}`;
-                const list = asserts[key];
-                if (!list) return null;
-                const passed = list.filter((r) => r.pass).length;
-                return (
-                  <div key={phase}>
-                    <h3>
-                      {phase === "left" ? "Simulated column" : "Custos column"}{" "}
-                      checks
-                    </h3>
-                    {list.length ? (
-                      <p className="sub">
-                        {passed} of {list.length} passed
-                      </p>
-                    ) : (
-                      <p className="sub">
-                        no ground-truth checks for this beat
-                      </p>
-                    )}
-                    <ul className="checks-list">
-                      {list.map((r) => (
-                        <li key={r.description}>
-                          {r.pass ? "✓" : "×"} {r.description}{" "}
-                          <span className="sub">({r.detail})</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                );
-              })}
             </section>
-          ) : null}
-          {scripting ? (
-            <p className="hint">
-              Scripted run in progress: the WITHOUT-Custos column is playing the
-              whole demo on its own. Custos stays parked until it finishes.
-            </p>
-          ) : null}
-          {scriptDone && !scripting ? (
-            <p className="hint">
-              Script finished. Paste the prompts from docs/DEMO-PROMPTS.md into
-              the box one at a time — each one wakes Custos alone and scores
-              that beat's checks.
-            </p>
-          ) : null}
-          <div className="cols">
-            <Column
-              name="baseline"
-              title="WITHOUT guard + verification"
-              sub="memory only, raw acks"
-              userMsgs={userMsgs}
-              turns={turns.filter((t) => t.col === "baseline")}
-              truthDevices={devices}
-              stage={live.baseline}
-              guestId={guestId}
-              disabled={scriptDone && !scripting}
-              disabledNote="paused — script already played"
-            />
-            <Column
-              name="forge"
-              title="WITH Custos"
-              sub="guard + verify + receipts"
-              userMsgs={userMsgs}
-              turns={turns.filter((t) => t.col === "forge")}
-              truthDevices={devices}
-              stage={live.forge}
-              guestId={guestId}
-              disabled={scripting || !scriptDone}
-              disabledNote={
-                scripting
-                  ? "parked — scripted run in progress"
-                  : "press ▶ Play first"
-              }
-            />
           </div>
-          <TruthPanel ground={ground} />
-          <form
-            className="input"
-            onSubmit={(e) => {
-              e.preventDefault();
-              void send(input);
-            }}
-          >
-            <input
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder={
-                scriptDone ? "paste a prompt for Custos…" : "press ▶ Play first"
-              }
-              aria-label="Message"
-            />
-            <button type="submit" disabled={busy || scripting || !scriptDone}>
-              Send
-            </button>
-          </form>
+
+          <section className="panel show-truth">
+            <div>
+              <p className="eyebrow">INDEPENDENT DEVICE TWIN</p>
+              <h2>What actually changed?</h2>
+              <p>
+                Nothing yet. Both devices remain off because these are future
+                schedules, not completed executions.
+              </p>
+            </div>
+            <div className="show-device-grid">
+              {Object.entries(data.deviceTruth.custos ?? {}).map(
+                ([name, value]) => (
+                  <article className="show-device" key={name}>
+                    <strong>{name.replace("_", " ")}</strong>
+                    <span>{String(value.power ?? "unknown")}</span>
+                    <small>Simulated twin · unchanged</small>
+                  </article>
+                ),
+              )}
+            </div>
+          </section>
+          <p className="show-footnote">{data.note}</p>
         </>
       ) : null}
     </main>

@@ -23,10 +23,10 @@ export interface Deps {
   receipts: ReceiptStore;
   confirms: ConfirmStore;
 }
-export function createDeps(store: Store): Deps {
+export function createDeps(store: Store, receipts?: ReceiptStore): Deps {
   return {
     store,
-    receipts: new MemoryReceipts(),
+    receipts: receipts ?? new MemoryReceipts(),
     confirms: new MemoryConfirms(),
   };
 }

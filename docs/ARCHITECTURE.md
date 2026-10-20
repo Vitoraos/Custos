@@ -53,6 +53,7 @@ stay separate (`src/` vs `simulator/`); only the process is shared.
   `memories.ts` (typed loads, poisoning guard)
 - `simulator/api/`: `guest.ts` (keys + budget) · `agent.ts` (Strands, SSE event
   map) · `routes.ts` (`/sim/guest|chat|truth|faults`)
+- `src/core/assistantPrompt.ts`: compact shared MCP instructions and planner prompt; context retrieval, planning, execution, and truthful reporting live here, while enforcement stays in tools.
 - `bench/`: `run.ts` (L1 oracle) · `llm.ts` (L2 scaffold) · `report.ts` ·
   `data/recipes.labeled.json` (60, hand-labelled)
 
@@ -60,3 +61,29 @@ Honest limits: the server controls what the *tool* says and records, not what
 Alexa+ says after — hence verbatim `say`, server `instructions`, and receipts.
 Twin devices are simulated; the verification pipeline is real and works
 against any adapter. Ingredient matching is heuristics, not medical advice.
+
+
+## Future device schedules
+
+The MCP tool `schedule_device_action` stores future device actions separately from
+reminders. It converts the requested wall-clock time in an IANA timezone to an
+instant, evaluates policy at that target time, and writes a tenant-scoped row to
+`scheduled_actions` with an idempotency key and evidence.
+
+The server's unref'd worker claims due rows as `executing`, writes to the device
+twin, then records `executed` followed by `verified` only when a read-back
+matches the desired state. A mismatch becomes `unverified`; an adapter error
+becomes `failed`. Stale execution claims can be retried after five minutes.
+These statuses are intentionally distinct: a saved schedule is not proof that
+the scheduled action has run. The current worker targets the simulator's device
+twin, not physical household hardware.
+
+Apply `infra/migrations/003_scheduled_actions.sql` after `001_v3.sql` to enable
+durable schedules and the receipt speech field used for idempotent replay.
+Production tool receipts use `SupabaseReceipts`; tests and offline development
+use `MemoryReceipts`.
+
+
+## Verification commands
+
+Run `npm run check` for formatting, lint, type checking and tests. Run `npm ci --prefix simulator/web`, `npm run web:build`, and `npm run web:tokens` to verify the simulator frontend and design-token rules.

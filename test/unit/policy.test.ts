@@ -52,9 +52,10 @@ const diet = (
 const verdict = (rules: Constraint[], action: ProposedAction, c = ctx()) =>
   evaluate(rules, action, c).verdict;
 
-describe("allergen blocks (EU-14)", () => {
+describe("allergen blocks", () => {
   const cases: [Allergen, string][] = [
     ["celery", "celery soup"],
+    ["beef", "beef stew"],
     ["gluten", "wheat bread"],
     ["crustaceans", "garlic shrimp pasta"],
     ["egg", "egg fried rice"],
@@ -74,6 +75,19 @@ describe("allergen blocks (EU-14)", () => {
       expect(verdict([allergen(a)], recipe([ing, "salt"]))).toBe("block");
     });
   }
+  it("blocks common beef ingredient aliases and respects explicit beef-free labels", () => {
+    const mayaBeefRule = allergen("beef", "Maya", "severe");
+    expect(
+      verdict([mayaBeefRule], recipe(["ground beef tacos"], ["Maya"]), ctx(["Maya"])),
+    ).toBe("block");
+    expect(verdict([mayaBeefRule], recipe(["beef broth"], ["Maya"]), ctx(["Maya"]))).toBe(
+      "block",
+    );
+    expect(
+      verdict([mayaBeefRule], recipe(["beef-free vegetable chili"], ["Maya"]), ctx(["Maya"])),
+    ).toBe("allow");
+  });
+
   it("derived terms: butter/cheese/whey hit milk; soy sauce hits soy AND gluten", () => {
     expect(verdict([allergen("milk")], recipe(["buttered toast"]))).toBe(
       "block",
@@ -488,5 +502,173 @@ describe("reasons + checked", () => {
     expect(e.reasons[0].constraintId).toBe(rules[0].id);
     expect(e.reasons[0].text).toContain("Maya");
     expect(e.reasons[0].text).toContain("peanut");
+  });
+});
+
+
+describe("fail-closed policy validation", () => {
+  it("blocks an invalid stored time zone instead of silently falling back to UTC", () => {
+    const bad = base({
+      kind: "quiet_hours",
+      start: "20:00",
+      end: "07:00",
+      tz: "Mars/Olympus",
+      applies: ["lights"],
+      profile: "household",
+      source: "explicit",
+      createdAt: NOW.toISOString(),
+    } as unknown as Constraint);
+    const result = evaluate([bad], recipe(["lentils"]), ctx());
+    expect(result.verdict).toBe("block");
+    expect(result.reasons[0].text).toContain("invalid");
+  });
+
+  it("blocks a device limit with an inverted range", () => {
+    const bad = base({
+      kind: "device_limit",
+      device: "thermostat",
+      attr: "temp_c",
+      min: 30,
+      max: 18,
+      profile: "household",
+      source: "explicit",
+      createdAt: NOW.toISOString(),
+    } as unknown as Constraint);
+    const result = evaluate(
+      [bad],
+      {
+        type: "device_set",
+        device: "thermostat",
+        attr: "temp_c",
+        value: 22,
+        at: NOW,
+      },
+      ctx(),
+    );
+    expect(result.verdict).toBe("block");
+  });
+
+  it("treats equal quiet-hour endpoints as all-day, not never", () => {
+    const q = base({
+      kind: "quiet_hours",
+      start: "21:00",
+      end: "21:00",
+      tz: "Africa/Lagos",
+      applies: ["lights"],
+      profile: "household",
+      source: "explicit",
+      createdAt: NOW.toISOString(),
+    } as unknown as Constraint);
+    expect(
+      verdict(
+        [q],
+        {
+          type: "device_set",
+          device: "hall_light",
+          attr: "power",
+          value: "on",
+          at: NOW,
+        },
+      ),
+    ).toBe("block");
+  });
+
+  it("fails closed on unknown device classes during active quiet hours", () => {
+    const q = base({
+      kind: "quiet_hours",
+      start: "20:00",
+      end: "07:00",
+      tz: "Africa/Lagos",
+      applies: ["lights"],
+      profile: "household",
+      source: "explicit",
+      createdAt: NOW.toISOString(),
+    } as unknown as Constraint);
+    expect(
+      verdict(
+        [q],
+        {
+          type: "device_set",
+          device: "mystery_endpoint",
+          attr: "mode",
+          value: "on",
+          at: NOW,
+        },
+      ),
+    ).toBe("block");
+  });
+
+  it("blocks an invalid evaluation clock", () => {
+    const result = evaluate([], recipe(["lentils"]), {
+      now: new Date(Number.NaN),
+      profiles: ["household"],
+    });
+    expect(result.verdict).toBe("block");
+  });
+
+  it("blocks invalid action values such as NaN instead of treating them as in-range", () => {
+    const rule = base({
+      kind: "device_limit",
+      device: "thermostat",
+      attr: "temp_c",
+      min: 18,
+      max: 26,
+      profile: "household",
+      source: "explicit",
+      createdAt: NOW.toISOString(),
+    } as unknown as Constraint);
+    const result = evaluate(
+      [rule],
+      {
+        type: "device_set",
+        device: "thermostat",
+        attr: "temp_c",
+        value: Number.NaN,
+        at: NOW,
+      },
+      ctx(),
+    );
+    expect(result.verdict).toBe("block");
+    expect(result.reasons[0].text).toContain("invalid values");
+  });
+
+  it("blocks reminders with invalid timestamps", () => {
+    const result = evaluate(
+      [],
+      {
+        type: "reminder",
+        at: new Date(Number.NaN),
+        text: "Call Mum",
+      },
+      ctx(),
+
+describe("scheduled device actions evaluate quiet hours at their target time", () => {
+  const rule: Constraint = base({
+    kind: "quiet_hours",
+    start: "22:00",
+    end: "07:00",
+    tz: "Africa/Lagos",
+    applies: ["lights"],
+    profile: "household",
+    source: "explicit",
+    createdAt: NOW.toISOString(),
+  } as unknown as Constraint);
+  it("blocks a scheduled light action during quiet hours even when requested during daytime", () => {
+    const daytime = new Date("2026-10-06T10:00:00+01:00");
+    const scheduledNight = new Date("2026-10-06T23:00:00+01:00");
+    const result = evaluate(
+      [rule],
+      {
+        type: "device_schedule",
+        device: "hall_light",
+        attr: "power",
+        value: "on",
+        at: scheduledNight,
+      },
+      { now: daytime, profiles: ["household"] },
+
+
+    );
+    expect(result.verdict).toBe("block");
   });
 });

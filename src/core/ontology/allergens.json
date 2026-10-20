@@ -1,5 +1,13 @@
 {
   "celery": ["celery", "celeriac", "celery salt", "celery seed"],
+  "beef": [
+    "beef",
+    "ground beef",
+    "beef broth",
+    "beef stock",
+    "beef extract",
+    "beef tallow"
+  ],
   "gluten": [
     "wheat",
     "barley",
