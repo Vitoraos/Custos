@@ -2,9 +2,10 @@ import { useState } from "react";
 import { voice } from "./voice";
 import "./theme.css";
 
-const API = (
-  import.meta as unknown as { env?: { VITE_API_BASE?: string } }
-).env?.VITE_API_BASE?.replace(/\/$/, "") ?? "";
+const API =
+  (
+    import.meta as unknown as { env?: { VITE_API_BASE?: string } }
+  ).env?.VITE_API_BASE?.replace(/\/$/, "") ?? "";
 
 type Action = {
   title: string;
@@ -58,9 +59,7 @@ async function runShowcase(): Promise<Showcase> {
 
 function State({ value }: { value: string }) {
   const cls =
-    value === "scheduled" ||
-    value === "policy verified" ||
-    value === "verified"
+    value === "scheduled" || value === "policy verified" || value === "verified"
       ? "show-state good"
       : value === "not scheduled" ||
           value === "unverified" ||
@@ -79,7 +78,9 @@ function ActionList({ actions }: { actions: Action[] }) {
             <strong>{action.title}</strong>
             <State value={action.status} />
           </div>
-          {action.recipe ? <p className="show-recipe">{action.recipe}</p> : null}
+          {action.recipe ? (
+            <p className="show-recipe">{action.recipe}</p>
+          ) : null}
           <p>{action.evidence}</p>
           {action.recordId ? (
             <details>
