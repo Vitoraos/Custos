@@ -317,8 +317,7 @@ export async function runShowcase(
           title: "Dinner",
           status: "policy verified",
           recipe: "Lentil vegetable stew",
-          evidence:
-            `Beef tacos blocked: ${blockedDinner.reasons[0]?.text ?? "beef allergy"}; safe alternative passed policy`,
+          evidence: `Beef tacos blocked: ${blockedDinner.reasons[0]?.text ?? "beef allergy"}; safe alternative passed policy`,
         },
       ],
       receipts: receiptView,
