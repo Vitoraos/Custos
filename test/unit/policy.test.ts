@@ -641,7 +641,7 @@ describe("fail-closed policy validation", () => {
         text: "Call Mum",
       },
       ctx(),
-=======
+
 describe("scheduled device actions evaluate quiet hours at their target time", () => {
   const rule: Constraint = base({
     kind: "quiet_hours",
@@ -666,6 +666,7 @@ describe("scheduled device actions evaluate quiet hours at their target time", (
         at: scheduledNight,
       },
       { now: daytime, profiles: ["household"] },
+
 
     );
     expect(result.verdict).toBe("block");

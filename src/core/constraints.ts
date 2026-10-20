@@ -1,9 +1,13 @@
 // Typed standing rules. One Zod discriminated union, shared by tools, policy, tests.
+
  
 // Keep validation at field level so consumers can safely use .omit() to derive tool inputs.
-=======
+
 // Allergen ontology includes EU-14 allergens plus the showcase's beef allergy.
 // spend_cap is P1 (cut) — add a variant here when it lands; evaluate() ignores unknown kinds.
+
+
+// Keep validation at field level so consumers can safely use .omit() to derive tool inputs.
 
 import { z } from "zod";
 

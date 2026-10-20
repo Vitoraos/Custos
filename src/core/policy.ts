@@ -246,6 +246,7 @@ export function evaluate(
         (action.type === "device_set" &&
           (domain === null || r.applies.includes(domain))) ||
 
+
         ((action.type === "device_set" || action.type === "device_schedule") &&
           r.applies.includes(
             deviceDomain(action.device, action.attr) ?? "lights",
@@ -257,6 +258,7 @@ export function evaluate(
       if (
         appliesNow &&
 
+
         quietActive(r.start, r.end, r.tz, actionTime)
 
         quietActive(
@@ -267,6 +269,8 @@ export function evaluate(
             ? action.at
             : ctx.now,
         )
+
+        quietActive(r.start, r.end, r.tz, actionTime)
 
       ) {
         reasons.push({
