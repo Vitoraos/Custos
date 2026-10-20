@@ -14,9 +14,7 @@ await server.start({
   transportType: "httpStream",
   httpStream: { port, host, endpoint: "/mcp", stateless: true, cors },
 });
-const stopScheduleWorker = startScheduledActionWorker(store);
-process.once("SIGTERM", stopScheduleWorker);
-process.once("SIGINT", stopScheduleWorker);
+startScheduledActionWorker(store);
 const backend = process.env.SUPABASE_URL ? "supabase" : "memory";
 console.log(`ContextForge v3 on ${host}:${port}/mcp (store: ${backend})`);
 console.log(
