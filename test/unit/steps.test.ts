@@ -74,6 +74,23 @@ describe("foldSteps", () => {
     expect(steps).toHaveLength(2);
     expect(steps[1].state).toBe("working");
   });
+  it("fails closed for unknown or missing outcomes", () => {
+    const unknown = foldSteps([
+      call("future_tool"),
+      res("future_tool", "queued_but_not_verified"),
+    ]);
+    expect(unknown[0]).toMatchObject({
+      state: "failed",
+      note: 'unknown outcome "queued_but_not_verified" — not verified',
+    });
+
+    const missing = foldSteps([call("future_tool"), res("future_tool")]);
+    expect(missing[0]).toMatchObject({
+      state: "failed",
+      note: 'unknown outcome "missing" — not verified',
+    });
+  });
+
   it("ignores tokens, finals, and orphan results", () => {
     const steps = foldSteps([
       { type: "token", text: "hi" },

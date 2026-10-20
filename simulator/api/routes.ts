@@ -11,12 +11,12 @@ import { seedDemoHousehold } from "./demo.js";
 import {
   budgetCheck,
   budgetSpend,
-  demoSession,
   getGuest,
   guestKeys,
   issueGuest,
 } from "./guest.js";
 import { fetchRecipe } from "./recipes.js";
+import { runShowcase } from "./showcase.js";
 import {
   applyBeatFault,
   applyNaiveEffects,
@@ -32,6 +32,14 @@ export function mountSim(
   deps: Deps,
   mcpUrl: string,
 ): void {
+  app.post("/sim/showcase", async (c) => {
+    try {
+      return c.json(await runShowcase(store, deps));
+    } catch (e) {
+      return c.json({ error: (e as Error).message.slice(0, 240) }, 500);
+    }
+  });
+
   app.post("/sim/guest", async (c) => {
     const g = await issueGuest(store);
     return c.json({ guestId: g.id, createdAt: g.createdAt });
@@ -192,13 +200,18 @@ export function mountSim(
     }
   });
 
-  // Demo session: reset + seed the fixed household, bind keys. Recording only.
+  // Each browser receives a fresh tenant-scoped household. Never seed the
+  // shared "demo" user: concurrent visitors and resets would overwrite state.
   app.post("/sim/demo", async (c) => {
     const body = (await c.req.json().catch(() => null)) as {
-      user?: string;
+      guestId?: string;
     } | null;
-    const userId = (body?.user ?? "demo").slice(0, 60);
-    const summary = await seedDemoHousehold(store, userId);
+    const existing = body?.guestId ? getGuest(body.guestId) : null;
+    if (body?.guestId && !existing) {
+      return c.json({ error: "unknown guest session" }, 404);
+    }
+    const s = existing ?? (await issueGuest(store));
+    const summary = await seedDemoHousehold(store, s.userId);
     if (summary.constraintsLoaded !== summary.rules) {
       return c.json(
         {
@@ -207,7 +220,6 @@ export function mountSim(
         500,
       );
     }
-    const s = await demoSession(store, userId);
     return c.json({ guestId: s.id, userId: s.userId, summary });
   });
 }
