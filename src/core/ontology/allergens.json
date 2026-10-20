@@ -1,10 +1,5 @@
 {
-  "celery": [
-    "celery",
-    "celeriac",
-    "celery salt",
-    "celery seed"
-  ],
+  "celery": ["celery", "celeriac", "celery salt", "celery seed"],
   "beef": [
     "beef",
     "ground beef",
@@ -101,11 +96,7 @@
     "fish sauce",
     "worcestershire"
   ],
-  "lupin": [
-    "lupin",
-    "lupine",
-    "lupini"
-  ],
+  "lupin": ["lupin", "lupine", "lupini"],
   "milk": [
     "milk",
     "milky",
