@@ -297,26 +297,40 @@ export class SupabaseStore implements Store {
     };
   }
   async claimDueScheduledActions(now: string, limit: number): Promise<ScheduledActionRecord[]> {
-    const { data, error } = await this.db
+    const boundedLimit = Math.max(0, Math.min(limit, 100));
+    const staleBefore = new Date(Date.parse(now) - 5 * 60_000).toISOString();
+    const scheduledQuery = await this.db
       .from("scheduled_actions")
       .select("*")
       .eq("status", "scheduled")
       .lte("scheduled_at", now)
       .order("scheduled_at")
-      .limit(Math.max(0, Math.min(limit, 100)));
-    if (error) fail(error);
+      .limit(boundedLimit);
+    if (scheduledQuery.error) fail(scheduledQuery.error);
+    const staleQuery = await this.db
+      .from("scheduled_actions")
+      .select("*")
+      .eq("status", "executing")
+      .lte("scheduled_at", now)
+      .lte("updated_at", staleBefore)
+      .order("scheduled_at")
+      .limit(boundedLimit);
+    if (staleQuery.error) fail(staleQuery.error);
+    const candidates = [...(scheduledQuery.data ?? []), ...(staleQuery.data ?? [])]
+      .sort((a, b) => String(a.scheduled_at).localeCompare(String(b.scheduled_at)))
+      .slice(0, boundedLimit);
     const claimed: ScheduledActionRecord[] = [];
-    for (const row of data ?? []) {
-      const { data: updated, error: updateError } = await this.db
+    for (const row of candidates) {
+      let query = this.db
         .from("scheduled_actions")
         .update({ status: "executing", updated_at: now })
         .eq("id", row.id)
         .eq("user_id", row.user_id)
-        .eq("status", "scheduled")
-        .select("*")
-        .maybeSingle();
-      if (updateError) fail(updateError);
-      if (updated) claimed.push(this.scheduledRow(updated));
+        .eq("status", row.status);
+      if (row.status === "executing") query = query.eq("updated_at", row.updated_at);
+      const { data, error } = await query.select("*").maybeSingle();
+      if (error) fail(error);
+      if (data) claimed.push(this.scheduledRow(data));
     }
     return claimed;
   }
