@@ -504,3 +504,17 @@ describe("reasons + checked", () => {
     expect(e.reasons[0].text).toContain("peanut");
   });
 });
+
+
+describe("scheduled device actions evaluate quiet hours at their target time", () => {
+  const rule: Constraint = base({
+    kind: "quiet_hours", start: "22:00", end: "07:00", tz: "Africa/Lagos",
+    applies: ["lights"], profile: "household", source: "explicit", createdAt: NOW.toISOString(),
+  } as unknown as Constraint);
+  it("blocks a scheduled light action during quiet hours even when requested during daytime", () => {
+    const daytime = new Date("2026-10-06T10:00:00+01:00");
+    const scheduledNight = new Date("2026-10-06T23:00:00+01:00");
+    const result = evaluate([rule], { type: "device_set", device: "hall_light", attr: "power", value: "on", at: scheduledNight }, { now: daytime, profiles: ["household"] });
+    expect(result.verdict).toBe("block");
+  });
+});
