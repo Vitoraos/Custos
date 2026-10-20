@@ -41,7 +41,10 @@ function localToUtc(local: string): string {
   ).toISOString();
 }
 
-export async function runShowcase(store: Store, deps: Deps = createDeps(store)) {
+export async function runShowcase(
+  store: Store,
+  deps: Deps = createDeps(store),
+) {
   const runId = randomUUID();
   const baselineUser = `showcase-baseline-${randomUUID()}`;
   const custosUser = `showcase-custos-${randomUUID()}`;
@@ -147,10 +150,18 @@ export async function runShowcase(store: Store, deps: Deps = createDeps(store)) 
     {
       userId: custosUser,
       tool: "schedule_device_action",
-      idempotencyKey: runId + ":coffee:receipt",
-      args: { target: coffee.target, desiredState: coffee.desiredState, localScheduledAt: coffee.localScheduledAt },
+      idempotencyKey: `${runId}:coffee:receipt`,
+      args: {
+        target: coffee.target,
+        desiredState: coffee.desiredState,
+        localScheduledAt: coffee.localScheduledAt,
+      },
       decision: { verdict: "allow", checked: rules.map((x) => x.id) },
-      expectation: { target: coffee.target, desiredState: coffee.desiredState, scheduledAt: coffee.scheduledAt },
+      expectation: {
+        target: coffee.target,
+        desiredState: coffee.desiredState,
+        scheduledAt: coffee.scheduledAt,
+      },
       observed: { id: coffee.id, status: coffee.status, persisted: true },
       outcome: "verified" as const,
       say: "Coffee schedule persisted and read back; execution is pending.",
@@ -160,10 +171,18 @@ export async function runShowcase(store: Store, deps: Deps = createDeps(store)) 
     {
       userId: custosUser,
       tool: "schedule_device_action",
-      idempotencyKey: runId + ":hall-light:receipt",
-      args: { target: light.target, desiredState: light.desiredState, localScheduledAt: light.localScheduledAt },
+      idempotencyKey: `${runId}:hall-light:receipt`,
+      args: {
+        target: light.target,
+        desiredState: light.desiredState,
+        localScheduledAt: light.localScheduledAt,
+      },
       decision: { verdict: "allow", checked: rules.map((x) => x.id) },
-      expectation: { target: light.target, desiredState: light.desiredState, scheduledAt: light.scheduledAt },
+      expectation: {
+        target: light.target,
+        desiredState: light.desiredState,
+        scheduledAt: light.scheduledAt,
+      },
       observed: { id: light.id, status: light.status, persisted: true },
       outcome: "verified" as const,
       say: "Hall-light schedule persisted for 1:25 PM; execution is pending.",
@@ -173,9 +192,13 @@ export async function runShowcase(store: Store, deps: Deps = createDeps(store)) 
     {
       userId: custosUser,
       tool: "evaluate_recipe_policy",
-      idempotencyKey: runId + ":beef-blocked:receipt",
+      idempotencyKey: `${runId}:beef-blocked:receipt`,
       args: { recipe: "Beef tacos", servingFor: ["Maya"] },
-      decision: { verdict: "block", checked: blockedDinner.checked, reasons: blockedDinner.reasons },
+      decision: {
+        verdict: "block",
+        checked: blockedDinner.checked,
+        reasons: blockedDinner.reasons,
+      },
       expectation: { recipe: "Beef tacos", rule: "Maya beef allergy" },
       observed: { policyVerdict: blockedDinner.verdict },
       outcome: "blocked" as const,
@@ -186,7 +209,7 @@ export async function runShowcase(store: Store, deps: Deps = createDeps(store)) 
     {
       userId: custosUser,
       tool: "evaluate_recipe_policy",
-      idempotencyKey: runId + ":safe-dinner:receipt",
+      idempotencyKey: `${runId}:safe-dinner:receipt`,
       args: { recipe: "Lentil vegetable stew", servingFor: ["Maya"] },
       decision: { verdict: "allow", checked: safeDinner.checked },
       expectation: { recipe: "Lentil vegetable stew", excludes: "beef" },
@@ -202,10 +225,19 @@ export async function runShowcase(store: Store, deps: Deps = createDeps(store)) 
   const receiptView = persistedReceipts.map((receipt) => ({
     tool: receipt.tool,
     outcome: receipt.outcome,
-    target: String((receipt.args as { target?: unknown; recipe?: unknown } | null)?.target ?? (receipt.args as { recipe?: unknown } | null)?.recipe ?? receipt.tool),
+    target: String(
+      (receipt.args as { target?: unknown; recipe?: unknown } | null)?.target ??
+        (receipt.args as { recipe?: unknown } | null)?.recipe ??
+        receipt.tool,
+    ),
     status: receipt.outcome,
     id: receipt.id,
-    evidence: { decision: receipt.decision, expectation: receipt.expectation, observed: receipt.observed, say: receipt.say },
+    evidence: {
+      decision: receipt.decision,
+      expectation: receipt.expectation,
+      observed: receipt.observed,
+      say: receipt.say,
+    },
   }));
   const baselineHall = await store.getDevice(baselineUser, "hall_light");
   const baselineCoffee = await store.getDevice(baselineUser, "coffee_maker");
