@@ -82,7 +82,13 @@ export function foldSteps(events: SimEventLike[]): Step[] {
           steps[idx] = { ...s, state: "failed", note: ev.say ?? "error" };
           break;
         default:
-          steps[idx] = { ...s, state: "done" };
+          // Unknown is not success. Fail closed until the outcome vocabulary
+          // is deliberately extended and covered by a regression test.
+          steps[idx] = {
+            ...s,
+            state: "failed",
+            note: `unknown outcome "${String(ev.outcome ?? "missing")}" — not verified`,
+          };
           break;
       }
       open.delete(key(s.tool, s.args));

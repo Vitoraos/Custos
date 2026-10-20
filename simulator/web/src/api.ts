@@ -36,14 +36,14 @@ export interface DemoSummary {
   constraintsLoaded: number;
 }
 
-export async function loadDemo(): Promise<{
+export async function loadDemo(guestId?: string): Promise<{
   guestId: string;
   summary: DemoSummary;
 }> {
   const r = await fetch(`${API}/sim/demo`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({}),
+    body: JSON.stringify(guestId ? { guestId } : {}),
   });
   if (!r.ok) {
     const err = (await r.json().catch(() => ({}))) as { error?: string };

@@ -26,6 +26,50 @@ export interface MemoryRecord {
   expiresAt: string | null;
   revokedAt: string | null;
 }
+export type ScheduledActionStatus =
+  | "planned"
+  | "scheduled"
+  | "executing"
+  | "executed"
+  | "verified"
+  | "unverified"
+  | "blocked"
+  | "failed"
+  | "cancelled";
+export function canTransitionScheduledStatus(
+  from: ScheduledActionStatus,
+  to: ScheduledActionStatus,
+): boolean {
+  if (from === to) return true;
+  const allowed: Record<ScheduledActionStatus, ScheduledActionStatus[]> = {
+    planned: ["scheduled", "blocked", "failed", "cancelled"],
+    scheduled: ["executing", "blocked", "failed", "cancelled"],
+    executing: ["executed", "failed", "cancelled"],
+    executed: ["verified", "unverified", "failed"],
+    verified: [],
+    unverified: ["scheduled", "failed", "cancelled"],
+    blocked: [],
+    failed: [],
+    cancelled: [],
+  };
+  return allowed[from].includes(to);
+}
+
+export interface ScheduledActionRecord {
+  id: string;
+  userId: string;
+  runId: string;
+  idempotencyKey: string;
+  target: string;
+  desiredState: Record<string, unknown>;
+  timezone: string;
+  localScheduledAt: string;
+  scheduledAt: string;
+  status: ScheduledActionStatus;
+  evidence: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+}
 export interface KeyRecord {
   userId: string;
   mode: "forge" | "baseline";
@@ -57,6 +101,23 @@ export interface Store {
   touchMemory(userId: string, id: string): Promise<void>;
   getKey(keyHash: string): Promise<(KeyRecord & { keyHash: string }) | null>;
   insertKey(keyHash: string, row: KeyRecord): Promise<void>;
+  createScheduledAction(
+    row: Omit<ScheduledActionRecord, "id" | "createdAt" | "updatedAt">,
+  ): Promise<ScheduledActionRecord>;
+  listScheduledActions(
+    userId: string,
+    runId?: string,
+  ): Promise<ScheduledActionRecord[]>;
+  updateScheduledAction(
+    userId: string,
+    id: string,
+    status: ScheduledActionStatus,
+    evidence?: Record<string, unknown>,
+  ): Promise<ScheduledActionRecord | null>;
+  claimDueScheduledActions(
+    now: string,
+    limit: number,
+  ): Promise<ScheduledActionRecord[]>;
 }
 
 // JSON-encoding a tuple avoids collisions when a component contains the delimiter.
@@ -82,6 +143,7 @@ export class MemoryStore implements Store {
   private lists = new Map<string, string[]>();
   private memories = new Map<string, MemoryRecord>();
   private keys = new Map<string, KeyRecord>();
+  private scheduled = new Map<string, ScheduledActionRecord>();
   private seq = 0;
 
   async ping(): Promise<{ ok: boolean }> {
@@ -212,6 +274,103 @@ export class MemoryStore implements Store {
   ): Promise<(KeyRecord & { keyHash: string }) | null> {
     const key = this.keys.get(keyHash);
     return key ? { ...key, keyHash } : null;
+  }
+
+  async createScheduledAction(
+    row: Omit<ScheduledActionRecord, "id" | "createdAt" | "updatedAt">,
+  ): Promise<ScheduledActionRecord> {
+    const prior = [...this.scheduled.values()].find(
+      (x) => x.userId === row.userId && x.idempotencyKey === row.idempotencyKey,
+    );
+    if (prior) {
+      if (
+        prior.target !== row.target ||
+        JSON.stringify(prior.desiredState) !==
+          JSON.stringify(row.desiredState) ||
+        prior.scheduledAt !== row.scheduledAt ||
+        prior.timezone !== row.timezone ||
+        prior.localScheduledAt !== row.localScheduledAt ||
+        prior.runId !== row.runId
+      ) {
+        throw new Error(
+          "schedule: idempotency key reused with different action",
+        );
+      }
+      return clone(prior);
+    }
+    const now = new Date().toISOString();
+    const record: ScheduledActionRecord = {
+      ...clone(row),
+      id: `sched_${Date.now().toString(36)}_${++this.seq}`,
+      createdAt: now,
+      updatedAt: now,
+    };
+    this.scheduled.set(tupleKey(row.userId, record.id), record);
+    return clone(record);
+  }
+
+  async listScheduledActions(
+    userId: string,
+    runId?: string,
+  ): Promise<ScheduledActionRecord[]> {
+    return [...this.scheduled.values()]
+      .filter((x) => x.userId === userId && (!runId || x.runId === runId))
+      .map(clone)
+      .sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt));
+  }
+
+  async updateScheduledAction(
+    userId: string,
+    id: string,
+    status: ScheduledActionStatus,
+    evidence?: Record<string, unknown>,
+  ): Promise<ScheduledActionRecord | null> {
+    const key = tupleKey(userId, id);
+    const prior = this.scheduled.get(key);
+    if (!prior) return null;
+    if (!canTransitionScheduledStatus(prior.status, status)) {
+      throw new Error(
+        `schedule: invalid status transition ${prior.status} -> ${status}`,
+      );
+    }
+    const next = {
+      ...prior,
+      status,
+      evidence: evidence
+        ? { ...prior.evidence, ...clone(evidence) }
+        : prior.evidence,
+      updatedAt: new Date().toISOString(),
+    };
+    this.scheduled.set(key, next);
+    return clone(next);
+  }
+
+  async claimDueScheduledActions(
+    now: string,
+    limit: number,
+  ): Promise<ScheduledActionRecord[]> {
+    const nowMs = Date.parse(now);
+    const due = [...this.scheduled.values()]
+      .filter(
+        (x) =>
+          Date.parse(x.scheduledAt) <= nowMs &&
+          (x.status === "scheduled" ||
+            (x.status === "executing" &&
+              Date.parse(x.updatedAt) <= nowMs - 5 * 60_000)),
+      )
+      .sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt))
+      .slice(0, Math.max(0, limit));
+    const claimed: ScheduledActionRecord[] = [];
+    for (const action of due) {
+      const next: ScheduledActionRecord = {
+        ...action,
+        status: "executing",
+        updatedAt: now,
+      };
+      this.scheduled.set(tupleKey(action.userId, action.id), next);
+      claimed.push(clone(next));
+    }
+    return claimed;
   }
 
   async insertKey(keyHash: string, row: KeyRecord): Promise<void> {

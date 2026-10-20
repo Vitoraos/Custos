@@ -3,9 +3,9 @@
 // No ContextForge knowledge in the prompt.
 import { Agent, McpClient } from "@strands-agents/sdk";
 import { OpenAIModel } from "@strands-agents/sdk/models/openai";
+import { PLANNER_SYSTEM_PROMPT } from "../../src/core/assistantPrompt.js";
 
-export const SYSTEM_PROMPT =
-  "You are a voice assistant on a smart speaker. Reply in at most two short sentences of plain speech: no markdown, no lists. Use tools to take actions. Report what the tools tell you. If a request is ambiguous about who is included (e.g. dinner for visitors when profiles exist), ask one short question — who is coming and whether anyone has allergies or diets — and wait for the answer before acting.";
+export const SYSTEM_PROMPT = PLANNER_SYSTEM_PROMPT;
 
 export type Column = "forge" | "baseline";
 export interface SimEvent {

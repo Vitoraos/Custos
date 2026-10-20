@@ -16,3 +16,9 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run check
+      - name: Install simulator web dependencies
+        run: npm ci --prefix simulator/web
+      - name: Build simulator web
+        run: npm run web:build
+      - name: Check design tokens
+        run: npm run web:tokens

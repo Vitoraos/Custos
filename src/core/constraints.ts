@@ -1,5 +1,10 @@
 // Typed standing rules. One Zod discriminated union, shared by tools, policy, tests.
+ 
 // Keep validation at field level so consumers can safely use .omit() to derive tool inputs.
+=======
+// Allergen ontology includes EU-14 allergens plus the showcase's beef allergy.
+// spend_cap is P1 (cut) — add a variant here when it lands; evaluate() ignores unknown kinds.
+
 import { z } from "zod";
 
 function isValidTimeZone(value: string): boolean {
@@ -36,8 +41,9 @@ export const dietConstraint = base.extend({
   ]),
 });
 
-const EU14 = z.enum([
+const ALLERGEN = z.enum([
   "celery",
+  "beef",
   "gluten",
   "crustaceans",
   "egg",
@@ -52,11 +58,11 @@ const EU14 = z.enum([
   "sulphites",
   "tree_nuts",
 ]);
-export type Allergen = z.infer<typeof EU14>;
+export type Allergen = z.infer<typeof ALLERGEN>;
 
 export const allergenConstraint = base.extend({
   kind: z.literal("allergen"),
-  allergen: EU14,
+  allergen: ALLERGEN,
   severity: z.enum(["avoid", "severe"]),
 });
 
