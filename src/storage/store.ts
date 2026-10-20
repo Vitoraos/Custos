@@ -243,7 +243,7 @@ export class MemoryStore implements Store {
   }
   async claimDueScheduledActions(now: string, limit: number): Promise<ScheduledActionRecord[]> {
     const due = [...this.scheduled.values()]
-      .filter(x => x.status === "scheduled" && Date.parse(x.scheduledAt) <= Date.parse(now))
+      .filter(x => Date.parse(x.scheduledAt) <= Date.parse(now) && (x.status === "scheduled" || (x.status === "executing" && Date.parse(x.updatedAt) <= Date.parse(now) - 5 * 60_000)))
       .sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt))
       .slice(0, Math.max(0, limit));
     const claimed: ScheduledActionRecord[] = [];
