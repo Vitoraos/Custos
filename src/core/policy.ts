@@ -160,7 +160,7 @@ export function evaluate(
           r.start,
           r.end,
           r.tz,
-          action.type === "reminder" ? action.at : ctx.now,
+          action.type === "reminder" || action.type === "device_set" ? action.at : ctx.now,
         )
       ) {
         reasons.push({
