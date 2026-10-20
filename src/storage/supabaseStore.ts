@@ -43,6 +43,10 @@ function nullableString(value: unknown, field: string): string | null {
 export class SupabaseStore implements Store {
   constructor(private db: SupabaseClient) {}
 
+  get client(): SupabaseClient {
+    return this.db;
+  }
+
   async ping(): Promise<{ ok: boolean }> {
     const { error } = await this.db
       .from("memories")
