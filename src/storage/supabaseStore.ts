@@ -3,15 +3,15 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   canTransitionScheduledStatus,
+  dedupeKey,
   type FaultRow,
   type KeyRecord,
   type ListOp,
   type MemoryRecord,
   type ScheduledActionRecord,
   type ScheduledActionStatus,
-  type Store,
+  type Store
 } from "./store.js";
-import { dedupeKey } from "./store.js";
 
 const PAGE_SIZE = 500;
 
