@@ -72,9 +72,7 @@ export class MemoryReceipts implements ReceiptStore {
   }
 }
 
-
 // Durable production receipts. Queries are always scoped to the authenticated tenant.
-
 export class SupabaseReceipts implements ReceiptStore {
   constructor(private readonly db: SupabaseClient) {}
 
@@ -90,7 +88,7 @@ export class SupabaseReceipts implements ReceiptStore {
       .eq("tool", tool)
       .eq("idempotency_key", key)
       .maybeSingle();
-    if (error) throw new Error("receipts: " + error.message);
+    if (error) throw new Error(`receipts: ${error.message}`);
     return data ? this.row(data) : null;
   }
 
@@ -123,7 +121,7 @@ export class SupabaseReceipts implements ReceiptStore {
       );
       if (prior) return prior;
     }
-    if (error) throw new Error("receipts: " + error.message);
+    if (error) throw new Error(`receipts: ${error.message}`);
     return this.row(data);
   }
 
@@ -137,7 +135,7 @@ export class SupabaseReceipts implements ReceiptStore {
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
-    if (error) throw new Error("receipts: " + error.message);
+    if (error) throw new Error(`receipts: ${error.message}`);
     return data ? this.row(data) : null;
   }
 
@@ -148,7 +146,7 @@ export class SupabaseReceipts implements ReceiptStore {
       .eq("user_id", userId)
       .order("created_at", { ascending: false })
       .limit(Math.max(1, Math.min(100, limit)));
-    if (error) throw new Error("receipts: " + error.message);
+    if (error) throw new Error(`receipts: ${error.message}`);
     return (data ?? []).map((row) => this.row(row));
   }
 
