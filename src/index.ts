@@ -1,8 +1,8 @@
 // Entry point: binds $PORT (Render injects it).
 import "dotenv/config";
 import { buildCors } from "./cors.js";
-import { createServer } from "./server.js";
 import { startScheduledActionWorker } from "./core/scheduledWorker.js";
+import { createServer } from "./server.js";
 
 const port = Number(process.env.PORT ?? 3000);
 
