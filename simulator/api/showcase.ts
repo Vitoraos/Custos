@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { evaluate } from "../../src/core/policy.js";
 import { loadConstraints, remember } from "../../src/storage/memories.js";
 import type { Store } from "../../src/storage/store.js";
+import { createDeps, type Deps } from "../../src/tools/context.js";
 
 const TZ = "Africa/Lagos";
 
@@ -40,7 +41,7 @@ function localToUtc(local: string): string {
   ).toISOString();
 }
 
-export async function runShowcase(store: Store) {
+export async function runShowcase(store: Store, deps: Deps = createDeps(store)) {
   const runId = randomUUID();
   const baselineUser = `showcase-baseline-${randomUUID()}`;
   const custosUser = `showcase-custos-${randomUUID()}`;
@@ -142,6 +143,75 @@ export async function runShowcase(store: Store) {
     throw new Error("Schedule persistence verification failed.");
   }
 
+  const scheduleReceipts = [
+    {
+      userId: custosUser,
+      tool: "schedule_device_action",
+      idempotencyKey: runId + ":coffee:receipt",
+      args: { target: coffee.target, desiredState: coffee.desiredState, localScheduledAt: coffee.localScheduledAt },
+      decision: { verdict: "allow", checked: rules.map((x) => x.id) },
+      expectation: { target: coffee.target, desiredState: coffee.desiredState, scheduledAt: coffee.scheduledAt },
+      observed: { id: coffee.id, status: coffee.status, persisted: true },
+      outcome: "verified" as const,
+      say: "Coffee schedule persisted and read back; execution is pending.",
+      attempts: 1,
+      latencyMs: 0,
+    },
+    {
+      userId: custosUser,
+      tool: "schedule_device_action",
+      idempotencyKey: runId + ":hall-light:receipt",
+      args: { target: light.target, desiredState: light.desiredState, localScheduledAt: light.localScheduledAt },
+      decision: { verdict: "allow", checked: rules.map((x) => x.id) },
+      expectation: { target: light.target, desiredState: light.desiredState, scheduledAt: light.scheduledAt },
+      observed: { id: light.id, status: light.status, persisted: true },
+      outcome: "verified" as const,
+      say: "Hall-light schedule persisted for 1:25 PM; execution is pending.",
+      attempts: 1,
+      latencyMs: 0,
+    },
+    {
+      userId: custosUser,
+      tool: "evaluate_recipe_policy",
+      idempotencyKey: runId + ":beef-blocked:receipt",
+      args: { recipe: "Beef tacos", servingFor: ["Maya"] },
+      decision: { verdict: "block", checked: blockedDinner.checked, reasons: blockedDinner.reasons },
+      expectation: { recipe: "Beef tacos", rule: "Maya beef allergy" },
+      observed: { policyVerdict: blockedDinner.verdict },
+      outcome: "blocked" as const,
+      say: blockedDinner.reasons[0]?.text ?? "Beef tacos blocked by Maya's beef allergy.",
+      attempts: 1,
+      latencyMs: 0,
+    },
+    {
+      userId: custosUser,
+      tool: "evaluate_recipe_policy",
+      idempotencyKey: runId + ":safe-dinner:receipt",
+      args: { recipe: "Lentil vegetable stew", servingFor: ["Maya"] },
+      decision: { verdict: "allow", checked: safeDinner.checked },
+      expectation: { recipe: "Lentil vegetable stew", excludes: "beef" },
+      observed: { policyVerdict: safeDinner.verdict },
+      outcome: "verified" as const,
+      say: "Lentil vegetable stew passed the standing-rule policy check.",
+      attempts: 1,
+      latencyMs: 0,
+    },
+  ];
+  for (const receipt of scheduleReceipts) await deps.receipts.insert(receipt);
+  const persistedReceipts = await deps.receipts.recent(custosUser, 20);
+  const receiptView = persistedReceipts.map((receipt) => ({
+    tool: receipt.tool,
+    outcome: receipt.outcome,
+    target: String((receipt.args as { target?: unknown; recipe?: unknown } | null)?.target ?? (receipt.args as { recipe?: unknown } | null)?.recipe ?? receipt.tool),
+    status: receipt.outcome,
+    id: receipt.id,
+    evidence: { decision: receipt.decision, expectation: receipt.expectation, observed: receipt.observed, say: receipt.say },
+  }));
+  const baselineHall = await store.getDevice(baselineUser, "hall_light");
+  const baselineCoffee = await store.getDevice(baselineUser, "coffee_maker");
+  const custosHall = await store.getDevice(custosUser, "hall_light");
+  const custosCoffee = await store.getDevice(custosUser, "coffee_maker");
+
   return {
     runId,
     timezone: TZ,
@@ -217,44 +287,11 @@ export async function runShowcase(store: Store) {
             `Beef tacos blocked: ${blockedDinner.reasons[0]?.text ?? "beef allergy"}; safe alternative passed policy`,
         },
       ],
-      receipts: [
-        {
-          tool: "schedule_device_action",
-          outcome: "verified",
-          target: coffee.target,
-          status: coffee.status,
-          id: coffee.id,
-          evidence: coffee.evidence,
-        },
-        {
-          tool: "schedule_device_action",
-          outcome: "verified",
-          target: light.target,
-          status: light.status,
-          id: light.id,
-          evidence: light.evidence,
-        },
-        {
-          tool: "evaluate_recipe_policy",
-          outcome: "blocked_then_allowed",
-          target: "Maya dinner",
-          status: "verified",
-          evidence: {
-            blocked: blockedDinner.reasons,
-            safeAlternative: safeDinner.verdict,
-          },
-        },
-      ],
+      receipts: receiptView,
     },
     deviceTruth: {
-      baseline: {
-        hall_light: { power: "off" },
-        coffee_maker: { power: "off" },
-      },
-      custos: {
-        hall_light: { power: "off" },
-        coffee_maker: { power: "off" },
-      },
+      baseline: { hall_light: baselineHall, coffee_maker: baselineCoffee },
+      custos: { hall_light: custosHall, coffee_maker: custosCoffee },
     },
     note:
       "Scheduled means the future action is persisted. Executed and verified device state are separate statuses; this demo does not claim a physical device changed.",
