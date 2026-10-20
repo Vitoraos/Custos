@@ -159,12 +159,18 @@ export async function runShowcase(
     "Beef excluded for Maya's allergy.",
   ].join("\\n");
   const notificationTopic = topicFor(custosUser);
-  const notification = await scheduleReminder({
-    topic: notificationTopic,
-    title: "Dinner plan and shopping list",
-    text: notificationText,
-    delayMs: 0,
-  });
+  let notification: { id: string; deliverAtMs: number; text: string } | null = null;
+  try {
+    notification = await scheduleReminder({
+      topic: notificationTopic,
+      title: "Dinner plan and shopping list",
+      text: notificationText,
+      delayMs: 0,
+    });
+  } catch {
+    // Notification provider outages must be visible as unverified, not turn
+    // the entire comparison into a blank error state.
+  }
 
   const coffee = await store.createScheduledAction({
     userId: custosUser,
@@ -206,7 +212,7 @@ export async function runShowcase(
     throw new Error("Schedule persistence verification failed.");
   }
 
-  const scheduleReceipts = [
+  const scheduleReceipts: Parameters<Deps["receipts"]["insert"]>[0][] = [
     {
       userId: custosUser,
       tool: "schedule_device_action",
@@ -305,9 +311,13 @@ export async function runShowcase(
       args: { title: "Dinner plan and shopping list", topic: notificationTopic },
       decision: { verdict: "allow", checked: rules.map((x) => x.id) },
       expectation: { notificationAccepted: true, recipeIncluded: true, instructionsIncluded: true },
-      observed: { id: notification.id, deliverAtMs: notification.deliverAtMs, acceptedByProvider: true },
-      outcome: "verified",
-      say: "Dinner recipe and cooking procedure accepted by the notification provider; device delivery is not independently confirmed.",
+      observed: notification
+        ? { id: notification.id, deliverAtMs: notification.deliverAtMs, acceptedByProvider: true }
+        : { acceptedByProvider: false },
+      outcome: notification ? "verified" : "unverified",
+      say: notification
+        ? "Dinner recipe and cooking procedure accepted by the notification provider; device delivery is not independently confirmed."
+        : "The notification provider could not confirm acceptance. The recipe and cooking procedure remain available in this demo.",
       attempts: 1,
       latencyMs: 0,
     },
@@ -350,11 +360,13 @@ export async function runShowcase(
     pantry: pantryBefore,
     shoppingList: shoppingAfter,
     notification: {
-      accepted: true,
+      accepted: notification !== null,
       topic: notificationTopic,
-      id: notification.id,
-      text: notification.text,
-      deliveryNote: "Accepted by the notification provider; delivery to a specific device is not independently confirmed.",
+      id: notification?.id ?? "",
+      text: notificationText,
+      deliveryNote: notification
+        ? "Accepted by the notification provider; delivery to a specific device is not independently confirmed."
+        : "The notification provider did not confirm acceptance. The recipe is shown here instead.",
     },
     rules: [
       {
