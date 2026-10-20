@@ -835,7 +835,7 @@ header.app {
 }
 
 .show-progress {
-  width: min(100%, 420px);
+  width: min(100%, var(--measure));
   height: var(--s2);
   margin: var(--s4) auto 0;
   overflow: hidden;
@@ -869,7 +869,7 @@ header.app {
 
 .show-workspace {
   display: grid;
-  grid-template-columns: minmax(210px, 0.75fr) minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 0.75fr) minmax(0, 1fr) minmax(0, 1fr);
   align-items: start;
   gap: var(--s3);
 }
