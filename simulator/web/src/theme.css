@@ -784,3 +784,13 @@ header.app,
 .prompt-card {
   box-shadow: var(--lift);
 }
+
+
+/* Reassert viewport header sizing after the base header padding shorthand. */
+header.app {
+  width: 100vw;
+  margin-left: calc(50% - 50vw);
+  padding-left: max(var(--s4), calc((100vw - var(--content-max)) / 2));
+  padding-right: max(var(--s4), calc((100vw - var(--content-max)) / 2));
+  box-sizing: border-box;
+}

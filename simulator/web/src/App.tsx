@@ -411,8 +411,8 @@ export default function App() {
               that beat's checks.
             </p>
           ) : null}
-          <section className="prompt-card" aria-label="Demo request">
-            <p className="eyebrow">THE REQUEST</p>
+          <section className="prompt-card" aria-label="Why verification matters">
+            <p className="eyebrow">THE PROBLEM</p>
             <p className="prompt-copy">
               {beats?.find((beat) => beat.input)?.input ??
                 "Make coffee for me at 8am, turn on the hall light 5 minutes before my daughter is back from school, and prepare dinner for me and my daughter."}
