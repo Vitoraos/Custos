@@ -49,6 +49,7 @@ export default function App() {
     baseline: null,
   });
   const timer = useRef(0);
+  const currentGuestId = useRef("");
 
   // Re-seeds the demo household and re-binds keys for the same guest. With
   // keepTranscript the columns stay on screen - used between the scripted run
@@ -57,7 +58,12 @@ export default function App() {
     async (keepTranscript = false): Promise<string | null> => {
       setLoadError("");
       try {
-        const d = await loadDemo();
+        const d = await loadDemo(
+          keepTranscript && currentGuestId.current
+            ? currentGuestId.current
+            : undefined,
+        );
+        currentGuestId.current = d.guestId;
         setGuestId(d.guestId);
         if (!keepTranscript) {
           setUserMsgs([]);

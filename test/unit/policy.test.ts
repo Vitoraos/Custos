@@ -76,9 +76,16 @@ describe("allergen blocks", () => {
     });
   }
   it("blocks common beef ingredient aliases and respects explicit beef-free labels", () => {
-    expect(verdict([allergen("beef", "Maya", "severe")], recipe(["ground beef tacos"], ["Maya"]))).toBe("block");
-    expect(verdict([allergen("beef", "Maya", "severe")], recipe(["beef broth"], ["Maya"]))).toBe("block");
-    expect(verdict([allergen("beef", "Maya", "severe")], recipe(["beef-free vegetable chili"], ["Maya"]))).toBe("allow");
+    const mayaBeefRule = allergen("beef", "Maya", "severe");
+    expect(
+      verdict([mayaBeefRule], recipe(["ground beef tacos"], ["Maya"])),
+    ).toBe("block");
+    expect(
+      verdict([mayaBeefRule], recipe(["beef broth"], ["Maya"])),
+    ).toBe("block");
+    expect(
+      verdict([mayaBeefRule], recipe(["beef-free vegetable chili"], ["Maya"])),
+    ).toBe("allow");
   });
 
   it("derived terms: butter/cheese/whey hit milk; soy sauce hits soy AND gluten", () => {

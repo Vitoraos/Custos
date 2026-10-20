@@ -1,18 +1,6 @@
 {
-  "celery": [
-    "celery",
-    "celeriac",
-    "celery salt",
-    "celery seed"
-  ],
-  "beef": [
-    "beef",
-    "ground beef",
-    "beef broth",
-    "beef stock",
-    "beef extract",
-    "beef tallow"
-  ],
+  "celery": ["celery", "celeriac", "celery salt", "celery seed"],
+  "beef": ["beef", "ground beef", "beef broth", "beef stock", "beef extract", "beef tallow"],
   "gluten": [
     "wheat",
     "barley",
@@ -101,11 +89,7 @@
     "fish sauce",
     "worcestershire"
   ],
-  "lupin": [
-    "lupin",
-    "lupine",
-    "lupini"
-  ],
+  "lupin": ["lupin", "lupine", "lupini"],
   "milk": [
     "milk",
     "milky",
@@ -158,19 +142,8 @@
     "whelk",
     "abalone"
   ],
-  "mustard": [
-    "mustard",
-    "mustard seed",
-    "mustard oil",
-    "dijon"
-  ],
-  "peanut": [
-    "peanut",
-    "peanuts",
-    "groundnut",
-    "groundnuts",
-    "monkey nut"
-  ],
+  "mustard": ["mustard", "mustard seed", "mustard oil", "dijon"],
+  "peanut": ["peanut", "peanuts", "groundnut", "groundnuts", "monkey nut"],
   "sesame": [
     "sesame",
     "sesame oil",

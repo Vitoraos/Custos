@@ -194,7 +194,14 @@ export function mountSim(
   // Each browser receives a fresh tenant-scoped household. Never seed the
   // shared "demo" user: concurrent visitors and resets would overwrite state.
   app.post("/sim/demo", async (c) => {
-    const s = await issueGuest(store);
+    const body = (await c.req.json().catch(() => null)) as {
+      guestId?: string;
+    } | null;
+    const existing = body?.guestId ? getGuest(body.guestId) : null;
+    if (body?.guestId && !existing) {
+      return c.json({ error: "unknown guest session" }, 404);
+    }
+    const s = existing ?? await issueGuest(store);
     const summary = await seedDemoHousehold(store, s.userId);
     if (summary.constraintsLoaded !== summary.rules) {
       return c.json(
