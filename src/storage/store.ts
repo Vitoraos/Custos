@@ -26,7 +26,16 @@ export interface MemoryRecord {
   expiresAt: string | null;
   revokedAt: string | null;
 }
-export type ScheduledActionStatus = "planned" | "scheduled" | "executing" | "executed" | "verified" | "unverified" | "blocked" | "failed" | "cancelled";
+export type ScheduledActionStatus =
+  | "planned"
+  | "scheduled"
+  | "executing"
+  | "executed"
+  | "verified"
+  | "unverified"
+  | "blocked"
+  | "failed"
+  | "cancelled";
 export function canTransitionScheduledStatus(
   from: ScheduledActionStatus,
   to: ScheduledActionStatus,
@@ -46,7 +55,21 @@ export function canTransitionScheduledStatus(
   return allowed[from].includes(to);
 }
 
-export interface ScheduledActionRecord { id: string; userId: string; runId: string; idempotencyKey: string; target: string; desiredState: Record<string, unknown>; timezone: string; localScheduledAt: string; scheduledAt: string; status: ScheduledActionStatus; evidence: Record<string, unknown>; createdAt: string; updatedAt: string; }
+export interface ScheduledActionRecord {
+  id: string;
+  userId: string;
+  runId: string;
+  idempotencyKey: string;
+  target: string;
+  desiredState: Record<string, unknown>;
+  timezone: string;
+  localScheduledAt: string;
+  scheduledAt: string;
+  status: ScheduledActionStatus;
+  evidence: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+}
 export interface KeyRecord {
   userId: string;
   mode: "forge" | "baseline";
@@ -247,7 +270,7 @@ export class MemoryStore implements Store {
       return clone(prior);
     }
     const now = new Date().toISOString();
-    const record: ScheduledActionRecord = { ...clone(row), id: "sched_" + Date.now().toString(36) + "_" + (++this.seq), createdAt: now, updatedAt: now };
+    const record: ScheduledActionRecord = { ...clone(row), id: `sched_${Date.now().toString(36)}_${++this.seq}`, createdAt: now, updatedAt: now };
     this.scheduled.set(tupleKey(row.userId, record.id), record);
     return clone(record);
   }
@@ -257,7 +280,7 @@ export class MemoryStore implements Store {
   async updateScheduledAction(userId: string, id: string, status: ScheduledActionStatus, evidence?: Record<string, unknown>): Promise<ScheduledActionRecord | null> {
     const key = tupleKey(userId, id), prior = this.scheduled.get(key);
     if (!prior) return null;
-    if (!canTransitionScheduledStatus(prior.status, status)) throw new Error("schedule: invalid status transition " + prior.status + " -> " + status);
+    if (!canTransitionScheduledStatus(prior.status, status)) throw new Error(`schedule: invalid status transition ${prior.status} -> ${status}`);
     const next = { ...prior, status, evidence: evidence ? { ...prior.evidence, ...clone(evidence) } : prior.evidence, updatedAt: new Date().toISOString() };
     this.scheduled.set(key, next); return clone(next);
   }
