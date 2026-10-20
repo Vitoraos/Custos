@@ -53,6 +53,7 @@ stay separate (`src/` vs `simulator/`); only the process is shared.
   `memories.ts` (typed loads, poisoning guard)
 - `simulator/api/`: `guest.ts` (keys + budget) · `agent.ts` (Strands, SSE event
   map) · `routes.ts` (`/sim/guest|chat|truth|faults`)
+- `src/core/assistantPrompt.ts`: compact shared MCP instructions and planner prompt; context retrieval, planning, execution, and truthful reporting live here, while enforcement stays in tools.
 - `bench/`: `run.ts` (L1 oracle) · `llm.ts` (L2 scaffold) · `report.ts` ·
   `data/recipes.labeled.json` (60, hand-labelled)
 
