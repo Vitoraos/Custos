@@ -1,15 +1,31 @@
 // Typed standing rules. One Zod discriminated union, shared by tools, policy, tests.
+ 
+// Keep validation at field level so consumers can safely use .omit() to derive tool inputs.
+=======
 // Allergen ontology includes EU-14 allergens plus the showcase's beef allergy.
 // spend_cap is P1 (cut) — add a variant here when it lands; evaluate() ignores unknown kinds.
+
 import { z } from "zod";
+
+function isValidTimeZone(value: string): boolean {
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: value });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+const clockTime = z.string().regex(
+  /^(?:[01]\d|2[0-3]):[0-5]\d$/,
+  "Expected a valid 24-hour time (HH:mm)",
+);
 
 const base = z.object({
   id: z.string().min(1).max(100),
-  profile: z.string().min(1).max(60), // 'household' or a person's name
+  profile: z.string().trim().min(1).max(60), // 'household' or a person's name
   source: z.enum(["user_voice", "explicit", "inferred", "external"]),
-  // offset: true — Postgres timestamptz comes back "+00:00", not "Z".
-  // Without this, EVERY row from Supabase fails validation and the policy
-  // engine silently sees zero rules (production enforcement off).
+  // Postgres timestamptz can return "+00:00", not only "Z".
   createdAt: z.string().datetime({ offset: true }),
   expiresAt: z.string().datetime({ offset: true }).optional(),
 });
@@ -52,9 +68,11 @@ export const allergenConstraint = base.extend({
 
 export const quietHoursConstraint = base.extend({
   kind: z.literal("quiet_hours"),
-  start: z.string().regex(/^\d{2}:\d{2}$/),
-  end: z.string().regex(/^\d{2}:\d{2}$/),
-  tz: z.string().min(1).max(60),
+  start: clockTime,
+  end: clockTime,
+  tz: z.string().trim().min(1).max(60).refine(isValidTimeZone, {
+    message: "Expected a valid IANA time zone",
+  }),
   applies: z
     .array(z.enum(["lights", "notifications", "audio"]))
     .min(1)
@@ -63,10 +81,10 @@ export const quietHoursConstraint = base.extend({
 
 export const deviceLimitConstraint = base.extend({
   kind: z.literal("device_limit"),
-  device: z.string().min(1).max(80),
-  attr: z.string().min(1).max(40),
-  min: z.number().optional(),
-  max: z.number().optional(),
+  device: z.string().trim().min(1).max(80),
+  attr: z.string().trim().min(1).max(40),
+  min: z.number().finite().optional(),
+  max: z.number().finite().optional(),
 });
 
 export const confirmRequiredConstraint = base.extend({
@@ -86,11 +104,11 @@ export type Constraint = z.infer<typeof constraintSchema>;
 // Stored-memory kinds that carry no enforcement (facts, instructions).
 export const factSchema = base.extend({
   kind: z.literal("fact"),
-  text: z.string().min(1).max(500),
+  text: z.string().trim().min(1).max(500),
 });
 export const instructionSchema = base.extend({
   kind: z.literal("instruction"),
-  text: z.string().min(1).max(500),
+  text: z.string().trim().min(1).max(500),
 });
 export type Fact = z.infer<typeof factSchema>;
 export type Instruction = z.infer<typeof instructionSchema>;

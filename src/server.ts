@@ -64,7 +64,7 @@ export function createServer(
   const server = new FastMCP<Session>({
     name: "contextforge",
     version: "3.0.0",
-    instructions: INSTRUCTIONS,
+    instructions: MCP_INSTRUCTIONS,
     authenticate: createAuthenticator(lookup),
     health: { enabled: true, path: "/health", message: "ok", status: 200 },
   });
