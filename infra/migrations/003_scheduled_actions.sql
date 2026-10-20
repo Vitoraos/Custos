@@ -9,7 +9,7 @@ create table if not exists scheduled_actions (
   timezone text not null,
   local_scheduled_at text not null,
   scheduled_at timestamptz not null,
-  status text not null check (status in ('planned','scheduled','executed','verified','unverified','blocked','failed','cancelled')),
+  status text not null check (status in ('planned','scheduled','executing','executed','verified','unverified','blocked','failed','cancelled')),
   evidence jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
