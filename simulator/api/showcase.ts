@@ -383,6 +383,7 @@ export async function runShowcase(
       observed: receipt.observed,
       say: receipt.say,
     },
+    raw: receipt,
   }));
   const baselineHall = await store.getDevice(baselineUser, "hall_light");
   const baselineCoffee = await store.getDevice(baselineUser, "coffee_maker");
