@@ -144,6 +144,11 @@ function ProcessPanel({
         </div>
         <State value={state === "done" ? "done" : state === "error" ? "failed" : "running"} />
       </div>
+      <p className="process-final-goal">
+        <strong>Final goal:</strong> {mode === "baseline"
+          ? "Respond to the household request."
+          : "Complete the authorized tasks safely, handle the obvious follow-through, and prove what actually happened."}
+      </p>
       <div className="process-list">
         {tasks.map((task, index) => {
           const threshold = completionStage[index] ?? 99;
