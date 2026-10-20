@@ -13,6 +13,7 @@ import {
   sha256Hex,
 } from "./auth.js";
 import { rateLimit } from "./rateLimit.js";
+import { SupabaseReceipts } from "./core/receipts.js";
 import { MemoryStore, type Store } from "./storage/store.js";
 import { SupabaseStore } from "./storage/supabaseStore.js";
 import { accountabilityTools, type Runner } from "./tools/accountability.js";
@@ -76,7 +77,10 @@ export function createServer(
     health: { enabled: true, path: "/health", message: "ok", status: 200 },
   });
 
-  const deps = createDeps(active);
+  const deps = createDeps(
+    active,
+    active instanceof SupabaseStore ? new SupabaseReceipts(active.client) : undefined,
+  );
   const actions = actionTools(deps);
   const mem = memoryTools(deps);
   const runners: Record<string, Runner> = {
