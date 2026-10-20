@@ -65,6 +65,12 @@ describe("scheduled action storage", () => {
       record("tenant-a", "stable-key-123"),
     );
     expect(created.status).toBe("scheduled");
+    const executing = await store.updateScheduledAction(
+      "tenant-a",
+      created.id,
+      "executing",
+    );
+    expect(executing?.status).toBe("executing");
     const executed = await store.updateScheduledAction(
       "tenant-a",
       created.id,
@@ -73,6 +79,15 @@ describe("scheduled action storage", () => {
     );
     expect(executed?.status).toBe("executed");
     expect(executed?.evidence.deviceState).toEqual({ power: "on" });
+    const verified = await store.updateScheduledAction(
+      "tenant-a",
+      created.id,
+      "verified",
+    );
+    expect(verified?.status).toBe("verified");
+    await expect(
+      store.updateScheduledAction("tenant-a", created.id, "failed"),
+    ).rejects.toThrow("invalid status transition");
     expect(
       await store.updateScheduledAction("other-tenant", created.id, "verified"),
     ).toBeNull();
