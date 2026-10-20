@@ -69,9 +69,41 @@ const STEPS = [
 
 async function runShowcase(): Promise<Showcase> {
   const response = await fetch(`${API}/sim/showcase`, { method: "POST" });
-  const body = await response.json();
-  if (!response.ok) throw new Error(body.error ?? "Showcase run failed");
-  return body as Showcase;
+  const body: unknown = await response.json();
+
+  if (!response.ok) {
+    const message =
+      body && typeof body === "object" && "error" in body
+        ? String((body as { error?: unknown }).error ?? "Showcase run failed")
+        : "Showcase run failed";
+    throw new Error(message);
+  }
+
+  // The API response is a runtime boundary. TypeScript types do not validate
+  // JSON received over HTTP, because apparently the network has no type checker.
+  if (!body || typeof body !== "object") {
+    throw new Error("Showcase API returned an invalid response.");
+  }
+
+  const result = body as Partial<Showcase>;
+  if (
+    !result.baseline ||
+    !result.custos ||
+    !Array.isArray(result.rules) ||
+    !result.notification ||
+    !result.deviceTruth ||
+    !result.recipe ||
+    typeof result.recipe.name !== "string" ||
+    !Array.isArray(result.recipe.ingredients) ||
+    !Array.isArray(result.recipe.instructions) ||
+    !Array.isArray(result.recipe.missingIngredients)
+  ) {
+    throw new Error(
+      "Showcase API response is missing required data (especially recipe.name). Check that the API deployment matches the web app.",
+    );
+  }
+
+  return result as Showcase;
 }
 
 function State({ value }: { value: string }) {
