@@ -1771,3 +1771,18 @@ body {
   .process-task-top { flex-direction: column; }
   .process-task { padding: var(--s3); }
 }
+
+.process-final-goal {
+  margin: 0 0 var(--s4);
+  padding: var(--s3) var(--s4);
+  border-left: var(--bw2) solid var(--line);
+  color: var(--ink);
+  background: #f8fafc;
+  font-size: var(--t-body-s);
+  line-height: var(--lh-body);
+}
+.process-custos .process-final-goal { border-left-color: var(--teal-ink); }
+.process-baseline .process-final-goal { border-left-color: var(--baseline); }
+.show-state.good { color: #14532d; background: #dcfce7; }
+.show-state.bad { color: #991b1b; background: #fee2e2; }
+.show-state.neutral { color: #1f2937; background: #f3f4f6; }
