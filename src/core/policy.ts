@@ -172,7 +172,10 @@ export function evaluate(
       }
     }
 
-    if (r.kind === "device_limit" && (action.type === "device_set" || action.type === "device_schedule")) {
+    if (
+      r.kind === "device_limit" &&
+      (action.type === "device_set" || action.type === "device_schedule")
+    ) {
       if (
         action.device === r.device &&
         action.attr === r.attr &&
