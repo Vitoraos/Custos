@@ -8,7 +8,6 @@ import type { Store } from "../../src/storage/store.js";
 import type { Deps } from "../../src/tools/context.js";
 import { runAB } from "./agent.js";
 import { seedDemoHousehold } from "./demo.js";
-import { runShowcase } from "./showcase.js";
 import {
   budgetCheck,
   budgetSpend,
@@ -17,6 +16,7 @@ import {
   issueGuest,
 } from "./guest.js";
 import { fetchRecipe } from "./recipes.js";
+import { runShowcase } from "./showcase.js";
 import {
   applyBeatFault,
   applyNaiveEffects,
