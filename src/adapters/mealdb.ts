@@ -71,7 +71,7 @@ export async function findRecipes(query: string, max = 8): Promise<Recipe[]> {
           ingredients: parseIngredients(meal),
           instructions: (meal.strInstructions ?? "")
             .replace(/<[^>]*>/g, " ")
-            .split(/\\r?\\n+/)
+            .split(/\r?\n+/)
             .map((step) => step.trim())
             .filter(Boolean),
           source: "themealdb",
