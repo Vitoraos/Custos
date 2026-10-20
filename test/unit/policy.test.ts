@@ -52,9 +52,10 @@ const diet = (
 const verdict = (rules: Constraint[], action: ProposedAction, c = ctx()) =>
   evaluate(rules, action, c).verdict;
 
-describe("allergen blocks (EU-14)", () => {
+describe("allergen blocks", () => {
   const cases: [Allergen, string][] = [
     ["celery", "celery soup"],
+    ["beef", "beef stew"],
     ["gluten", "wheat bread"],
     ["crustaceans", "garlic shrimp pasta"],
     ["egg", "egg fried rice"],
@@ -74,6 +75,12 @@ describe("allergen blocks (EU-14)", () => {
       expect(verdict([allergen(a)], recipe([ing, "salt"]))).toBe("block");
     });
   }
+  it("blocks common beef ingredient aliases and respects explicit beef-free labels", () => {
+    expect(verdict([allergen("beef", "Maya", "severe")], recipe(["ground beef tacos"], ["Maya"]))).toBe("block");
+    expect(verdict([allergen("beef", "Maya", "severe")], recipe(["beef broth"], ["Maya"]))).toBe("block");
+    expect(verdict([allergen("beef", "Maya", "severe")], recipe(["beef-free vegetable chili"], ["Maya"]))).toBe("allow");
+  });
+
   it("derived terms: butter/cheese/whey hit milk; soy sauce hits soy AND gluten", () => {
     expect(verdict([allergen("milk")], recipe(["buttered toast"]))).toBe(
       "block",

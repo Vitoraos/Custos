@@ -26,6 +26,7 @@ export const dietConstraint = base.extend({
 
 const EU14 = z.enum([
   "celery",
+  "beef",
   "gluten",
   "crustaceans",
   "egg",
