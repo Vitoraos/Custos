@@ -33,8 +33,11 @@ export function mountSim(
   mcpUrl: string,
 ): void {
   app.post("/sim/showcase", async (c) => {
-    try { return c.json(await runShowcase(store)); }
-    catch (e) { return c.json({ error: (e as Error).message.slice(0, 240) }, 500); }
+    try {
+      return c.json(await runShowcase(store));
+    } catch (e) {
+      return c.json({ error: (e as Error).message.slice(0, 240) }, 500);
+    }
   });
 
   app.post("/sim/guest", async (c) => {
@@ -207,7 +210,7 @@ export function mountSim(
     if (body?.guestId && !existing) {
       return c.json({ error: "unknown guest session" }, 404);
     }
-    const s = existing ?? await issueGuest(store);
+    const s = existing ?? (await issueGuest(store));
     const summary = await seedDemoHousehold(store, s.userId);
     if (summary.constraintsLoaded !== summary.rules) {
       return c.json(
