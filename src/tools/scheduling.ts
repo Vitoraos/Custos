@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { evaluate } from "../core/policy.js";
 import { getLocale } from "../core/locale.js";
+import { evaluate } from "../core/policy.js";
 import {
   envelope,
   envelopeSchema,
@@ -107,16 +107,22 @@ export function schedulingTools(deps: Deps) {
         const timezone = args.timezone ?? locale.tz;
         const instant = localToInstant(args.localScheduledAt, timezone);
         if (!instant) {
-          return envelope({
-            outcome: "error",
-            say: "That local time is invalid or falls inside a daylight-saving clock gap.",
-          }, c);
+          return envelope(
+            {
+              outcome: "error",
+              say: "That local time is invalid or falls inside a daylight-saving clock gap.",
+            },
+            c,
+          );
         }
         if (instant.getTime() <= Date.now()) {
-          return envelope({
-            outcome: "error",
-            say: "Choose a future local time; past actions are not scheduled.",
-          }, c);
+          return envelope(
+            {
+              outcome: "error",
+              say: "Choose a future local time; past actions are not scheduled.",
+            },
+            c,
+          );
         }
         const rc = await runCtx(deps, session, ["household"]);
         const decision = evaluate(
@@ -131,19 +137,25 @@ export function schedulingTools(deps: Deps) {
           { now: new Date(), profiles: rc.profiles },
         );
         if (decision.verdict === "block") {
-          return envelope({
-            outcome: "blocked",
-            say: decision.reasons[0]?.text ?? "Blocked by a standing rule.",
-            reasons: decision.reasons,
-            data: { checked: decision.checked },
-          }, c);
+          return envelope(
+            {
+              outcome: "blocked",
+              say: decision.reasons[0]?.text ?? "Blocked by a standing rule.",
+              reasons: decision.reasons,
+              data: { checked: decision.checked },
+            },
+            c,
+          );
         }
         if (decision.verdict === "confirm") {
-          return envelope({
-            outcome: "needs_confirmation",
-            say: "This scheduled action requires confirmation before it can be stored.",
-            data: { checked: decision.checked },
-          }, c);
+          return envelope(
+            {
+              outcome: "needs_confirmation",
+              say: "This scheduled action requires confirmation before it can be stored.",
+              data: { checked: decision.checked },
+            },
+            c,
+          );
         }
         try {
           const record = await deps.store.createScheduledAction({
@@ -170,12 +182,15 @@ export function schedulingTools(deps: Deps) {
             args.idempotencyKey,
           );
           if (prior) {
-            return envelope({
-              outcome: prior.outcome,
-              say: prior.say,
-              data: record,
-              receiptId: prior.id,
-            }, c);
+            return envelope(
+              {
+                outcome: prior.outcome,
+                say: prior.say,
+                data: record,
+                receiptId: prior.id,
+              },
+              c,
+            );
           }
           const receipt = await deps.receipts.insert({
             userId: session.userId,
@@ -189,13 +204,20 @@ export function schedulingTools(deps: Deps) {
               timezone,
               runId: args.runId,
             },
-            decision: { verdict: decision.verdict, checked: decision.checked },
+            decision: {
+              verdict: decision.verdict,
+              checked: decision.checked,
+            },
             expectation: {
               target: args.target,
               desiredState: record.desiredState,
               scheduledAt: record.scheduledAt,
             },
-            observed: { id: record.id, status: record.status, persisted: true },
+            observed: {
+              id: record.id,
+              status: record.status,
+              persisted: true,
+            },
             outcome: "verified",
             say,
             attempts: 1,
@@ -222,10 +244,13 @@ export function schedulingTools(deps: Deps) {
             },
           }, c);
         } catch (e) {
-          return envelope({
-            outcome: "error",
-            say: (e as Error).message.slice(0, 200),
-          }, c);
+          return envelope(
+            {
+              outcome: "error",
+              say: (e as Error).message.slice(0, 200),
+            },
+            c,
+          );
         }
       },
     },
