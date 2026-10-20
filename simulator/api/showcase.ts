@@ -75,6 +75,7 @@ export async function runShowcase(
     });
     await store.setDevice(userId, "hall_light", { power: "off" });
     await store.setDevice(userId, "coffee_maker", { power: "off" });
+    await store.setDevice(userId, "kitchen_light", { power: "off" });
   }
 
   const now = new Date();
@@ -172,6 +173,18 @@ export async function runShowcase(
     // the entire comparison into a blank error state.
   }
 
+  // Immediate device actions are distinct from future schedules. Write, then
+  // read back the device twin so the demo never confuses intent with evidence.
+  await store.setDevice(custosUser, "coffee_maker", { power: "on" });
+  await store.setDevice(custosUser, "kitchen_light", { power: "on" });
+  const coffeeMakerNow = await store.getDevice(custosUser, "coffee_maker");
+  const kitchenLightNow = await store.getDevice(custosUser, "kitchen_light");
+  const immediateDevicesVerified =
+    coffeeMakerNow?.power === "on" && kitchenLightNow?.power === "on";
+  if (!immediateDevicesVerified) {
+    throw new Error("Immediate device-state read-back verification failed.");
+  }
+
   const coffee = await store.createScheduledAction({
     userId: custosUser,
     runId,
@@ -213,6 +226,36 @@ export async function runShowcase(
   }
 
   const scheduleReceipts: Parameters<Deps["receipts"]["insert"]>[0][] = [
+    {
+      userId: custosUser,
+      tool: "set_device_state",
+      idempotencyKey: `${runId}:coffee-maker-now:receipt`,
+      args: { device: "coffee_maker", attr: "power", value: "on" },
+      decision: { verdict: "allow", checked: rules.map((x) => x.id) },
+      expectation: { power: "on" },
+      observed: { state: coffeeMakerNow, readBackVerified: coffeeMakerNow?.power === "on" },
+      outcome: coffeeMakerNow?.power === "on" ? "verified" as const : "unverified" as const,
+      say: coffeeMakerNow?.power === "on"
+        ? "Coffee maker is on; the device twin confirmed the requested state."
+        : "The coffee maker state could not be verified.",
+      attempts: 1,
+      latencyMs: 0,
+    },
+    {
+      userId: custosUser,
+      tool: "set_device_state",
+      idempotencyKey: `${runId}:kitchen-light-now:receipt`,
+      args: { device: "kitchen_light", attr: "power", value: "on" },
+      decision: { verdict: "allow", checked: rules.map((x) => x.id) },
+      expectation: { power: "on" },
+      observed: { state: kitchenLightNow, readBackVerified: kitchenLightNow?.power === "on" },
+      outcome: kitchenLightNow?.power === "on" ? "verified" as const : "unverified" as const,
+      say: kitchenLightNow?.power === "on"
+        ? "Kitchen light is on; the device twin confirmed the requested state."
+        : "The kitchen-light state could not be verified.",
+      attempts: 1,
+      latencyMs: 0,
+    },
     {
       userId: custosUser,
       tool: "schedule_device_action",
@@ -350,7 +393,7 @@ export async function runShowcase(
     runId,
     timezone: TZ,
     prompt:
-      "Make coffee for me at 8am, turn on the hall light 5 minutes before my daughter is back from school, and prepare dinner for me and my daughter.",
+      "Turn on the coffee maker and kitchen light now, schedule coffee for 8am, turn on the hall light 5 minutes before my daughter is back from school, and prepare dinner for me and my daughter.",
     disclosure:
       "Controlled simulator scenario. The baseline is scripted; this is not a live Alexa+ integration. Device twins are simulated.",
     recipe: {
@@ -389,6 +432,16 @@ export async function runShowcase(
       status: "unverified",
       actions: [
         {
+          title: "Coffee maker now",
+          status: coffeeMakerNow?.power === "on" ? "verified" : "unverified",
+          evidence: coffeeMakerNow?.power === "on" ? "Device state read back as on" : "Could not verify device state",
+        },
+        {
+          title: "Kitchen light now",
+          status: kitchenLightNow?.power === "on" ? "verified" : "unverified",
+          evidence: kitchenLightNow?.power === "on" ? "Device state read back as on" : "Could not verify device state",
+        },
+        {
           title: "Coffee at 8:00 AM",
           status: "not scheduled",
           evidence: "No persisted schedule record",
@@ -409,7 +462,7 @@ export async function runShowcase(
     custos: {
       label: "Custos",
       summary:
-        "Coffee scheduled for 8:00 AM, hall light scheduled for 1:25 PM, dinner planned with beef excluded.",
+        "Coffee maker and kitchen light turned on and verified. Coffee is scheduled for 8:00 AM, hall light for 1:25 PM, and dinner avoids beef.",
       status: "scheduled",
       actions: [
         {
@@ -438,8 +491,8 @@ export async function runShowcase(
       receipts: receiptView,
     },
     deviceTruth: {
-      baseline: { hall_light: baselineHall, coffee_maker: baselineCoffee },
-      custos: { hall_light: custosHall, coffee_maker: custosCoffee },
+      baseline: { hall_light: baselineHall, coffee_maker: baselineCoffee, kitchen_light: await store.getDevice(baselineUser, "kitchen_light") },
+      custos: { hall_light: custosHall, coffee_maker: coffeeMakerNow, kitchen_light: kitchenLightNow },
     },
     note: "Scheduled means the future action is persisted. Executed and verified device state are separate statuses; this demo does not claim a physical device changed.",
   };
