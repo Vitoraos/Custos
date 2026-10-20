@@ -419,6 +419,7 @@ async function execute<Args, Cmd, State>(
         afterRetryError.state,
       );
     }
+
     return finish(
       "unverified",
       sayUnverified(
@@ -429,6 +430,12 @@ async function execute<Args, Cmd, State>(
       ),
       { writeError: true, observed: afterRetryError.state },
     );
+
+    return finish("error", sayError(), {
+      writeError: true,
+      observed: afterRetryError.state,
+    });
+
   }
   const second = await observe();
   if (second.ok)
