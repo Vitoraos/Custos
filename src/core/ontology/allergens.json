@@ -149,19 +149,8 @@
     "whelk",
     "abalone"
   ],
-  "mustard": [
-    "mustard",
-    "mustard seed",
-    "mustard oil",
-    "dijon"
-  ],
-  "peanut": [
-    "peanut",
-    "peanuts",
-    "groundnut",
-    "groundnuts",
-    "monkey nut"
-  ],
+  "mustard": ["mustard", "mustard seed", "mustard oil", "dijon"],
+  "peanut": ["peanut", "peanuts", "groundnut", "groundnuts", "monkey nut"],
   "sesame": [
     "sesame",
     "sesame oil",
