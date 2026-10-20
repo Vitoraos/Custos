@@ -27,6 +27,25 @@ export interface MemoryRecord {
   revokedAt: string | null;
 }
 export type ScheduledActionStatus = "planned" | "scheduled" | "executing" | "executed" | "verified" | "unverified" | "blocked" | "failed" | "cancelled";
+export function canTransitionScheduledStatus(
+  from: ScheduledActionStatus,
+  to: ScheduledActionStatus,
+): boolean {
+  if (from === to) return true;
+  const allowed: Record<ScheduledActionStatus, ScheduledActionStatus[]> = {
+    planned: ["scheduled", "blocked", "failed", "cancelled"],
+    scheduled: ["executing", "blocked", "failed", "cancelled"],
+    executing: ["executed", "failed", "cancelled"],
+    executed: ["verified", "unverified", "failed"],
+    verified: [],
+    unverified: ["scheduled", "failed", "cancelled"],
+    blocked: [],
+    failed: [],
+    cancelled: [],
+  };
+  return allowed[from].includes(to);
+}
+
 export interface ScheduledActionRecord { id: string; userId: string; runId: string; idempotencyKey: string; target: string; desiredState: Record<string, unknown>; timezone: string; localScheduledAt: string; scheduledAt: string; status: ScheduledActionStatus; evidence: Record<string, unknown>; createdAt: string; updatedAt: string; }
 export interface KeyRecord {
   userId: string;
@@ -224,7 +243,7 @@ export class MemoryStore implements Store {
   async createScheduledAction(row: Omit<ScheduledActionRecord, "id" | "createdAt" | "updatedAt">): Promise<ScheduledActionRecord> {
     const prior = [...this.scheduled.values()].find(x => x.userId === row.userId && x.idempotencyKey === row.idempotencyKey);
     if (prior) {
-      if (prior.target !== row.target || JSON.stringify(prior.desiredState) !== JSON.stringify(row.desiredState) || prior.scheduledAt !== row.scheduledAt) throw new Error("schedule: idempotency key reused with different action");
+      if (prior.target !== row.target || JSON.stringify(prior.desiredState) !== JSON.stringify(row.desiredState) || prior.scheduledAt !== row.scheduledAt || prior.timezone !== row.timezone || prior.localScheduledAt !== row.localScheduledAt || prior.runId !== row.runId) throw new Error("schedule: idempotency key reused with different action");
       return clone(prior);
     }
     const now = new Date().toISOString();
@@ -238,6 +257,7 @@ export class MemoryStore implements Store {
   async updateScheduledAction(userId: string, id: string, status: ScheduledActionStatus, evidence?: Record<string, unknown>): Promise<ScheduledActionRecord | null> {
     const key = tupleKey(userId, id), prior = this.scheduled.get(key);
     if (!prior) return null;
+    if (!canTransitionScheduledStatus(prior.status, status)) throw new Error("schedule: invalid status transition " + prior.status + " -> " + status);
     const next = { ...prior, status, evidence: evidence ? { ...prior.evidence, ...clone(evidence) } : prior.evidence, updatedAt: new Date().toISOString() };
     this.scheduled.set(key, next); return clone(next);
   }
