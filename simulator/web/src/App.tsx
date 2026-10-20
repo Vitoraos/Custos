@@ -51,15 +51,19 @@ type Showcase = {
 };
 
 type RunState = "idle" | "running" | "done" | "error";
+type ProcessStatus = "pending" | "running" | "done" | "failed";
+type ProcessTask = { goal: string; subtask: string; status: ProcessStatus; detail: string };
 const STEPS = [
-  "Understand the request",
-  "Baseline schedules coffee",
-  "Baseline misses the school context",
-  "Baseline claims dinner is handled",
-  "Custos schedules coffee",
-  "Custos derives the hall-light time",
-  "Custos plans dinner and updates the shopping list",
-  "Inspect receipts and independent state",
+  "Parse the request and identify the goals",
+  "Baseline plans its response",
+  "Baseline reports completion without proof",
+  "Custos loads standing rules",
+  "Custos plans immediate and scheduled device actions",
+  "Custos checks the dinner plan against household rules",
+  "Custos checks the pantry and shopping list",
+  "Custos updates the list and sends the recipe",
+  "Custos verifies device and schedule state",
+  "Custos writes and presents receipts",
 ];
 
 async function runShowcase(): Promise<Showcase> {
@@ -102,6 +106,68 @@ function ActionList({ actions, visible }: { actions: Action[]; visible: number }
   );
 }
 
+function ProcessPanel({
+  mode,
+  stage,
+  state,
+}: {
+  mode: "baseline" | "custos";
+  stage: number;
+  state: RunState;
+}) {
+  const tasks: Omit<ProcessTask, "status">[] = mode === "baseline"
+    ? [
+        { goal: "Answer the household request", subtask: "Interpret the requested actions", detail: "Request understood" },
+        { goal: "Prepare the requested actions", subtask: "Acknowledge coffee and lights", detail: "No persisted device write or schedule created" },
+        { goal: "Plan dinner", subtask: "Select a meal without checking Maya's allergy", detail: "Standing rule not checked" },
+        { goal: "Finish the request", subtask: "Claim completion", detail: "No independent verification or audit receipt" },
+      ]
+    : [
+        { goal: "Understand the request", subtask: "Extract immediate actions, scheduled actions, and dinner goal", detail: "Five outcomes identified" },
+        { goal: "Apply household rules", subtask: "Load Maya's allergy and school-return time", detail: "Rules checked before acting" },
+        { goal: "Act on devices", subtask: "Turn on coffee maker and kitchen light; persist coffee and hall-light schedules", detail: "Device read-back and schedule persistence checked" },
+        { goal: "Plan a safe dinner", subtask: "Reject beef recipe and choose a compatible alternative", detail: "Recipe passes the allergy policy" },
+        { goal: "Complete useful follow-through", subtask: "Compare recipe ingredients with pantry and shopping list", detail: "Only missing items added; duplicates avoided" },
+        { goal: "Inform the user", subtask: "Send recipe, ingredients, cooking steps, and shopping changes", detail: "Provider acceptance reported separately from delivery" },
+        { goal: "Prove what happened", subtask: "Read back state, inspect schedules, and write receipts", detail: "Each outcome labelled by evidence, not assumption" },
+      ];
+  const completionStage = mode === "baseline"
+    ? [1, 2, 2, 3]
+    : [1, 3, 4, 5, 6, 7, 9];
+  return (
+    <section className={`process-panel process-${mode}`} aria-label={mode === "baseline" ? "Baseline task progress" : "Custos task progress"}>
+      <div className="process-heading">
+        <div>
+          <p className="eyebrow">{mode === "baseline" ? "BASELINE EXECUTION" : "CUSTOS EXECUTION"}</p>
+          <h3>{mode === "baseline" ? "Plan and progress" : "Goal, subtasks and evidence"}</h3>
+        </div>
+        <State value={state === "done" ? "done" : state === "error" ? "failed" : "running"} />
+      </div>
+      <div className="process-list">
+        {tasks.map((task, index) => {
+          const threshold = completionStage[index] ?? 99;
+          const status: ProcessStatus = mode === "baseline"
+            ? stage >= threshold ? "done" : stage + 1 === threshold && state === "running" ? "running" : "pending"
+            : stage >= threshold ? "done" : stage + 1 === threshold && state === "running" ? "running" : "pending";
+          return (
+            <article className={`process-task process-${status}`} key={task.subtask}>
+              <span className="process-status">{status === "done" ? "✓" : status === "running" ? "…" : "○"}</span>
+              <div className="process-task-copy">
+                <div className="process-task-top">
+                  <strong>{task.goal}</strong>
+                  <State value={status} />
+                </div>
+                <p>{task.subtask}</p>
+                <small>{task.detail}</small>
+              </div>
+            </article>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
 function ReceiptCard({ receipt }: { receipt: Receipt }) {
   return (
     <article className="show-receipt">
@@ -116,8 +182,9 @@ function ReceiptCard({ receipt }: { receipt: Receipt }) {
       <p className="receipt-say">
         {String((receipt.evidence as { say?: unknown })?.say ?? "Evidence recorded for this action.")}
       </p>
+      <p className="receipt-explainer">{receipt.outcome === "verified" ? "What this means: the expected state was read back or the record was persisted and checked." : receipt.outcome === "blocked" ? "What this means: a standing rule prevented this action." : "What this means: this result is not confirmed as successful."}</p>
       <details>
-        <summary>Inspect verification evidence</summary>
+        <summary>View raw JSON evidence</summary>
         <pre>{JSON.stringify(receipt.evidence, null, 2)}</pre>
       </details>
       {receipt.id ? <p className="receipt-id">Receipt ID <code>{receipt.id}</code></p> : null}
@@ -145,7 +212,7 @@ export default function App() {
       // panel into the page at once. The underlying scenario has completed;
       // this is a presentation sequence, not a claim of live tool streaming.
       for (let next = 1; next <= STEPS.length; next += 1) {
-        await new Promise((resolve) => window.setTimeout(resolve, 950));
+        await new Promise((resolve) => window.setTimeout(resolve, 1150));
         setStage(next);
       }
       setState("done");
@@ -161,8 +228,8 @@ export default function App() {
   }
 
   const stepIndex = Math.max(0, Math.min(STEPS.length - 1, stage === 0 ? 0 : stage - 1));
-  const baselineVisible = stage >= 4 ? 3 : stage >= 3 ? 2 : stage >= 2 ? 1 : 0;
-  const custosVisible = stage >= 7 ? 3 : stage >= 6 ? 2 : stage >= 5 ? 1 : 0;
+  const baselineVisible = stage >= 3 ? 5 : stage >= 2 ? 2 : stage >= 1 ? 1 : 0;
+  const custosVisible = stage >= 9 ? 5 : stage >= 8 ? 4 : stage >= 7 ? 3 : stage >= 5 ? 2 : stage >= 4 ? 1 : 0;
 
   return (
     <main className="showcase-app">
@@ -192,7 +259,7 @@ export default function App() {
       <section className="prompt-card showcase-prompt">
         <p className="eyebrow">ONE REQUEST · THREE OBLIGATIONS</p>
         <p className="prompt-copy">
-          Make coffee for me at 8am, turn on the hall light 5 minutes before my daughter is back from school, and prepare dinner for me and my daughter.
+          Turn on the coffee maker and kitchen light now, schedule coffee for 8am, turn on the hall light 5 minutes before my daughter is back from school, and prepare dinner for me and my daughter.
         </p>
         <p className="prompt-context">
           The assistant should infer the necessary substeps, respect household rules, take useful action, and report what the evidence supports.
@@ -250,6 +317,7 @@ export default function App() {
                 {stage >= 2 ? <State value={data.baseline.status} /> : <State value="waiting" />}
               </div>
               {stage >= 1 ? <blockquote className="reveal-item">{data.baseline.summary}</blockquote> : <p className="waiting-copy">Waiting for the baseline run…</p>}
+              <ProcessPanel mode="baseline" stage={stage} state={state} />
               <ActionList actions={data.baseline.actions} visible={baselineVisible} />
               {stage >= 3 ? (
                 <div className="show-proof-empty reveal-item">
@@ -269,8 +337,9 @@ export default function App() {
                 {stage >= 4 ? <State value={data.custos.status} /> : <State value="working" />}
               </div>
               {stage >= 1 ? <blockquote className="reveal-item">{data.custos.summary}</blockquote> : <p className="waiting-copy">Custos is about to evaluate the request…</p>}
+              <ProcessPanel mode="custos" stage={stage} state={state} />
               <ActionList actions={data.custos.actions} visible={custosVisible} />
-              {stage >= 5 ? (
+              {stage >= 7 ? (
                 <div className="dinner-follow-through reveal-item">
                   <p className="eyebrow">PROACTIVE FOLLOW-THROUGH</p>
                   <h3>{data.recipe.name}</h3>
@@ -300,7 +369,7 @@ export default function App() {
             </section>
           </section>
 
-          {stage >= 5 ? (
+          {stage >= 8 ? (
             <section className="notification-panel reveal-item">
               <div className="notification-icon" aria-hidden="true">N</div>
               <div className="notification-copy">
@@ -316,7 +385,7 @@ export default function App() {
             </section>
           ) : null}
 
-          {stage >= 5 ? (
+          {stage >= 4 ? (
             <section className="panel show-context reveal-item">
               <div className="section-heading">
                 <div>
@@ -342,7 +411,7 @@ export default function App() {
             </section>
           ) : null}
 
-          {stage >= 5 ? (
+          {stage >= 10 ? (
             <section className="receipts-section reveal-item">
               <div className="section-heading">
                 <div>
@@ -358,7 +427,7 @@ export default function App() {
             </section>
           ) : null}
 
-          {stage >= 5 ? (
+          {stage >= 9 ? (
             <section className="panel show-truth reveal-item">
               <div>
                 <p className="eyebrow">INDEPENDENT DEVICE TWIN</p>
