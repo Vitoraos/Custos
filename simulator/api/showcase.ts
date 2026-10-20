@@ -293,7 +293,7 @@ export async function runShowcase(
       label: "Custos",
       summary:
         "Coffee scheduled for 8:00 AM, hall light scheduled for 1:25 PM, dinner planned with beef excluded.",
-      status: "verified",
+      status: "scheduled",
       actions: [
         {
           title: "Coffee at 8:00 AM",
