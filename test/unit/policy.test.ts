@@ -516,12 +516,10 @@ describe("scheduled device actions evaluate quiet hours at their target time", (
     source: "explicit",
     createdAt: NOW.toISOString(),
   } as unknown as Constraint);
-  it(
-    "blocks a scheduled light action during quiet hours even when requested during daytime",
-    () => {
-      const daytime = new Date("2026-10-06T10:00:00+01:00");
-      const scheduledNight = new Date("2026-10-06T23:00:00+01:00");
-      const result = evaluate(
+  it("blocks a scheduled light action during quiet hours even when requested during daytime", () => {
+    const daytime = new Date("2026-10-06T10:00:00+01:00");
+    const scheduledNight = new Date("2026-10-06T23:00:00+01:00");
+    const result = evaluate(
       [rule],
       {
         type: "device_set",
@@ -532,7 +530,6 @@ describe("scheduled device actions evaluate quiet hours at their target time", (
       },
       { now: daytime, profiles: ["household"] },
     );
-      expect(result.verdict).toBe("block");
-    },
-  );
+    expect(result.verdict).toBe("block");
+  });
 });
