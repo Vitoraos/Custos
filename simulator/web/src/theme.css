@@ -869,7 +869,7 @@ header.app {
 
 .show-workspace {
   display: grid;
-  grid-template-columns: minmax(210px, .75fr) minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-columns: minmax(210px, 0.75fr) minmax(0, 1fr) minmax(0, 1fr);
   align-items: start;
   gap: var(--s3);
 }
@@ -897,7 +897,7 @@ header.app {
   color: var(--ink);
   font-size: var(--t-caption);
   text-transform: uppercase;
-  letter-spacing: .06em;
+  letter-spacing: 0.06em;
   font-weight: 700;
 }
 
@@ -1093,7 +1093,7 @@ header.app {
   box-shadow: var(--lift-card);
 }
 
-.show-receipt pre {
+.show-workspace .show-receipt pre {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   font-size: var(--t-caption);
@@ -1149,11 +1149,11 @@ header.app {
 
 .show-truth .show-device strong,
 .show-truth .show-device span,
-.show-truth .show-device small {
+.show-truth .show-truth .show-device small {
   color: var(--ink);
 }
 
-.show-device span {
+.show-truth .show-device span {
   font-weight: 700;
 }
 
