@@ -289,8 +289,7 @@ export class SupabaseStore implements Store {
         d.timezone !== row.timezone ||
         d.local_scheduled_at !== row.localScheduledAt ||
         d.run_id !== row.runId ||
-        JSON.stringify(d.desired_state) !==
-          JSON.stringify(row.desiredState)
+        JSON.stringify(d.desired_state) !== JSON.stringify(row.desiredState)
       ) {
         throw new Error(
           "schedule: idempotency key reused with different action",
@@ -302,13 +301,21 @@ export class SupabaseStore implements Store {
     return this.scheduledRow(data);
   }
 
-  async listScheduledActions(userId: string, runId?: string): Promise<ScheduledActionRecord[]> {
-    let query = this.db.from("scheduled_actions").select("*").eq("user_id", userId).order("scheduled_at");
+  async listScheduledActions(
+    userId: string,
+    runId?: string,
+  ): Promise<ScheduledActionRecord[]> {
+    let query = this.db
+      .from("scheduled_actions")
+      .select("*")
+      .eq("user_id", userId)
+      .order("scheduled_at");
     if (runId) query = query.eq("run_id", runId);
     const { data, error } = await query;
     if (error) fail(error);
-    return (data ?? []).map(row => this.scheduledRow(row));
+    return (data ?? []).map((row) => this.scheduledRow(row));
   }
+
   async updateScheduledAction(
     userId: string,
     id: string,
@@ -325,7 +332,9 @@ export class SupabaseStore implements Store {
     if (!existing.data) return null;
     const previousStatus = existing.data.status as ScheduledActionStatus;
     if (!canTransitionScheduledStatus(previousStatus, status)) {
-      throw new Error(`schedule: invalid status transition ${previousStatus} -> ${status}`);
+      throw new Error(
+        `schedule: invalid status transition ${previousStatus} -> ${status}`,
+      );
     }
     const merged = { ...(existing.data.evidence ?? {}), ...(evidence ?? {}) };
     const { data, error } = await this.db
@@ -346,19 +355,58 @@ export class SupabaseStore implements Store {
 
   private scheduledRow(value: unknown): ScheduledActionRecord {
     const d = asRecord(value, "scheduled_actions row");
-    const status = requiredString(d.status, "scheduled_actions.status") as ScheduledActionStatus;
-    if (!["planned","scheduled","executing","executed","verified","unverified","blocked","failed","cancelled"].includes(status)) throw new Error("store: invalid scheduled action status");
+    const status = requiredString(
+      d.status,
+      "scheduled_actions.status",
+    ) as ScheduledActionStatus;
+    if (
+      ![
+        "planned",
+        "scheduled",
+        "executing",
+        "executed",
+        "verified",
+        "unverified",
+        "blocked",
+        "failed",
+        "cancelled",
+      ].includes(status)
+    ) {
+      throw new Error("store: invalid scheduled action status");
+    }
     return {
-      id: requiredString(d.id, "scheduled_actions.id"), userId: requiredString(d.user_id, "scheduled_actions.user_id"),
-      runId: requiredString(d.run_id, "scheduled_actions.run_id"), idempotencyKey: requiredString(d.idempotency_key, "scheduled_actions.idempotency_key"),
-      target: requiredString(d.target, "scheduled_actions.target"), desiredState: asRecord(d.desired_state, "scheduled_actions.desired_state"),
-      timezone: requiredString(d.timezone, "scheduled_actions.timezone"), localScheduledAt: requiredString(d.local_scheduled_at, "scheduled_actions.local_scheduled_at"),
-      scheduledAt: requiredString(d.scheduled_at, "scheduled_actions.scheduled_at"), status,
+      id: requiredString(d.id, "scheduled_actions.id"),
+      userId: requiredString(d.user_id, "scheduled_actions.user_id"),
+      runId: requiredString(d.run_id, "scheduled_actions.run_id"),
+      idempotencyKey: requiredString(
+        d.idempotency_key,
+        "scheduled_actions.idempotency_key",
+      ),
+      target: requiredString(d.target, "scheduled_actions.target"),
+      desiredState: asRecord(
+        d.desired_state,
+        "scheduled_actions.desired_state",
+      ),
+      timezone: requiredString(d.timezone, "scheduled_actions.timezone"),
+      localScheduledAt: requiredString(
+        d.local_scheduled_at,
+        "scheduled_actions.local_scheduled_at",
+      ),
+      scheduledAt: requiredString(
+        d.scheduled_at,
+        "scheduled_actions.scheduled_at",
+      ),
+      status,
       evidence: asRecord(d.evidence ?? {}, "scheduled_actions.evidence"),
-      createdAt: requiredString(d.created_at, "scheduled_actions.created_at"), updatedAt: requiredString(d.updated_at, "scheduled_actions.updated_at"),
+      createdAt: requiredString(d.created_at, "scheduled_actions.created_at"),
+      updatedAt: requiredString(d.updated_at, "scheduled_actions.updated_at"),
     };
   }
-  async claimDueScheduledActions(now: string, limit: number): Promise<ScheduledActionRecord[]> {
+
+  async claimDueScheduledActions(
+    now: string,
+    limit: number,
+  ): Promise<ScheduledActionRecord[]> {
     const boundedLimit = Math.max(0, Math.min(limit, 100));
     const staleBefore = new Date(Date.parse(now) - 5 * 60_000).toISOString();
     const scheduledQuery = await this.db
@@ -378,8 +426,13 @@ export class SupabaseStore implements Store {
       .order("scheduled_at")
       .limit(boundedLimit);
     if (staleQuery.error) fail(staleQuery.error);
-    const candidates = [...(scheduledQuery.data ?? []), ...(staleQuery.data ?? [])]
-      .sort((a, b) => String(a.scheduled_at).localeCompare(String(b.scheduled_at)))
+    const candidates = [
+      ...(scheduledQuery.data ?? []),
+      ...(staleQuery.data ?? []),
+    ]
+      .sort((a, b) =>
+        String(a.scheduled_at).localeCompare(String(b.scheduled_at)),
+      )
       .slice(0, boundedLimit);
     const claimed: ScheduledActionRecord[] = [];
     for (const row of candidates) {
@@ -389,7 +442,9 @@ export class SupabaseStore implements Store {
         .eq("id", row.id)
         .eq("user_id", row.user_id)
         .eq("status", row.status);
-      if (row.status === "executing") query = query.eq("updated_at", row.updated_at);
+      if (row.status === "executing") {
+        query = query.eq("updated_at", row.updated_at);
+      }
       const { data, error } = await query.select("*").maybeSingle();
       if (error) fail(error);
       if (data) claimed.push(this.scheduledRow(data));
