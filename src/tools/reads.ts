@@ -21,7 +21,7 @@ export function readTools(deps: Deps) {
     {
       name: "find_recipe",
       description:
-        "Find recipes with REAL ingredient lists, filtered against standing rules. Excluded candidates come back with reasons.",
+        "Find recipes with real ingredient lists and available cooking instructions, filtered against standing rules. Excluded candidates come back with reasons. The selected recipe includes ingredients and instructions so you can reconcile the pantry, update shopping, and send the cooking procedure to the user.",
       annotations: {
         readOnlyHint: true,
         openWorldHint: true,
@@ -85,7 +85,7 @@ export function readTools(deps: Deps) {
             c,
           );
         }
-        return envelope(
+        const result = envelope(
           {
             outcome: "ok",
             say: `${first.name}. Checked against your rules.`,
@@ -93,6 +93,27 @@ export function readTools(deps: Deps) {
           },
           c,
         );
+        // Some MCP hosts flatten structuredContent and expose only content[].
+        // Keep the concise authoritative say, but include the selected recipe's
+        // real ingredient list and source instructions in a second text block.
+        return {
+          ...result,
+          content: [
+            ...result.content,
+            {
+              type: "text" as const,
+              text: JSON.stringify({
+                selectedRecipe: {
+                  name: first.name,
+                  ingredients: first.ingredients,
+                  instructions: first.instructions,
+                  source: first.source,
+                },
+                excluded,
+              }),
+            },
+          ],
+        };
       },
     },
     {

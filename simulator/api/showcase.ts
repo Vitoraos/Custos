@@ -3,6 +3,7 @@ import { evaluate } from "../../src/core/policy.js";
 import { loadConstraints, remember } from "../../src/storage/memories.js";
 import type { Store } from "../../src/storage/store.js";
 import { createDeps, type Deps } from "../../src/tools/context.js";
+import { scheduleReminder, topicFor } from "../../src/adapters/ntfy.js";
 
 const TZ = "Africa/Lagos";
 
@@ -74,6 +75,7 @@ export async function runShowcase(
     });
     await store.setDevice(userId, "hall_light", { power: "off" });
     await store.setDevice(userId, "coffee_maker", { power: "off" });
+    await store.setDevice(userId, "kitchen_light", { power: "off" });
   }
 
   const now = new Date();
@@ -104,6 +106,83 @@ export async function runShowcase(
   );
   if (blockedDinner.verdict !== "block" || safeDinner.verdict !== "allow") {
     throw new Error("Showcase dinner policy assertion failed.");
+  }
+
+  // Seed a small, realistic pantry. The assistant must infer the next useful
+  // steps: reconcile recipe ingredients, update the list, and notify the user.
+  const pantry = ["tomatoes", "onions", "garlic", "salt", "rice"];
+  await store.applyListOps(
+    custosUser,
+    "pantry",
+    pantry.map((item) => ({ op: "add" as const, item })),
+  );
+  await store.applyListOps(custosUser, "shopping", [
+    { op: "add", item: "milk" },
+  ]);
+  const recipe = {
+    name: "Lentil vegetable stew",
+    ingredients: ["lentils", "carrots", "tomatoes", "olive oil", "onions", "garlic", "salt"],
+    instructions: [
+      "Rinse the lentils and dice the carrots and onion.",
+      "Soften onion and garlic in olive oil in a pot.",
+      "Add lentils, carrots, tomatoes, and water or stock; bring to a boil.",
+      "Simmer until the lentils and carrots are tender, about 25–30 minutes.",
+      "Season with salt, check the texture, and serve. Keep beef and beef stock out of the meal.",
+    ],
+  };
+  const pantryBefore = await store.listItems(custosUser, "pantry");
+  const shoppingBefore = await store.listItems(custosUser, "shopping");
+  const normalize = (value: string) =>
+    value.toLowerCase().replace(/[^a-z0-9\s]/g, "").replace(/\s+/g, " ").trim();
+  const alreadyAvailable = new Set(
+    [...pantryBefore, ...shoppingBefore].map(normalize),
+  );
+  const missingIngredients = recipe.ingredients.filter(
+    (ingredient) => !alreadyAvailable.has(normalize(ingredient)),
+  );
+  const shoppingAfter = await store.applyListOps(
+    custosUser,
+    "shopping",
+    missingIngredients.map((item) => ({ op: "add" as const, item })),
+  );
+  const shoppingVerified = missingIngredients.every((item) =>
+    shoppingAfter.some((stored) => normalize(stored) === normalize(item)),
+  );
+  if (!shoppingVerified) throw new Error("Shopping-list read-back verification failed.");
+
+  const notificationText = [
+    `Dinner plan: ${recipe.name} for you and Maya.`,
+    `Ingredients: ${recipe.ingredients.join(", ")}.`,
+    `Method: ${recipe.instructions.join(" ")}`,
+    missingIngredients.length
+      ? `Added to shopping list: ${missingIngredients.join(", ")}.`
+      : "Everything needed is already in the pantry or shopping list.",
+    "Beef excluded for Maya's allergy.",
+  ].join("\n");
+  const notificationTopic = topicFor(custosUser);
+  let notification: { id: string; deliverAtMs: number; text: string } | null = null;
+  try {
+    notification = await scheduleReminder({
+      topic: notificationTopic,
+      title: "Dinner plan and shopping list",
+      text: notificationText,
+      delayMs: 0,
+    });
+  } catch {
+    // Notification provider outages must be visible as unverified, not turn
+    // the entire comparison into a blank error state.
+  }
+
+  // Immediate device actions are distinct from future schedules. Write, then
+  // read back the device twin so the demo never confuses intent with evidence.
+  await store.setDevice(custosUser, "coffee_maker", { power: "on" });
+  await store.setDevice(custosUser, "kitchen_light", { power: "on" });
+  const coffeeMakerNow = await store.getDevice(custosUser, "coffee_maker");
+  const kitchenLightNow = await store.getDevice(custosUser, "kitchen_light");
+  const immediateDevicesVerified =
+    coffeeMakerNow?.power === "on" && kitchenLightNow?.power === "on";
+  if (!immediateDevicesVerified) {
+    throw new Error("Immediate device-state read-back verification failed.");
   }
 
   const coffee = await store.createScheduledAction({
@@ -146,7 +225,37 @@ export async function runShowcase(
     throw new Error("Schedule persistence verification failed.");
   }
 
-  const scheduleReceipts = [
+  const scheduleReceipts: Parameters<Deps["receipts"]["insert"]>[0][] = [
+    {
+      userId: custosUser,
+      tool: "set_device_state",
+      idempotencyKey: `${runId}:coffee-maker-now:receipt`,
+      args: { device: "coffee_maker", attr: "power", value: "on" },
+      decision: { verdict: "allow", checked: rules.map((x) => x.id) },
+      expectation: { power: "on" },
+      observed: { state: coffeeMakerNow, readBackVerified: coffeeMakerNow?.power === "on" },
+      outcome: coffeeMakerNow?.power === "on" ? "verified" as const : "unverified" as const,
+      say: coffeeMakerNow?.power === "on"
+        ? "Coffee maker is on; the device twin confirmed the requested state."
+        : "The coffee maker state could not be verified.",
+      attempts: 1,
+      latencyMs: 0,
+    },
+    {
+      userId: custosUser,
+      tool: "set_device_state",
+      idempotencyKey: `${runId}:kitchen-light-now:receipt`,
+      args: { device: "kitchen_light", attr: "power", value: "on" },
+      decision: { verdict: "allow", checked: rules.map((x) => x.id) },
+      expectation: { power: "on" },
+      observed: { state: kitchenLightNow, readBackVerified: kitchenLightNow?.power === "on" },
+      outcome: kitchenLightNow?.power === "on" ? "verified" as const : "unverified" as const,
+      say: kitchenLightNow?.power === "on"
+        ? "Kitchen light is on; the device twin confirmed the requested state."
+        : "The kitchen-light state could not be verified.",
+      attempts: 1,
+      latencyMs: 0,
+    },
     {
       userId: custosUser,
       tool: "schedule_device_action",
@@ -222,6 +331,40 @@ export async function runShowcase(
       latencyMs: 0,
     },
   ];
+  scheduleReceipts.push(
+    {
+      userId: custosUser,
+      tool: "update_shopping_list",
+      idempotencyKey: `${runId}:shopping-list:receipt`,
+      args: { list: "shopping", items: missingIngredients },
+      decision: { verdict: "allow", checked: rules.map((x) => x.id) },
+      expectation: { contains: missingIngredients },
+      observed: { items: shoppingAfter, verified: shoppingVerified },
+      outcome: shoppingVerified ? "verified" : "unverified",
+      say: shoppingVerified
+        ? `Added missing recipe ingredients to the shopping list: ${missingIngredients.join(", ")}.`
+        : "Could not verify all missing ingredients on the shopping list.",
+      attempts: 1,
+      latencyMs: 0,
+    },
+    {
+      userId: custosUser,
+      tool: "set_reminder",
+      idempotencyKey: `${runId}:dinner-notification:receipt`,
+      args: { title: "Dinner plan and shopping list", topic: notificationTopic },
+      decision: { verdict: "allow", checked: rules.map((x) => x.id) },
+      expectation: { notificationAccepted: true, recipeIncluded: true, instructionsIncluded: true },
+      observed: notification
+        ? { id: notification.id, deliverAtMs: notification.deliverAtMs, acceptedByProvider: true }
+        : { acceptedByProvider: false },
+      outcome: notification ? "verified" : "unverified",
+      say: notification
+        ? "Dinner recipe and cooking procedure accepted by the notification provider; device delivery is not independently confirmed."
+        : "The notification provider could not confirm acceptance. The recipe and cooking procedure remain available in this demo.",
+      attempts: 1,
+      latencyMs: 0,
+    },
+  );
   for (const receipt of scheduleReceipts) await deps.receipts.insert(receipt);
   const persistedReceipts = await deps.receipts.recent(custosUser, 20);
   const receiptView = persistedReceipts.map((receipt) => ({
@@ -250,9 +393,24 @@ export async function runShowcase(
     runId,
     timezone: TZ,
     prompt:
-      "Make coffee for me at 8am, turn on the hall light 5 minutes before my daughter is back from school, and prepare dinner for me and my daughter.",
+      "Turn on the coffee maker and kitchen light now, schedule coffee for 8am, turn on the hall light 5 minutes before my daughter is back from school, and prepare dinner for me and my daughter.",
     disclosure:
       "Controlled simulator scenario. The baseline is scripted; this is not a live Alexa+ integration. Device twins are simulated.",
+    recipe: {
+      ...recipe,
+      missingIngredients,
+    },
+    pantry: pantryBefore,
+    shoppingList: shoppingAfter,
+    notification: {
+      accepted: notification !== null,
+      topic: notificationTopic,
+      id: notification?.id ?? "",
+      text: notificationText,
+      deliveryNote: notification
+        ? "Accepted by the notification provider; delivery to a specific device is not independently confirmed."
+        : "The notification provider did not confirm acceptance. The recipe is shown here instead.",
+    },
     rules: [
       {
         id: "school-return",
@@ -274,6 +432,16 @@ export async function runShowcase(
       status: "unverified",
       actions: [
         {
+          title: "Coffee maker now",
+          status: "not changed",
+          evidence: "Baseline left the coffee maker off; no verified device write",
+        },
+        {
+          title: "Kitchen light now",
+          status: "not changed",
+          evidence: "Baseline left the kitchen light off; no verified device write",
+        },
+        {
           title: "Coffee at 8:00 AM",
           status: "not scheduled",
           evidence: "No persisted schedule record",
@@ -294,9 +462,19 @@ export async function runShowcase(
     custos: {
       label: "Custos",
       summary:
-        "Coffee scheduled for 8:00 AM, hall light scheduled for 1:25 PM, dinner planned with beef excluded.",
+        "Coffee maker and kitchen light turned on and verified. Coffee is scheduled for 8:00 AM, hall light for 1:25 PM, and dinner avoids beef.",
       status: "scheduled",
       actions: [
+        {
+          title: "Coffee maker now",
+          status: coffeeMakerNow?.power === "on" ? "verified" : "unverified",
+          evidence: coffeeMakerNow?.power === "on" ? "Device state read back as on" : "Could not verify device state",
+        },
+        {
+          title: "Kitchen light now",
+          status: kitchenLightNow?.power === "on" ? "verified" : "unverified",
+          evidence: kitchenLightNow?.power === "on" ? "Device state read back as on" : "Could not verify device state",
+        },
         {
           title: "Coffee at 8:00 AM",
           status: "scheduled",
@@ -323,8 +501,8 @@ export async function runShowcase(
       receipts: receiptView,
     },
     deviceTruth: {
-      baseline: { hall_light: baselineHall, coffee_maker: baselineCoffee },
-      custos: { hall_light: custosHall, coffee_maker: custosCoffee },
+      baseline: { hall_light: baselineHall, coffee_maker: baselineCoffee, kitchen_light: await store.getDevice(baselineUser, "kitchen_light") },
+      custos: { hall_light: custosHall, coffee_maker: coffeeMakerNow, kitchen_light: kitchenLightNow },
     },
     note: "Scheduled means the future action is persisted. Executed and verified device state are separate statuses; this demo does not claim a physical device changed.",
   };
