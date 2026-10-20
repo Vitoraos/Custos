@@ -202,7 +202,9 @@ export async function runShowcase(
       expectation: { recipe: "Beef tacos", rule: "Maya beef allergy" },
       observed: { policyVerdict: blockedDinner.verdict },
       outcome: "blocked" as const,
-      say: blockedDinner.reasons[0]?.text ?? "Beef tacos blocked by Maya's beef allergy.",
+      say:
+        blockedDinner.reasons[0]?.text ??
+        "Beef tacos blocked by Maya's beef allergy.",
       attempts: 1,
       latencyMs: 0,
     },
@@ -325,7 +327,6 @@ export async function runShowcase(
       baseline: { hall_light: baselineHall, coffee_maker: baselineCoffee },
       custos: { hall_light: custosHall, coffee_maker: custosCoffee },
     },
-    note:
-      "Scheduled means the future action is persisted. Executed and verified device state are separate statuses; this demo does not claim a physical device changed.",
+    note: "Scheduled means the future action is persisted. Executed and verified device state are separate statuses; this demo does not claim a physical device changed.",
   };
 }
