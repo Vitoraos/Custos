@@ -128,7 +128,7 @@ export function schedulingTools(deps: Deps) {
         const decision = evaluate(
           rc.rules,
           {
-            type: "device_set",
+            type: "device_schedule",
             device: args.target,
             attr: args.attr,
             value: args.value,
