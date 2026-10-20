@@ -14,7 +14,10 @@ export async function runDueScheduledActions(
   now = new Date(),
   limit = 20,
 ): Promise<ScheduleWorkerResult> {
-  const claimed = await store.claimDueScheduledActions(now.toISOString(), limit);
+  const claimed = await store.claimDueScheduledActions(
+    now.toISOString(),
+    limit,
+  );
   const twin = new DeviceTwin(store);
   const result: ScheduleWorkerResult = {
     claimed: claimed.length,
@@ -30,7 +33,7 @@ export async function runDueScheduledActions(
         await twin.write(
           job.userId,
           { device, attr, value: value as string | number | boolean },
-          "scheduled-action:" + job.id + ":" + attr,
+          `scheduled-action:${job.id}:${attr}`,
         );
       }
       const observed = await twin.read(job.userId, device);
@@ -56,7 +59,10 @@ export async function runDueScheduledActions(
       }
     } catch (error) {
       await store.updateScheduledAction(job.userId, job.id, "failed", {
-        error: error instanceof Error ? error.message.slice(0, 240) : "unknown execution error",
+        error:
+          error instanceof Error
+            ? error.message.slice(0, 240)
+            : "unknown execution error",
         failedAt: new Date().toISOString(),
       });
       result.failed++;
