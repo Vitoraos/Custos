@@ -264,17 +264,7 @@ header.app h1 {
 .workspace > .truth {
   margin-top: var(--s4);
 }
-.workspace .cols {
-  margin-top: 0;
-}
-
-/* ——— columns ——— */
-.cols {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--s3);
-  margin-top: var(--s4);
-}
+/* Legacy staged-column layout is intentionally not used by the one-run showcase. */
 @media (max-width: 900px) {
   /* mirrors --bp-stack (var() forbidden in media conditions) */
   .workspace {
@@ -282,9 +272,6 @@ header.app h1 {
   }
   .workspace > .truth {
     margin-top: var(--s2);
-  }
-  .cols {
-    grid-template-columns: 1fr;
   }
 }
 .panel {
@@ -800,7 +787,6 @@ header.app {
 .showcase-app { width: 100%; }
 .showcase-header { display: flex; align-items: center; justify-content: space-between; gap: var(--s4); }
 .brand-block .eyebrow { margin-bottom: var(--s1); }
-.brand-block h1 { letter-spacing: -0.035em; }
 .secondary-button { color: var(--ink); background: var(--panel); border-color: var(--line); }
 .secondary-button:hover:not(:disabled) { color: var(--ink); background: var(--ledger); border-color: var(--line); }
 .showcase-prompt { margin-bottom: var(--s4); }
