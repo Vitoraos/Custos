@@ -433,13 +433,13 @@ export async function runShowcase(
       actions: [
         {
           title: "Coffee maker now",
-          status: coffeeMakerNow?.power === "on" ? "verified" : "unverified",
-          evidence: coffeeMakerNow?.power === "on" ? "Device state read back as on" : "Could not verify device state",
+          status: "not changed",
+          evidence: "Baseline left the coffee maker off; no verified device write",
         },
         {
           title: "Kitchen light now",
-          status: kitchenLightNow?.power === "on" ? "verified" : "unverified",
-          evidence: kitchenLightNow?.power === "on" ? "Device state read back as on" : "Could not verify device state",
+          status: "not changed",
+          evidence: "Baseline left the kitchen light off; no verified device write",
         },
         {
           title: "Coffee at 8:00 AM",
@@ -465,6 +465,16 @@ export async function runShowcase(
         "Coffee maker and kitchen light turned on and verified. Coffee is scheduled for 8:00 AM, hall light for 1:25 PM, and dinner avoids beef.",
       status: "scheduled",
       actions: [
+        {
+          title: "Coffee maker now",
+          status: coffeeMakerNow?.power === "on" ? "verified" : "unverified",
+          evidence: coffeeMakerNow?.power === "on" ? "Device state read back as on" : "Could not verify device state",
+        },
+        {
+          title: "Kitchen light now",
+          status: kitchenLightNow?.power === "on" ? "verified" : "unverified",
+          evidence: kitchenLightNow?.power === "on" ? "Device state read back as on" : "Could not verify device state",
+        },
         {
           title: "Coffee at 8:00 AM",
           status: "scheduled",
