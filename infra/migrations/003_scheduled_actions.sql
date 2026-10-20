@@ -1,4 +1,5 @@
--- Durable scheduled actions. Apply after 001_v3.sql.
+-- Durable scheduled actions and receipt replay payload. Apply after 001_v3.sql.
+alter table action_receipts add column if not exists say text not null default '';
 create table if not exists scheduled_actions (
   id uuid primary key default gen_random_uuid(),
   user_id text not null,
