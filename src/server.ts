@@ -118,5 +118,5 @@ export function createServer(
   if (existsSync(webDir)) {
     app.use("/*", serveStatic({ root: `./${webDir}` }));
   }
-  return { server, deps, runners, sha256Hex };
+  return { server, deps, runners, sha256Hex, store: active };
 }
