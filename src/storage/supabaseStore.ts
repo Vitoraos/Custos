@@ -7,6 +7,8 @@ import type {
   ListOp,
   MemoryRecord,
   Store,
+  ScheduledActionRecord,
+  ScheduledActionStatus,
 } from "./store.js";
 import { dedupeKey } from "./store.js";
 
@@ -247,6 +249,53 @@ export class SupabaseStore implements Store {
     };
   }
 
+  async createScheduledAction(row: Omit<ScheduledActionRecord, "id" | "createdAt" | "updatedAt">): Promise<ScheduledActionRecord> {
+    const { data, error } = await this.db.from("scheduled_actions").insert({
+      user_id: row.userId, run_id: row.runId, idempotency_key: row.idempotencyKey,
+      target: row.target, desired_state: row.desiredState, timezone: row.timezone,
+      local_scheduled_at: row.localScheduledAt, scheduled_at: row.scheduledAt, status: row.status, evidence: row.evidence,
+    }).select("*").single();
+    if (error?.code === "23505") {
+      const existing = await this.db.from("scheduled_actions").select("*").eq("user_id", row.userId).eq("idempotency_key", row.idempotencyKey).maybeSingle();
+      if (existing.error) fail(existing.error);
+      if (!existing.data) fail(error);
+      const d = existing.data;
+      if (d.target !== row.target || d.scheduled_at !== row.scheduledAt || JSON.stringify(d.desired_state) !== JSON.stringify(row.desiredState)) throw new Error("schedule: idempotency key reused with different action");
+      return this.scheduledRow(d);
+    }
+    if (error) fail(error);
+    return this.scheduledRow(data);
+  }
+  async listScheduledActions(userId: string, runId?: string): Promise<ScheduledActionRecord[]> {
+    let query = this.db.from("scheduled_actions").select("*").eq("user_id", userId).order("scheduled_at");
+    if (runId) query = query.eq("run_id", runId);
+    const { data, error } = await query;
+    if (error) fail(error);
+    return (data ?? []).map(row => this.scheduledRow(row));
+  }
+  async updateScheduledAction(userId: string, id: string, status: ScheduledActionStatus, evidence?: Record<string, unknown>): Promise<ScheduledActionRecord | null> {
+    const existing = await this.db.from("scheduled_actions").select("evidence").eq("user_id", userId).eq("id", id).maybeSingle();
+    if (existing.error) fail(existing.error);
+    if (!existing.data) return null;
+    const merged = { ...(existing.data.evidence ?? {}), ...(evidence ?? {}) };
+    const { data, error } = await this.db.from("scheduled_actions").update({ status, evidence: merged, updated_at: new Date().toISOString() }).eq("user_id", userId).eq("id", id).select("*").maybeSingle();
+    if (error) fail(error);
+    return data ? this.scheduledRow(data) : null;
+  }
+  private scheduledRow(value: unknown): ScheduledActionRecord {
+    const d = asRecord(value, "scheduled_actions row");
+    const status = requiredString(d.status, "scheduled_actions.status") as ScheduledActionStatus;
+    if (!["planned","scheduled","executed","verified","unverified","blocked","failed","cancelled"].includes(status)) throw new Error("store: invalid scheduled action status");
+    return {
+      id: requiredString(d.id, "scheduled_actions.id"), userId: requiredString(d.user_id, "scheduled_actions.user_id"),
+      runId: requiredString(d.run_id, "scheduled_actions.run_id"), idempotencyKey: requiredString(d.idempotency_key, "scheduled_actions.idempotency_key"),
+      target: requiredString(d.target, "scheduled_actions.target"), desiredState: asRecord(d.desired_state, "scheduled_actions.desired_state"),
+      timezone: requiredString(d.timezone, "scheduled_actions.timezone"), localScheduledAt: requiredString(d.local_scheduled_at, "scheduled_actions.local_scheduled_at"),
+      scheduledAt: requiredString(d.scheduled_at, "scheduled_actions.scheduled_at"), status,
+      evidence: asRecord(d.evidence ?? {}, "scheduled_actions.evidence"),
+      createdAt: requiredString(d.created_at, "scheduled_actions.created_at"), updatedAt: requiredString(d.updated_at, "scheduled_actions.updated_at"),
+    };
+  }
   async insertKey(keyHash: string, row: KeyRecord): Promise<void> {
     const { error } = await this.db.from("api_keys").insert({
       key_hash: keyHash,
