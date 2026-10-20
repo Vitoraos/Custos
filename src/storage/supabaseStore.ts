@@ -254,14 +254,32 @@ export class SupabaseStore implements Store {
     };
   }
 
-  async createScheduledAction(row: Omit<ScheduledActionRecord, "id" | "createdAt" | "updatedAt">): Promise<ScheduledActionRecord> {
-    const { data, error } = await this.db.from("scheduled_actions").insert({
-      user_id: row.userId, run_id: row.runId, idempotency_key: row.idempotencyKey,
-      target: row.target, desired_state: row.desiredState, timezone: row.timezone,
-      local_scheduled_at: row.localScheduledAt, scheduled_at: row.scheduledAt, status: row.status, evidence: row.evidence,
-    }).select("*").single();
+  async createScheduledAction(
+    row: Omit<ScheduledActionRecord, "id" | "createdAt" | "updatedAt">,
+  ): Promise<ScheduledActionRecord> {
+    const { data, error } = await this.db
+      .from("scheduled_actions")
+      .insert({
+        user_id: row.userId,
+        run_id: row.runId,
+        idempotency_key: row.idempotencyKey,
+        target: row.target,
+        desired_state: row.desiredState,
+        timezone: row.timezone,
+        local_scheduled_at: row.localScheduledAt,
+        scheduled_at: row.scheduledAt,
+        status: row.status,
+        evidence: row.evidence,
+      })
+      .select("*")
+      .single();
     if (error?.code === "23505") {
-      const existing = await this.db.from("scheduled_actions").select("*").eq("user_id", row.userId).eq("idempotency_key", row.idempotencyKey).maybeSingle();
+      const existing = await this.db
+        .from("scheduled_actions")
+        .select("*")
+        .eq("user_id", row.userId)
+        .eq("idempotency_key", row.idempotencyKey)
+        .maybeSingle();
       if (existing.error) fail(existing.error);
       if (!existing.data) fail(error);
       const d = existing.data;
@@ -271,15 +289,19 @@ export class SupabaseStore implements Store {
         d.timezone !== row.timezone ||
         d.local_scheduled_at !== row.localScheduledAt ||
         d.run_id !== row.runId ||
-        JSON.stringify(d.desired_state) !== JSON.stringify(row.desiredState)
+        JSON.stringify(d.desired_state) !==
+          JSON.stringify(row.desiredState)
       ) {
-        throw new Error("schedule: idempotency key reused with different action");
+        throw new Error(
+          "schedule: idempotency key reused with different action",
+        );
       }
       return this.scheduledRow(d);
     }
     if (error) fail(error);
     return this.scheduledRow(data);
   }
+
   async listScheduledActions(userId: string, runId?: string): Promise<ScheduledActionRecord[]> {
     let query = this.db.from("scheduled_actions").select("*").eq("user_id", userId).order("scheduled_at");
     if (runId) query = query.eq("run_id", runId);
@@ -303,7 +325,7 @@ export class SupabaseStore implements Store {
     if (!existing.data) return null;
     const previousStatus = existing.data.status as ScheduledActionStatus;
     if (!canTransitionScheduledStatus(previousStatus, status)) {
-      throw new Error("schedule: invalid status transition " + previousStatus + " -> " + status);
+      throw new Error(`schedule: invalid status transition ${previousStatus} -> ${status}`);
     }
     const merged = { ...(existing.data.evidence ?? {}), ...(evidence ?? {}) };
     const { data, error } = await this.db
