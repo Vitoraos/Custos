@@ -21,6 +21,7 @@ type Receipt = {
   status: string;
   id?: string;
   evidence: unknown;
+  raw?: unknown;
 };
 type Showcase = {
   runId: string;
@@ -168,24 +169,38 @@ function ProcessPanel({
   );
 }
 
+function humanize(value: string): string {
+  const labels: Record<string, string> = {
+    set_device_state: "Set device state",
+    schedule_device_action: "Schedule device action",
+    evaluate_recipe_policy: "Check recipe against household rules",
+    update_shopping_list: "Update shopping list",
+    set_reminder: "Send dinner notification",
+    coffee_maker: "Coffee maker",
+    kitchen_light: "Kitchen light",
+    hall_light: "Hall light",
+  };
+  return labels[value] ?? value.replaceAll("_", " ").replace(/\\b\\w/g, (letter) => letter.toUpperCase());
+}
+
 function ReceiptCard({ receipt }: { receipt: Receipt }) {
   return (
     <article className="show-receipt">
       <div className="receipt-topline">
         <div>
           <p className="eyebrow">ACTION RECEIPT</p>
-          <h3>{receipt.target}</h3>
+          <h3>{humanize(receipt.target)}</h3>
         </div>
         <State value={receipt.outcome} />
       </div>
-      <p className="receipt-tool">{receipt.tool} · {receipt.status}</p>
+      <p className="receipt-tool">{humanize(receipt.tool)} · {humanize(receipt.status)}</p>
       <p className="receipt-say">
         {String((receipt.evidence as { say?: unknown })?.say ?? "Evidence recorded for this action.")}
       </p>
       <p className="receipt-explainer">{receipt.outcome === "verified" ? "What this means: the expected state was read back or the record was persisted and checked." : receipt.outcome === "blocked" ? "What this means: a standing rule prevented this action." : "What this means: this result is not confirmed as successful."}</p>
       <details>
         <summary>View raw JSON evidence</summary>
-        <pre>{JSON.stringify(receipt.evidence, null, 2)}</pre>
+        <pre>{JSON.stringify(receipt.raw ?? receipt, null, 2)}</pre>
       </details>
       {receipt.id ? <p className="receipt-id">Receipt ID <code>{receipt.id}</code></p> : null}
     </article>
@@ -218,7 +233,7 @@ export default function App() {
       setState("done");
       if (!muted) {
         void voice.speak(
-          "Coffee and the hall light are scheduled. Dinner avoids beef. Missing ingredients were added to the shopping list, and the recipe notification was accepted by the notification provider. Scheduled devices have not physically changed yet.",
+          "The coffee maker and kitchen light are on in the simulated device twin. Coffee and the hall light are scheduled. Dinner avoids beef, missing ingredients were added to the shopping list, and the recipe notification was accepted by the provider. Scheduled actions have not run yet.",
         );
       }
     } catch (e) {
@@ -311,7 +326,7 @@ export default function App() {
               <div className="show-column-head">
                 <div>
                   <p className="eyebrow">CONTROLLED BASELINE</p>
-                  <h2>Without Custos</h2>
+                  <h2>Alexa+ without Custos</h2>
                   <p>Raw acknowledgements · no independent verification</p>
                 </div>
                 {stage >= 2 ? <State value={data.baseline.status} /> : <State value="waiting" />}
@@ -331,7 +346,7 @@ export default function App() {
               <div className="show-column-head">
                 <div>
                   <p className="eyebrow">POLICY · ACTION · VERIFICATION</p>
-                  <h2>With Custos</h2>
+                  <h2>Your MCP · Custos</h2>
                   <p>Standing rules · useful follow-through · evidence</p>
                 </div>
                 {stage >= 4 ? <State value={data.custos.status} /> : <State value="working" />}
