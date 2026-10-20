@@ -1,15 +1,15 @@
 // Supabase-backed Store. This client uses the service role and bypasses RLS;
 // callers must derive userId from trusted authentication and every query is scoped.
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type {
-  FaultRow,
-  KeyRecord,
-  ListOp,
-  MemoryRecord,
-  Store,
-  ScheduledActionRecord,
-  ScheduledActionStatus,
+import {
   canTransitionScheduledStatus,
+  type FaultRow,
+  type KeyRecord,
+  type ListOp,
+  type MemoryRecord,
+  type ScheduledActionRecord,
+  type ScheduledActionStatus,
+  type Store,
 } from "./store.js";
 import { dedupeKey } from "./store.js";
 
