@@ -26,7 +26,7 @@ export interface MemoryRecord {
   expiresAt: string | null;
   revokedAt: string | null;
 }
-export type ScheduledActionStatus = "planned" | "scheduled" | "executed" | "verified" | "unverified" | "blocked" | "failed" | "cancelled";
+export type ScheduledActionStatus = "planned" | "scheduled" | "executing" | "executed" | "verified" | "unverified" | "blocked" | "failed" | "cancelled";
 export interface ScheduledActionRecord { id: string; userId: string; runId: string; idempotencyKey: string; target: string; desiredState: Record<string, unknown>; timezone: string; localScheduledAt: string; scheduledAt: string; status: ScheduledActionStatus; evidence: Record<string, unknown>; createdAt: string; updatedAt: string; }
 export interface KeyRecord {
   userId: string;
@@ -62,6 +62,7 @@ export interface Store {
   createScheduledAction(row: Omit<ScheduledActionRecord, "id" | "createdAt" | "updatedAt">): Promise<ScheduledActionRecord>;
   listScheduledActions(userId: string, runId?: string): Promise<ScheduledActionRecord[]>;
   updateScheduledAction(userId: string, id: string, status: ScheduledActionStatus, evidence?: Record<string, unknown>): Promise<ScheduledActionRecord | null>;
+  claimDueScheduledActions(now: string, limit: number): Promise<ScheduledActionRecord[]>;
 }
 
 // JSON-encoding a tuple avoids collisions when a component contains the delimiter.
@@ -240,6 +241,20 @@ export class MemoryStore implements Store {
     const next = { ...prior, status, evidence: evidence ? { ...prior.evidence, ...clone(evidence) } : prior.evidence, updatedAt: new Date().toISOString() };
     this.scheduled.set(key, next); return clone(next);
   }
+  async claimDueScheduledActions(now: string, limit: number): Promise<ScheduledActionRecord[]> {
+    const due = [...this.scheduled.values()]
+      .filter(x => x.status === "scheduled" && Date.parse(x.scheduledAt) <= Date.parse(now))
+      .sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt))
+      .slice(0, Math.max(0, limit));
+    const claimed: ScheduledActionRecord[] = [];
+    for (const action of due) {
+      const next: ScheduledActionRecord = { ...action, status: "executing", updatedAt: now };
+      this.scheduled.set(tupleKey(action.userId, action.id), next);
+      claimed.push(clone(next));
+    }
+    return claimed;
+  }
+
   async insertKey(keyHash: string, row: KeyRecord): Promise<void> {
     if (this.keys.has(keyHash)) {
       throw new Error("store: API key hash already exists");
