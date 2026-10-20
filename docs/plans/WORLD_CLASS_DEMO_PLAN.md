@@ -40,7 +40,7 @@ If an action fails or remains unverified, the summary must say so instead of usi
 
 ## Multi-phase execution plan
 
-### Phase 0 — Safety and UI foundation (started in this branch)
+### Phase 0 — Safety and UI foundation (implemented)
 
 - [x] Fail closed when a tool returns an unknown or missing outcome; unknown is not success.
 - [x] Add regression tests for unknown/missing tool outcomes.
@@ -49,36 +49,36 @@ If an action fails or remains unverified, the summary must say so instead of usi
 - [x] Put ground truth/standing rules adjacent to assistant columns.
 - [x] Apply consistent restrained shadows to requested card surfaces.
 - [x] Give each demo browser session an isolated guest identity instead of seeding the shared `demo` user.
-- [ ] Run tests, lint, typecheck, and build in a local checkout; GitHub API editing cannot execute them.
+- [ ] Final CI and frontend build gate; run status is tracked on PR #35.
 
-### Phase 1 — Canonical showcase scenario and policy coverage
+### Phase 1 — Canonical showcase scenario and policy coverage (implemented)
 
-- Create a dedicated showcase fixture rather than silently breaking existing theater fixtures.
-- Represent Maya's beef allergy in the typed constraint model and ingredient ontology; test direct terms and compounds such as beef, ground beef, beef broth, and beef-free labels.
-- Persist Maya's school end time and five-minute lead-time rule as explicit, inspectable household context.
-- Test that the seeded rule is actually loaded by policy. Displayed facts must not be described as enforced constraints.
+- [x] Add a dedicated showcase fixture/orchestrator in `simulator/api/showcase.ts` without breaking existing theater fixtures.
+- [x] Represent Maya's beef allergy in the typed constraint model and ingredient ontology; test direct terms and compounds such as beef, ground beef, beef broth, and beef-free labels.
+- [x] Persist Maya's school end time as inspectable household context and show the explicit 1:30 PM minus five-minute derivation. The school-time fact is context, not a typed policy constraint.
+- [x] Assert the seeded beef constraint is loaded by policy and blocks beef tacos while allowing a beef-free alternative. Displayed school-time facts are not described as enforced constraints.
 - Keep existing peanut/thermostat theater scenarios as regression fixtures until the new scenario passes end-to-end tests.
 
-### Phase 2 — Real scheduling semantics
+### Phase 2 — Real scheduling semantics (implemented; apply migration before persistent deployment)
 
-- Add a typed scheduled-action model with tenant-scoped Store interface, MemoryStore implementation, Supabase implementation, and migration.
-- Add a tool for future device actions. A reminder notification is not a device schedule.
-- Persist target, desired state, timezone, local scheduled time, normalized instant, status, idempotency key, creator/run ID, and creation time.
-- Verify schedule persistence immediately; when a simulated scheduled action runs, verify the device twin's resulting state separately.
-- Model statuses explicitly: planned, scheduled, executed, verified, unverified, blocked, failed, and cancelled.
-- Test timezone conversion, invalid/past times, duplicates, policy enforcement, tenant isolation, and schedule-vs-execution-vs-verification.
-- Never claim a physical light or coffee maker changed state. Label the twin as simulated.
+- [x] Add a typed scheduled-action model with tenant-scoped Store interface, MemoryStore implementation, Supabase implementation, and `003_scheduled_actions.sql` migration.
+- [x] Add `schedule_device_action` as a dedicated MCP tool. A reminder notification is not a device schedule.
+- [x] Persist target, desired state, timezone, local scheduled time, normalized instant, status, idempotency key, run ID, evidence, and timestamps.
+- [x] Verify schedule persistence immediately; the server worker claims due rows, applies them to the device twin, and records execution plus read-back verification separately.
+- [x] Model statuses explicitly, including planned, scheduled, executing, executed, verified, unverified, blocked, failed, and cancelled.
+- [x] Test timezone conversion, invalid dates/zones/DST gaps, duplicate idempotency keys, policy enforcement at the target time, tenant isolation, and schedule-vs-execution-vs-verification.
+- [x] Never claim a physical light or coffee maker changed state. Label the twin as simulated.
 
-### Phase 3 — Single-run A/B orchestration
+### Phase 3 — Single-run A/B orchestration (implemented)
 
-- Replace the multi-beat play sequence with one primary “Run comparison” action.
-- Create isolated demo users from the same fixture: one for baseline and one for Custos. Never reset one mutable household between runs.
-- Execute both paths from the same prompt and collect independent transcripts, state, assertions, and receipts.
-- Make reruns clean: new run ID, fresh fixture state, no leftover receipts.
-- Add loading, timeout, partial failure, retry, and cancellation states.
+- [x] Replace the multi-beat play sequence with one primary “Run comparison” action.
+- [x] Create isolated baseline and Custos tenants from equivalent fixture context. Never reset one mutable household between runs.
+- [x] Use one shared prompt and collect separate baseline/Custos claims, independent device-twin reads, policy evidence, and receipts. The baseline remains scripted by design.
+- [x] Make reruns clean: new run ID, fresh tenant IDs and isolated fixture state.
+- [x] Add loading, failure, and retry states. [ ] Explicit user cancellation is not yet implemented.
 - Keep a visible disclosure that the baseline is a controlled simulation.
 
-### Phase 4 — Evidence-first interface
+### Phase 4 — Evidence-first interface (implemented)
 
 Desktop:
 - Full-width header with brand, run control, and compact status.
@@ -97,7 +97,7 @@ Visual system:
 - Status colors always accompanied by text/icons.
 - Motion remains reduced-motion aware and never creates decorative wait time.
 
-### Phase 5 — Storytelling and judge experience
+### Phase 5 — Storytelling and judge experience (implemented)
 
 1. **Pain:** “The assistant says it is done. Did it remember the rule? Did the action happen?”
 2. **Contrast:** show the baseline's missed constraint, incomplete task, or unsupported success claim.
@@ -125,10 +125,10 @@ Avoid invented metrics, success rates, or unsupported claims about commercial as
 - Dinner excludes beef through a tested policy path.
 - Future scheduling is a persisted schedule record, not a reminder or text-only claim.
 - UI differentiates scheduled, executed, and verified.
-- Receipts come from execution and cross-check against independent state.
+- Schedule receipts are based on persisted schedule rows and policy outcomes; the worker later persists execution and observed device-twin read-back. The UI never labels future schedules as completed actions.
 - Spoken summary is generated from observed results and never overclaims.
 - Baseline is labeled simulated; no real Alexa+ integration is implied.
-- Tests and build pass in an executable checkout.
+- Tests, typecheck, lint, and production build pass in CI before merge. Live Supabase migration/application and deployed smoke tests still need to be confirmed.
 
 ## Risk register
 
