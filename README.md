@@ -158,13 +158,16 @@ A Vercel build that fails with `The specified Root Directory "<x>" does not exis
 | `src/core/policy.ts` | Policy decisions and constraint enforcement |
 | `src/core/verify.ts` | Action verification and recovery behavior |
 | `src/core/receipts.ts` | In-memory test receipts and tenant-scoped durable Supabase receipts |
-| `src/tools/scheduling.ts` | Timezone-aware, policy-checked future device scheduling |\n| `src/core/scheduledWorker.ts` | Due-schedule execution and device-twin read-back verification |\n| `src/tools/` | Tools exposed to the assistant |
+| `src/tools/scheduling.ts` | Timezone-aware, policy-checked future device scheduling |
+| `src/core/scheduledWorker.ts` | Due-schedule execution and device-twin read-back verification |
+| `src/tools/` | Tools exposed to the assistant |
 | `src/adapters/` | Device twin and external-service adapters |
 | `simulator/api/` | Simulator routes and agent orchestration |
 | `simulator/web/` | A/B interface and Ground Truth panel |
 | `test/` | Unit, integration and live adapter tests |
 | `bench/` | Benchmark runner, report generator and recorded results |
-| `infra/` | Database schema, migrations, seed data and hosting config |\n| `infra/migrations/003_scheduled_actions.sql` | Durable schedules and receipt replay data |
+| `infra/` | Database schema, migrations, seed data and hosting config |
+| `infra/migrations/003_scheduled_actions.sql` | Durable schedules and receipt replay data |
 | `docs/ARCHITECTURE.md` | Detailed architecture |
 | `docs/API.md` | Tool/API contract |
 | `docs/SECURITY.md` | Security model and threat considerations |
