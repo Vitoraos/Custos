@@ -52,9 +52,10 @@ const diet = (
 const verdict = (rules: Constraint[], action: ProposedAction, c = ctx()) =>
   evaluate(rules, action, c).verdict;
 
-describe("allergen blocks (EU-14)", () => {
+describe("allergen blocks", () => {
   const cases: [Allergen, string][] = [
     ["celery", "celery soup"],
+    ["beef", "beef stew"],
     ["gluten", "wheat bread"],
     ["crustaceans", "garlic shrimp pasta"],
     ["egg", "egg fried rice"],
@@ -74,6 +75,19 @@ describe("allergen blocks (EU-14)", () => {
       expect(verdict([allergen(a)], recipe([ing, "salt"]))).toBe("block");
     });
   }
+  it("blocks common beef ingredient aliases and respects explicit beef-free labels", () => {
+    const mayaBeefRule = allergen("beef", "Maya", "severe");
+    expect(
+      verdict([mayaBeefRule], recipe(["ground beef tacos"], ["Maya"]), ctx(["Maya"])),
+    ).toBe("block");
+    expect(verdict([mayaBeefRule], recipe(["beef broth"], ["Maya"]), ctx(["Maya"]))).toBe(
+      "block",
+    );
+    expect(
+      verdict([mayaBeefRule], recipe(["beef-free vegetable chili"], ["Maya"]), ctx(["Maya"])),
+    ).toBe("allow");
+  });
+
   it("derived terms: butter/cheese/whey hit milk; soy sauce hits soy AND gluten", () => {
     expect(verdict([allergen("milk")], recipe(["buttered toast"]))).toBe(
       "block",
@@ -491,6 +505,7 @@ describe("reasons + checked", () => {
   });
 });
 
+
 describe("fail-closed policy validation", () => {
   it("blocks an invalid stored time zone instead of silently falling back to UTC", () => {
     const bad = base({
@@ -626,6 +641,33 @@ describe("fail-closed policy validation", () => {
         text: "Call Mum",
       },
       ctx(),
+
+describe("scheduled device actions evaluate quiet hours at their target time", () => {
+  const rule: Constraint = base({
+    kind: "quiet_hours",
+    start: "22:00",
+    end: "07:00",
+    tz: "Africa/Lagos",
+    applies: ["lights"],
+    profile: "household",
+    source: "explicit",
+    createdAt: NOW.toISOString(),
+  } as unknown as Constraint);
+  it("blocks a scheduled light action during quiet hours even when requested during daytime", () => {
+    const daytime = new Date("2026-10-06T10:00:00+01:00");
+    const scheduledNight = new Date("2026-10-06T23:00:00+01:00");
+    const result = evaluate(
+      [rule],
+      {
+        type: "device_schedule",
+        device: "hall_light",
+        attr: "power",
+        value: "on",
+        at: scheduledNight,
+      },
+      { now: daytime, profiles: ["household"] },
+
+
     );
     expect(result.verdict).toBe("block");
   });

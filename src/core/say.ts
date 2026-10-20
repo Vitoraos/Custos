@@ -27,9 +27,13 @@ export function sayVerifiedAfterRetry(what: string): string {
 }
 
 export function sayUnverified(what: string, observed: string): string {
+
+  return concise(`I couldn't confirm ${what}: ${observed}.`);
+=======
   return concise(
     `I sent the command, but ${observed}. I could not confirm ${what}.`,
   );
+
 }
 
 export function sayBlocked(reasons: ReasonRef[]): string {

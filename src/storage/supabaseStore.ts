@@ -1,14 +1,17 @@
 // Supabase-backed Store. This client uses the service role and bypasses RLS;
 // callers must derive userId from trusted authentication and every query is scoped.
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type {
-  FaultRow,
-  KeyRecord,
-  ListOp,
-  MemoryRecord,
-  Store,
+import {
+  canTransitionScheduledStatus,
+  dedupeKey,
+  type FaultRow,
+  type KeyRecord,
+  type ListOp,
+  type MemoryRecord,
+  type ScheduledActionRecord,
+  type ScheduledActionStatus,
+  type Store,
 } from "./store.js";
-import { dedupeKey } from "./store.js";
 
 const PAGE_SIZE = 500;
 
@@ -40,6 +43,10 @@ function nullableString(value: unknown, field: string): string | null {
 
 export class SupabaseStore implements Store {
   constructor(private db: SupabaseClient) {}
+
+  get client(): SupabaseClient {
+    return this.db;
+  }
 
   async ping(): Promise<{ ok: boolean }> {
     const { error } = await this.db
@@ -245,6 +252,204 @@ export class SupabaseStore implements Store {
       label: nullableString(data.label, "api_keys.label"),
       revokedAt: nullableString(data.revoked_at, "api_keys.revoked_at"),
     };
+  }
+
+  async createScheduledAction(
+    row: Omit<ScheduledActionRecord, "id" | "createdAt" | "updatedAt">,
+  ): Promise<ScheduledActionRecord> {
+    const { data, error } = await this.db
+      .from("scheduled_actions")
+      .insert({
+        user_id: row.userId,
+        run_id: row.runId,
+        idempotency_key: row.idempotencyKey,
+        target: row.target,
+        desired_state: row.desiredState,
+        timezone: row.timezone,
+        local_scheduled_at: row.localScheduledAt,
+        scheduled_at: row.scheduledAt,
+        status: row.status,
+        evidence: row.evidence,
+      })
+      .select("*")
+      .single();
+    if (error?.code === "23505") {
+      const existing = await this.db
+        .from("scheduled_actions")
+        .select("*")
+        .eq("user_id", row.userId)
+        .eq("idempotency_key", row.idempotencyKey)
+        .maybeSingle();
+      if (existing.error) fail(existing.error);
+      if (!existing.data) fail(error);
+      const d = existing.data;
+      if (
+        d.target !== row.target ||
+        d.scheduled_at !== row.scheduledAt ||
+        d.timezone !== row.timezone ||
+        d.local_scheduled_at !== row.localScheduledAt ||
+        d.run_id !== row.runId ||
+        JSON.stringify(d.desired_state) !== JSON.stringify(row.desiredState)
+      ) {
+        throw new Error(
+          "schedule: idempotency key reused with different action",
+        );
+      }
+      return this.scheduledRow(d);
+    }
+    if (error) fail(error);
+    return this.scheduledRow(data);
+  }
+
+  async listScheduledActions(
+    userId: string,
+    runId?: string,
+  ): Promise<ScheduledActionRecord[]> {
+    let query = this.db
+      .from("scheduled_actions")
+      .select("*")
+      .eq("user_id", userId)
+      .order("scheduled_at");
+    if (runId) query = query.eq("run_id", runId);
+    const { data, error } = await query;
+    if (error) fail(error);
+    return (data ?? []).map((row) => this.scheduledRow(row));
+  }
+
+  async updateScheduledAction(
+    userId: string,
+    id: string,
+    status: ScheduledActionStatus,
+    evidence?: Record<string, unknown>,
+  ): Promise<ScheduledActionRecord | null> {
+    const existing = await this.db
+      .from("scheduled_actions")
+      .select("status,evidence")
+      .eq("user_id", userId)
+      .eq("id", id)
+      .maybeSingle();
+    if (existing.error) fail(existing.error);
+    if (!existing.data) return null;
+    const previousStatus = existing.data.status as ScheduledActionStatus;
+    if (!canTransitionScheduledStatus(previousStatus, status)) {
+      throw new Error(
+        `schedule: invalid status transition ${previousStatus} -> ${status}`,
+      );
+    }
+    const merged = { ...(existing.data.evidence ?? {}), ...(evidence ?? {}) };
+    const { data, error } = await this.db
+      .from("scheduled_actions")
+      .update({
+        status,
+        evidence: merged,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("user_id", userId)
+      .eq("id", id)
+      .eq("status", previousStatus)
+      .select("*")
+      .maybeSingle();
+    if (error) fail(error);
+    return data ? this.scheduledRow(data) : null;
+  }
+
+  private scheduledRow(value: unknown): ScheduledActionRecord {
+    const d = asRecord(value, "scheduled_actions row");
+    const status = requiredString(
+      d.status,
+      "scheduled_actions.status",
+    ) as ScheduledActionStatus;
+    if (
+      ![
+        "planned",
+        "scheduled",
+        "executing",
+        "executed",
+        "verified",
+        "unverified",
+        "blocked",
+        "failed",
+        "cancelled",
+      ].includes(status)
+    ) {
+      throw new Error("store: invalid scheduled action status");
+    }
+    return {
+      id: requiredString(d.id, "scheduled_actions.id"),
+      userId: requiredString(d.user_id, "scheduled_actions.user_id"),
+      runId: requiredString(d.run_id, "scheduled_actions.run_id"),
+      idempotencyKey: requiredString(
+        d.idempotency_key,
+        "scheduled_actions.idempotency_key",
+      ),
+      target: requiredString(d.target, "scheduled_actions.target"),
+      desiredState: asRecord(
+        d.desired_state,
+        "scheduled_actions.desired_state",
+      ),
+      timezone: requiredString(d.timezone, "scheduled_actions.timezone"),
+      localScheduledAt: requiredString(
+        d.local_scheduled_at,
+        "scheduled_actions.local_scheduled_at",
+      ),
+      scheduledAt: requiredString(
+        d.scheduled_at,
+        "scheduled_actions.scheduled_at",
+      ),
+      status,
+      evidence: asRecord(d.evidence ?? {}, "scheduled_actions.evidence"),
+      createdAt: requiredString(d.created_at, "scheduled_actions.created_at"),
+      updatedAt: requiredString(d.updated_at, "scheduled_actions.updated_at"),
+    };
+  }
+
+  async claimDueScheduledActions(
+    now: string,
+    limit: number,
+  ): Promise<ScheduledActionRecord[]> {
+    const boundedLimit = Math.max(0, Math.min(limit, 100));
+    const staleBefore = new Date(Date.parse(now) - 5 * 60_000).toISOString();
+    const scheduledQuery = await this.db
+      .from("scheduled_actions")
+      .select("*")
+      .eq("status", "scheduled")
+      .lte("scheduled_at", now)
+      .order("scheduled_at")
+      .limit(boundedLimit);
+    if (scheduledQuery.error) fail(scheduledQuery.error);
+    const staleQuery = await this.db
+      .from("scheduled_actions")
+      .select("*")
+      .eq("status", "executing")
+      .lte("scheduled_at", now)
+      .lte("updated_at", staleBefore)
+      .order("scheduled_at")
+      .limit(boundedLimit);
+    if (staleQuery.error) fail(staleQuery.error);
+    const candidates = [
+      ...(scheduledQuery.data ?? []),
+      ...(staleQuery.data ?? []),
+    ]
+      .sort((a, b) =>
+        String(a.scheduled_at).localeCompare(String(b.scheduled_at)),
+      )
+      .slice(0, boundedLimit);
+    const claimed: ScheduledActionRecord[] = [];
+    for (const row of candidates) {
+      let query = this.db
+        .from("scheduled_actions")
+        .update({ status: "executing", updated_at: now })
+        .eq("id", row.id)
+        .eq("user_id", row.user_id)
+        .eq("status", row.status);
+      if (row.status === "executing") {
+        query = query.eq("updated_at", row.updated_at);
+      }
+      const { data, error } = await query.select("*").maybeSingle();
+      if (error) fail(error);
+      if (data) claimed.push(this.scheduledRow(data));
+    }
+    return claimed;
   }
 
   async insertKey(keyHash: string, row: KeyRecord): Promise<void> {

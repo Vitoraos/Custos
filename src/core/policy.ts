@@ -10,7 +10,7 @@ export type ProposedAction =
       servingFor: string[];
     }
   | {
-      type: "device_set";
+      type: "device_set" | "device_schedule";
       device: string;
       attr: string;
       value: unknown;
@@ -242,14 +242,36 @@ export function evaluate(
           ? deviceDomain(action.device, action.attr)
           : null;
       const appliesNow =
+
         (action.type === "device_set" &&
           (domain === null || r.applies.includes(domain))) ||
+
+
+        ((action.type === "device_set" || action.type === "device_schedule") &&
+          r.applies.includes(
+            deviceDomain(action.device, action.attr) ?? "lights",
+          )) ||
+
         (action.type === "reminder" && r.applies.includes("notifications"));
       const actionTime =
         action.type === "reminder" ? action.at : ctx.now;
       if (
         appliesNow &&
+
+
         quietActive(r.start, r.end, r.tz, actionTime)
+
+        quietActive(
+          r.start,
+          r.end,
+          r.tz,
+          action.type === "reminder" || action.type === "device_schedule"
+            ? action.at
+            : ctx.now,
+        )
+
+        quietActive(r.start, r.end, r.tz, actionTime)
+
       ) {
         reasons.push({
           constraintId: r.id,
@@ -261,7 +283,10 @@ export function evaluate(
       }
     }
 
-    if (r.kind === "device_limit" && action.type === "device_set") {
+    if (
+      r.kind === "device_limit" &&
+      (action.type === "device_set" || action.type === "device_schedule")
+    ) {
       if (
         action.device === r.device &&
         action.attr === r.attr &&
@@ -282,7 +307,7 @@ export function evaluate(
     if (r.kind === "confirm_required") {
       const hit =
         (r.action === "unlock" &&
-          action.type === "device_set" &&
+          (action.type === "device_set" || action.type === "device_schedule") &&
           isUnlock(action.device, action.value)) ||
         (r.action === "purchase" && action.type === "shopping_add");
       // forget_rule is enforced at the forget_memory tool (Phase 4), not here.
