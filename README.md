@@ -44,7 +44,9 @@ These are concrete public reports that illustrate the reliability gap Custos is 
 | Routines and reminders stop working after an upgrade | In an [Amazon forum thread](https://www.amazonforum.com/s/question/0D5at00000Tc2ukCAB/alexa-early-access-a-total-failure?language=en_US), a user reports that previously reliable reminders and timed routines no longer executed as expected. | Persist schedules separately from chat turns; track scheduled, executed, and verified states distinctly. |
 | Natural-language commands interfere with established routines | Users in [r/alexa](https://www.reddit.com/r/alexa/comments/1s4x1np/we_last_3_days_with_alexa/) describe routines failing or changing behavior after the Alexa+ upgrade, alongside latency and unwanted interruptions. | Preserve explicit routines and constraints; avoid inventing extra actions in the name of being helpful. |
 | Routine execution becomes inconsistent and difficult to diagnose | A [September 2026 user report](https://www.reddit.com/r/alexa/comments/1wbmeqx/alexa_has_somehow_gotten_worse_at_the_one_thing_i/) describes familiar commands intermittently failing and routines silently skipping actions. | Keep execution receipts and observed state so failures can be distinguished from successful completion. |
-| Memory and contextual understanding remain inconsistent for complex assistance | A [recent review by The Verge](https://www.theverge.com/tech/1007565/amazon-alexa-plus-review-one-year-echo-show-dot-max) describes Alexa+ as capable in smart-home tasks but inconsistent as a personal assistant, including memory, context, and complex-task execution. | Retrieve relevant household context before planning, apply it to each dependent action, and report partial completion honestly. |
+| Remembered context appears to disappear between interactions | In [a Reddit thread titled “Alexa has memory loss after 3 days”](https://www.reddit.com/r/alexa/comments/1sd76vb/alexa_has_memory_loss_after_3_days/), a user reports repeatedly losing what they had taught the assistant and having to start over. This is an individual report, not a measured description of Alexa's memory system. | Store durable preferences as explicit, inspectable records; retrieve relevant rules at task time instead of relying on conversational recall alone. |
+| A task is forgotten or its context is lost during follow-up | In [a September 2026 report](https://www.reddit.com/r/alexa/comments/1wskd0d/forgetting_tasks_and_started_asking_personal/), a user says Alexa asked what a previously set timer was for when asked about it later. | Keep task state separate from conversational wording and retrieve the relevant active timer or task when answering follow-ups. |
+| Memory and contextual understanding remain inconsistent for complex assistance | [The Verge's Alexa+ review](https://www.theverge.com/tech/1007565/amazon-alexa-plus-review-one-year-echo-show-dot-max) describes limitations around memory, context, and complex-task execution despite strengths in smart-home control. | Retrieve relevant household context before planning, apply it to each dependent action, and report partial completion honestly. |
 
 The reports above suggest a useful distinction: **understanding a request is not the same as remembering its constraints, executing every step, or proving the outcome**. Custos is built around those separate responsibilities.
 
@@ -128,10 +130,6 @@ npm run web:tokens  # Check design-token discipline
 ```
 
 For an API smoke test against a running server, create a key for the target deployment and use `npm run smoke -- --base http://localhost:3000 --key <cf_...>`. The key-creation command may require database configuration: `npm run keys:create -- --user demo --mode forge`.
-
-### Setup simplification opportunity
-
-A small `npm run setup` script could automate the Node version check, both installs, and the frontend build. It should preserve an existing `.env`, never fabricate credentials, and keep Supabase optional for replay mode. This is a proposed improvement; the command does not exist yet.
 
 ## Architecture
 
