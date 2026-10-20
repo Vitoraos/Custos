@@ -1,6 +1,7 @@
 // Receipt persistence behind a minimal interface.
 // Supabase implementation lands with server wiring (needs creds);
 // MemoryReceipts covers unit tests + offline dev.
+import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Outcome } from "./result.js";
 
 export interface Receipt {
@@ -74,7 +75,6 @@ export class MemoryReceipts implements ReceiptStore {
 
 
 // Durable production receipts. Queries are always scoped to the authenticated tenant.
-import type { SupabaseClient } from "@supabase/supabase-js";
 
 export class SupabaseReceipts implements ReceiptStore {
   constructor(private readonly db: SupabaseClient) {}
