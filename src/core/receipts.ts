@@ -1,6 +1,5 @@
 // Receipt persistence behind a minimal interface.
-// Supabase implementation lands with server wiring (needs creds);
-// MemoryReceipts covers unit tests + offline dev.
+// SupabaseReceipts is durable in production; MemoryReceipts covers tests and offline development.
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Outcome } from "./result.js";
 
@@ -30,7 +29,7 @@ export interface ReceiptStore {
     r: Omit<Receipt, "id" | "createdAt"> & { id?: string },
   ): Promise<Receipt>;
   latest(userId: string, tool?: string): Promise<Receipt | null>;
-  /** Newest-first session history (in-memory only; resets on restart). */
+  /** Newest-first tenant-scoped history. Persistence depends on the configured implementation. */
   recent(userId: string, limit: number): Promise<Receipt[]>;
 }
 
