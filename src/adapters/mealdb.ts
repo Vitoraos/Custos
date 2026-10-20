@@ -27,6 +27,7 @@ export interface Recipe {
   id: string;
   name: string;
   ingredients: string[];
+  instructions: string[];
   source: "themealdb" | "fallback";
 }
 const BASE = "https://www.themealdb.com/api/json/v1/1";
@@ -68,6 +69,11 @@ export async function findRecipes(query: string, max = 8): Promise<Recipe[]> {
           id: meals[i].idMeal,
           name: meals[i].strMeal,
           ingredients: parseIngredients(meal),
+          instructions: (meal.strInstructions ?? "")
+            .replace(/<[^>]*>/g, " ")
+            .split(/\\r?\\n+/)
+            .map((step) => step.trim())
+            .filter(Boolean),
           source: "themealdb",
         });
     });
@@ -90,6 +96,7 @@ export async function findRecipes(query: string, max = 8): Promise<Recipe[]> {
       id: `fallback-${i}`,
       name: r.name,
       ingredients: r.ingredients,
+      instructions: [],
       source: "fallback" as const,
     }));
   }
