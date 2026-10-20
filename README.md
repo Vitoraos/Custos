@@ -3,13 +3,25 @@
 ![CI](https://github.com/Vitoraos/Custos/actions/workflows/check.yml/badge.svg)
 ![License: MIT](https://img.shields.io/badge/license-MIT-green)
 
-**Custos is an accountability layer for AI assistants.** It checks remembered rules before an assistant acts, verifies actions against observed state, and records receipts explaining what happened.
+**Custos is an accountability layer for tool-using AI assistants.** It brings household rules, action execution, independent verification, and auditable receipts into one enforcement path.
 
-An assistant saying “done” is not proof. Custos moves enforcement out of the prompt and into the tool boundary, where policy checks and verification can run even when a model ignores its instructions.
+An assistant saying “done” is not proof. Custos checks relevant rules before an action, verifies the resulting state where the adapter supports read-back, and records evidence of what happened. The goal is not to make a model sound more reliable. It is to make reliability inspectable outside the model's own narration.
 
 **[Read the architecture](docs/ARCHITECTURE.md)** · **[Review benchmark evidence](docs/BENCHMARK.md)** · **[Inspect the implementation](src/core/policy.ts)
 
 > Previously named ContextForge. Some package names, deployment labels, and older documents still use that name.
+
+## Contents
+
+- [The problem](#the-problem-custos-solves)
+- [Why this matters: user-reported failures](#why-this-matters-user-reported-failures)
+- [How Custos works](#how-it-works)
+- [Demo and evaluation](#what-reviewers-should-inspect)
+- [Benchmark and limitations](#benchmark)
+- [Quick start](#run-locally-optional)
+- [Architecture and stack](#architecture)
+- [Security and boundaries](#security-and-boundaries)
+- [Contributing](#contributing-and-license)
 
 ## The problem Custos solves
 
@@ -21,6 +33,24 @@ AI assistants can remember a preference without reliably applying it when they a
 - **Untrusted content can influence behavior:** external text should not be allowed to rewrite standing household rules.
 
 A longer prompt or a larger memory does not structurally solve these problems. Custos puts policy checks at the tool boundary, verifies action results against observed state, and records receipts that explain the decision. The examples above describe failure modes the project is designed to test, not claims that every commercial assistant exhibits each behavior.
+
+## Why this matters: user-reported failures
+
+These are concrete public reports that illustrate the reliability gap Custos is designed to address. They are **anecdotal reports, not a representative survey or proof that every Alexa or Alexa+ user has these problems**. The project uses them as problem evidence, not as a claim of affiliation with or endorsement by Amazon.
+
+| Reported problem | Public report | Design implication for Custos |
+|---|---|---|
+| The assistant says an action succeeded, but the wrong device changes or nothing happens | An [Amazon forum report about Alexa+](https://www.amazonforum.com/s/question/0D5Kf00003VKeSFKA1/after-alexa-most-of-my-smart-home-commands-no-longer-functions-as-previously?language=en_US) describes Alexa+ responding as if a command was done while controlling the wrong light or failing to move blinds. | Verify the target and read back resulting state; do not treat acknowledgement as proof. |
+| Routines and reminders stop working after an upgrade | In an [Amazon forum thread](https://www.amazonforum.com/s/question/0D5at00000Tc2ukCAB/alexa-early-access-a-total-failure?language=en_US), a user reports that previously reliable reminders and timed routines no longer executed as expected. | Persist schedules separately from chat turns; track scheduled, executed, and verified states distinctly. |
+| Natural-language commands interfere with established routines | Users in [r/alexa](https://www.reddit.com/r/alexa/comments/1s4x1np/we_last_3_days_with_alexa/) describe routines failing or changing behavior after the Alexa+ upgrade, alongside latency and unwanted interruptions. | Preserve explicit routines and constraints; avoid inventing extra actions in the name of being helpful. |
+| Routine execution becomes inconsistent and difficult to diagnose | A [September 2026 user report](https://www.reddit.com/r/alexa/comments/1wbmeqx/alexa_has_somehow_gotten_worse_at_the_one_thing_i/) describes familiar commands intermittently failing and routines silently skipping actions. | Keep execution receipts and observed state so failures can be distinguished from successful completion. |
+| Remembered context appears to disappear between interactions | In [a Reddit thread titled “Alexa has memory loss after 3 days”](https://www.reddit.com/r/alexa/comments/1sd76vb/alexa_has_memory_loss_after_3_days/), a user reports repeatedly losing what they had taught the assistant and having to start over. This is an individual report, not a measured description of Alexa's memory system. | Store durable preferences as explicit, inspectable records; retrieve relevant rules at task time instead of relying on conversational recall alone. |
+| A task is forgotten or its context is lost during follow-up | In [a September 2026 report](https://www.reddit.com/r/alexa/comments/1wskd0d/forgetting_tasks_and_started_asking_personal/), a user says Alexa asked what a previously set timer was for when asked about it later. | Keep task state separate from conversational wording and retrieve the relevant active timer or task when answering follow-ups. |
+| Memory and contextual understanding remain inconsistent for complex assistance | [The Verge's Alexa+ review](https://www.theverge.com/tech/1007565/amazon-alexa-plus-review-one-year-echo-show-dot-max) describes limitations around memory, context, and complex-task execution despite strengths in smart-home control. | Retrieve relevant household context before planning, apply it to each dependent action, and report partial completion honestly. |
+
+The reports above suggest a useful distinction: **understanding a request is not the same as remembering its constraints, executing every step, or proving the outcome**. Custos is built around those separate responsibilities.
+
+These reports do not establish that Custos already solves every issue described. The current repository demonstrates enforcement and verification against a controlled device twin; real-world device integrations and comparative field evaluation remain future work.
 
 ## What reviewers should inspect
 
@@ -57,7 +87,7 @@ The current recorded L1 run uses a seeded deterministic oracle, not a real Alexa
 4. **Verify:** the runner reads back the resulting state, retries once where appropriate, and distinguishes verified success from an unverified outcome.
 5. **Receipt:** the decision, expected state and observation are recorded so the assistant can explain what happened.
 
-The key design choice is that **policy enforcement is code at the tool boundary, not a sentence in the system prompt**.
+The key design choice is that **policy enforcement is code at the tool boundary, not a sentence in the system prompt**. The model proposes and orchestrates; deterministic application code decides whether guarded actions may proceed, and the verification path checks observable outcomes.
 
 ## Run locally (optional)
 
@@ -100,10 +130,6 @@ npm run web:tokens  # Check design-token discipline
 ```
 
 For an API smoke test against a running server, create a key for the target deployment and use `npm run smoke -- --base http://localhost:3000 --key <cf_...>`. The key-creation command may require database configuration: `npm run keys:create -- --user demo --mode forge`.
-
-### Setup simplification opportunity
-
-A small `npm run setup` script could automate the Node version check, both installs, and the frontend build. It should preserve an existing `.env`, never fabricate credentials, and keep Supabase optional for replay mode. This is a proposed improvement; the command does not exist yet.
 
 ## Architecture
 
@@ -204,7 +230,22 @@ Read the [security notes](docs/SECURITY.md) for implementation details. This is 
 
 ## Contributing and license
 
-Run `npm run check` before submitting changes. For UI work, also run `npm run web:build` and `npm run web:tokens`.
+Contributions are welcome. Before opening a pull request:
+
+1. Keep policy enforcement and authorization in code, not only in prompts.
+2. Add or update tests for safety constraints, failure paths, and tenant isolation when relevant.
+3. Never claim an action is verified unless the adapter provides evidence for that claim.
+4. Keep simulated-device behavior clearly labelled as simulation; do not imply live Alexa+ integration.
+5. Run the checks that apply to your change:
+
+```bash
+npm ci
+npm run check
+npm run web:build
+npm run web:tokens
+```
+
+If a check cannot run because a required external service or credential is unavailable, say so in the pull request rather than presenting it as passing. See [the architecture](docs/ARCHITECTURE.md), [API contract](docs/API.md), and [security notes](docs/SECURITY.md) before making changes to tool boundaries or authentication.
 
 MIT License. © Vitoraos.
 

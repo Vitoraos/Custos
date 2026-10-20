@@ -53,6 +53,7 @@ stay separate (`src/` vs `simulator/`); only the process is shared.
   `memories.ts` (typed loads, poisoning guard)
 - `simulator/api/`: `guest.ts` (keys + budget) · `agent.ts` (Strands, SSE event
   map) · `routes.ts` (`/sim/guest|chat|truth|faults`)
+- `src/core/assistantPrompt.ts`: compact shared MCP instructions and planner prompt; context retrieval, planning, execution, and truthful reporting live here, while enforcement stays in tools.
 - `bench/`: `run.ts` (L1 oracle) · `llm.ts` (L2 scaffold) · `report.ts` ·
   `data/recipes.labeled.json` (60, hand-labelled)
 
@@ -81,3 +82,8 @@ Apply `infra/migrations/003_scheduled_actions.sql` after `001_v3.sql` to enable
 durable schedules and the receipt speech field used for idempotent replay.
 Production tool receipts use `SupabaseReceipts`; tests and offline development
 use `MemoryReceipts`.
+
+
+## Verification commands
+
+Run `npm run check` for formatting, lint, type checking and tests. Run `npm ci --prefix simulator/web`, `npm run web:build`, and `npm run web:tokens` to verify the simulator frontend and design-token rules.

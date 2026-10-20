@@ -106,7 +106,7 @@ describe("auth", () => {
     });
     expect(r.status).toBe(401);
   });
-  it("lists 12 tools with a valid key", async () => {
+  it("lists 13 tools with a valid key", async () => {
     const c = await client(keys.forge);
     try {
       const { tools } = await c.listTools();
@@ -121,6 +121,7 @@ describe("auth", () => {
           "get_standing_rules",
           "get_weather",
           "remember_rule",
+          "schedule_device_action",
           "set_device_state",
           "set_reminder",
           "update_shopping_list",
