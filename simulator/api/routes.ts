@@ -8,6 +8,7 @@ import type { Store } from "../../src/storage/store.js";
 import type { Deps } from "../../src/tools/context.js";
 import { runAB } from "./agent.js";
 import { seedDemoHousehold } from "./demo.js";
+import { runShowcase } from "./showcase.js";
 import {
   budgetCheck,
   budgetSpend,
@@ -31,6 +32,11 @@ export function mountSim(
   deps: Deps,
   mcpUrl: string,
 ): void {
+  app.post("/sim/showcase", async (c) => {
+    try { return c.json(await runShowcase(store)); }
+    catch (e) { return c.json({ error: (e as Error).message.slice(0, 240) }, 500); }
+  });
+
   app.post("/sim/guest", async (c) => {
     const g = await issueGuest(store);
     return c.json({ guestId: g.id, createdAt: g.createdAt });
