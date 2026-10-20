@@ -71,3 +71,70 @@ describe("loadConstraints with real PG timestamps", () => {
     expect(await store.listMemories("u")).toHaveLength(0);
   });
 });
+
+describe("corrupt active constraints", () => {
+  it("fails closed instead of silently dropping an invalid active rule", async () => {
+    const store = new MemoryStore();
+    const row = {
+      id: "broken-rule",
+      userId: "u",
+      profile: "household",
+      kind: "constraint",
+      payload: {
+        kind: "quiet_hours",
+        start: "99:99",
+        end: "07:00",
+        tz: "Africa/Lagos",
+        applies: ["lights"],
+      },
+      source: "explicit",
+      status: "active",
+      evidence: null,
+      createdAt: new Date().toISOString(),
+      lastUsedAt: null,
+      expiresAt: null,
+      revokedAt: null,
+    };
+    // @ts-expect-error test seam: simulate a corrupt persisted row.
+    store.memories.set(JSON.stringify(["u", "broken-rule"]), row);
+
+    await expect(loadConstraints(store, "u")).rejects.toThrow(
+      "active constraint broken-rule failed validation",
+    );
+  });
+
+  it("rejects invalid clock values and time zones before persistence", async () => {
+    const store = new MemoryStore();
+    await expect(
+      remember(store, "u", {
+        profile: "household",
+        kind: "constraint",
+        payload: {
+          kind: "quiet_hours",
+          start: "99:99",
+          end: "07:00",
+          tz: "Africa/Lagos",
+          applies: ["lights"],
+        },
+        source: "explicit",
+        evidence: null,
+      }),
+    ).rejects.toThrow("memory: invalid constraint payload");
+
+    await expect(
+      remember(store, "u", {
+        profile: "household",
+        kind: "constraint",
+        payload: {
+          kind: "quiet_hours",
+          start: "20:00",
+          end: "07:00",
+          tz: "Mars/Olympus",
+          applies: ["lights"],
+        },
+        source: "explicit",
+        evidence: null,
+      }),
+    ).rejects.toThrow("memory: invalid constraint payload");
+  });
+});
