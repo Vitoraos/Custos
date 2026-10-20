@@ -11,7 +11,6 @@ import { seedDemoHousehold } from "./demo.js";
 import {
   budgetCheck,
   budgetSpend,
-  demoSession,
   getGuest,
   guestKeys,
   issueGuest,
@@ -192,13 +191,11 @@ export function mountSim(
     }
   });
 
-  // Demo session: reset + seed the fixed household, bind keys. Recording only.
+  // Each browser receives a fresh tenant-scoped household. Never seed the
+  // shared "demo" user: concurrent visitors and resets would overwrite state.
   app.post("/sim/demo", async (c) => {
-    const body = (await c.req.json().catch(() => null)) as {
-      user?: string;
-    } | null;
-    const userId = (body?.user ?? "demo").slice(0, 60);
-    const summary = await seedDemoHousehold(store, userId);
+    const s = await issueGuest(store);
+    const summary = await seedDemoHousehold(store, s.userId);
     if (summary.constraintsLoaded !== summary.rules) {
       return c.json(
         {
@@ -207,7 +204,6 @@ export function mountSim(
         500,
       );
     }
-    const s = await demoSession(store, userId);
     return c.json({ guestId: s.id, userId: s.userId, summary });
   });
 }

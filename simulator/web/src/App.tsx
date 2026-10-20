@@ -405,7 +405,20 @@ export default function App() {
               that beat's checks.
             </p>
           ) : null}
-          <div className="cols">
+          <section className="prompt-card" aria-label="Demo request">
+            <p className="eyebrow">THE REQUEST</p>
+            <p className="prompt-copy">
+              {beats?.find((beat) => beat.input)?.input ??
+                "Make coffee for me at 8am, turn on the hall light 5 minutes before my daughter is back from school, and prepare dinner for me and my daughter."}
+            </p>
+            <p className="prompt-context">
+              The test is not whether an assistant sounds confident. It is
+              whether it remembers the rules, acts correctly, and can prove the result.
+            </p>
+          </section>
+          <div className="workspace">
+            <TruthPanel ground={ground} />
+            <div className="cols">
             <Column
               name="baseline"
               title="WITHOUT guard + verification"
@@ -434,8 +447,8 @@ export default function App() {
                   : "press ▶ Play first"
               }
             />
+            </div>
           </div>
-          <TruthPanel ground={ground} />
           <form
             className="input"
             onSubmit={(e) => {
