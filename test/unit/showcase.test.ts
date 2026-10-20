@@ -14,7 +14,7 @@ describe("one-run showcase", () => {
     expect(result.custos.actions[1].localTime?.endsWith("T13:25")).toBe(true);
     expect(result.custos.actions[2].status).toBe("policy verified");
     expect(result.custos.receipts).toHaveLength(4);
-    expect(result.deviceTruth.custos.hall_light.power).toBe("off");
+    expect(result.deviceTruth.custos.hall_light?.power).toBe("off");
     expect(result.note).toContain(
       "Executed and verified device state are separate",
     );
