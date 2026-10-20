@@ -1153,7 +1153,7 @@ header.app {
   color: var(--ink);
 }
 
-.show-truth .show-device span {
+.show-truth .show-truth .show-device span {
   font-weight: 700;
 }
 
