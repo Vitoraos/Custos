@@ -101,10 +101,23 @@ export interface Store {
   touchMemory(userId: string, id: string): Promise<void>;
   getKey(keyHash: string): Promise<(KeyRecord & { keyHash: string }) | null>;
   insertKey(keyHash: string, row: KeyRecord): Promise<void>;
-  createScheduledAction(row: Omit<ScheduledActionRecord, "id" | "createdAt" | "updatedAt">): Promise<ScheduledActionRecord>;
-  listScheduledActions(userId: string, runId?: string): Promise<ScheduledActionRecord[]>;
-  updateScheduledAction(userId: string, id: string, status: ScheduledActionStatus, evidence?: Record<string, unknown>): Promise<ScheduledActionRecord | null>;
-  claimDueScheduledActions(now: string, limit: number): Promise<ScheduledActionRecord[]>;
+  createScheduledAction(
+    row: Omit<ScheduledActionRecord, "id" | "createdAt" | "updatedAt">,
+  ): Promise<ScheduledActionRecord>;
+  listScheduledActions(
+    userId: string,
+    runId?: string,
+  ): Promise<ScheduledActionRecord[]>;
+  updateScheduledAction(
+    userId: string,
+    id: string,
+    status: ScheduledActionStatus,
+    evidence?: Record<string, unknown>,
+  ): Promise<ScheduledActionRecord | null>;
+  claimDueScheduledActions(
+    now: string,
+    limit: number,
+  ): Promise<ScheduledActionRecord[]>;
 }
 
 // JSON-encoding a tuple avoids collisions when a component contains the delimiter.
@@ -272,13 +285,16 @@ export class MemoryStore implements Store {
     if (prior) {
       if (
         prior.target !== row.target ||
-        JSON.stringify(prior.desiredState) !== JSON.stringify(row.desiredState) ||
+        JSON.stringify(prior.desiredState) !==
+          JSON.stringify(row.desiredState) ||
         prior.scheduledAt !== row.scheduledAt ||
         prior.timezone !== row.timezone ||
         prior.localScheduledAt !== row.localScheduledAt ||
         prior.runId !== row.runId
       ) {
-        throw new Error("schedule: idempotency key reused with different action");
+        throw new Error(
+          "schedule: idempotency key reused with different action",
+        );
       }
       return clone(prior);
     }
