@@ -285,7 +285,7 @@ export class SupabaseStore implements Store {
   private scheduledRow(value: unknown): ScheduledActionRecord {
     const d = asRecord(value, "scheduled_actions row");
     const status = requiredString(d.status, "scheduled_actions.status") as ScheduledActionStatus;
-    if (!["planned","scheduled","executed","verified","unverified","blocked","failed","cancelled"].includes(status)) throw new Error("store: invalid scheduled action status");
+    if (!["planned","scheduled","executing","executed","verified","unverified","blocked","failed","cancelled"].includes(status)) throw new Error("store: invalid scheduled action status");
     return {
       id: requiredString(d.id, "scheduled_actions.id"), userId: requiredString(d.user_id, "scheduled_actions.user_id"),
       runId: requiredString(d.run_id, "scheduled_actions.run_id"), idempotencyKey: requiredString(d.idempotency_key, "scheduled_actions.idempotency_key"),
@@ -296,6 +296,31 @@ export class SupabaseStore implements Store {
       createdAt: requiredString(d.created_at, "scheduled_actions.created_at"), updatedAt: requiredString(d.updated_at, "scheduled_actions.updated_at"),
     };
   }
+  async claimDueScheduledActions(now: string, limit: number): Promise<ScheduledActionRecord[]> {
+    const { data, error } = await this.db
+      .from("scheduled_actions")
+      .select("*")
+      .eq("status", "scheduled")
+      .lte("scheduled_at", now)
+      .order("scheduled_at")
+      .limit(Math.max(0, Math.min(limit, 100)));
+    if (error) fail(error);
+    const claimed: ScheduledActionRecord[] = [];
+    for (const row of data ?? []) {
+      const { data: updated, error: updateError } = await this.db
+        .from("scheduled_actions")
+        .update({ status: "executing", updated_at: now })
+        .eq("id", row.id)
+        .eq("user_id", row.user_id)
+        .eq("status", "scheduled")
+        .select("*")
+        .maybeSingle();
+      if (updateError) fail(updateError);
+      if (updated) claimed.push(this.scheduledRow(updated));
+    }
+    return claimed;
+  }
+
   async insertKey(keyHash: string, row: KeyRecord): Promise<void> {
     const { error } = await this.db.from("api_keys").insert({
       key_hash: keyHash,
