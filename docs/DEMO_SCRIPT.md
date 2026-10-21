@@ -2,7 +2,8 @@
 
 ## Setup
 
-Open the hosted simulator and press **Play comparison**. This is a controlled
+Open the hosted simulator and press **Play comparison**. Let the baseline finish,
+then click **Next: Run with Custos** when ready to show the second run. This is a controlled
 device-twin scenario. The API prepares the scenario before the UI reveals it in
 stages, so describe the animation as a staged walkthrough, not a live tool
 trace. There is no real Alexa+ integration in this demo.

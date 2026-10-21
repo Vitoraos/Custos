@@ -242,23 +242,42 @@ export default function App() {
   const [stage, setStage] = useState(0);
   const [error, setError] = useState("");
   const [muted, setMuted] = useState(false);
+  const [awaitingNext, setAwaitingNext] = useState(false);
+
+  const stageDelays = [1000, 1400, 1700, 1300, 1500, 2200, 2000, 1800, 1750, 2200, 1400, 1700, 1900, 1500];
 
   async function play() {
     if (state === "running") return;
     setState("running");
+    setAwaitingNext(false);
     setError("");
     setData(null);
     setStage(0);
     try {
       const result = await runShowcase();
       setData(result);
-      // Pace the visible task flow like an agent trace. The API has returned
-      // the completed scenario already; these delays are presentation only,
-      // never a claim that a tool is still executing.
-      // Finish the baseline sequence completely before starting Custos.
-      // Stages 1–4 belong to the baseline; stages 5–14 belong to Custos.
-      const stageDelays = [1000, 1400, 1700, 1300, 1500, 2200, 2000, 1800, 1750, 2200, 1400, 1700, 1900, 1500];
-      for (let index = 0; index < stageDelays.length; index += 1) {
+      // The API prepares the scenario before this staged presentation starts.
+      // Finish the baseline and stop at stage 4 until the user explicitly clicks Next.
+      for (let index = 0; index < 4; index += 1) {
+        await new Promise((resolve) => window.setTimeout(resolve, stageDelays[index]));
+        setStage(index + 1);
+      }
+      setState("done");
+      setAwaitingNext(true);
+    } catch (e) {
+      setError((e as Error).message);
+      setState("error");
+    }
+  }
+
+  async function continueWithCustos() {
+    if (!data || !awaitingNext) return;
+    setAwaitingNext(false);
+    setState("running");
+    try {
+      // Custos must not begin until the viewer explicitly chooses Next.
+      setStage(5); // Switch to the Custos panel immediately on the explicit click.
+      for (let index = 5; index < stageDelays.length; index += 1) {
         await new Promise((resolve) => window.setTimeout(resolve, stageDelays[index]));
         setStage(index + 1);
       }
@@ -287,8 +306,8 @@ export default function App() {
           <h1>Custos</h1>
         </div>
         <div className="controls">
-          <button type="button" onClick={() => void play()} disabled={state === "running"}>
-            {state === "running" ? "Executing comparison…" : state === "done" ? "↻ Run again" : "▶ Play comparison"}
+          <button type="button" onClick={() => void play()} disabled={state === "running" || awaitingNext}>
+            {state === "running" ? (stage <= 4 ? "Baseline running…" : "Custos running…") : awaitingNext ? "Baseline complete · waiting for Next" : state === "done" ? "↻ Run again" : "▶ Play comparison"}
           </button>
           <button
             type="button"
@@ -362,7 +381,7 @@ export default function App() {
                     <p>The baseline says it is done, but has no persisted schedule or policy evidence to support that claim.</p>
                   </div>
                 ) : null}
-                {baselineStage >= 4 ? <p className="phase-transition">Baseline finished. Custos starts next.</p> : null}
+                {baselineStage >= 4 ? <div className="phase-transition"><p>Baseline complete. Custos will not start until you continue.</p><button type="button" onClick={() => void continueWithCustos()} disabled={!awaitingNext}>Next: Run with Custos →</button></div> : null}
               </section>
             ) : (
               <section className="panel show-column custos-column active-run">
