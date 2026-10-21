@@ -408,7 +408,7 @@ export default function App() {
             )}
           </section>
 
-          {stage >= 8 ? (
+          {stage >= 12 ? (
             <section className="notification-panel reveal-item">
               <div className="notification-icon" aria-hidden="true">N</div>
               <div className="notification-copy">
@@ -424,7 +424,7 @@ export default function App() {
             </section>
           ) : null}
 
-          {stage >= 3 ? (
+          {stage >= 7 ? (
             <section className="panel show-context reveal-item">
               <div className="section-heading">
                 <div>
@@ -450,7 +450,7 @@ export default function App() {
             </section>
           ) : null}
 
-          {stage >= 10 ? (
+          {stage >= 14 ? (
             <section className="receipts-section reveal-item">
               <div className="section-heading">
                 <div>
@@ -466,7 +466,7 @@ export default function App() {
             </section>
           ) : null}
 
-          {stage >= 9 ? (
+          {stage >= 13 ? (
             <section className="panel show-truth reveal-item">
               <div>
                 <p className="eyebrow">INDEPENDENT DEVICE TWIN</p>
