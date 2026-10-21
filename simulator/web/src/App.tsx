@@ -257,7 +257,7 @@ export default function App() {
       // never a claim that a tool is still executing.
       // Finish the baseline sequence completely before starting Custos.
       // Stages 1–4 belong to the baseline; stages 5–14 belong to Custos.
-      const stageDelays = [850, 1250, 1550, 900, 1050, 1850, 1650, 1450, 1300, 1750, 950, 1250, 1550, 900];
+      const stageDelays = [1000, 1400, 1700, 1300, 1500, 2200, 2000, 1800, 1750, 2200, 1400, 1700, 1900, 1500];
       for (let index = 0; index < stageDelays.length; index += 1) {
         await new Promise((resolve) => window.setTimeout(resolve, stageDelays[index]));
         setStage(index + 1);
@@ -408,22 +408,6 @@ export default function App() {
             )}
           </section>
 
-          {stage >= 12 ? (
-            <section className="notification-panel reveal-item">
-              <div className="notification-icon" aria-hidden="true">N</div>
-              <div className="notification-copy">
-                <p className="eyebrow">DINNER NOTIFICATION</p>
-                <h2>{data.notification.accepted ? "Recipe notification accepted" : "Notification not confirmed"}</h2>
-                <p>{data.notification.deliveryNote}</p>
-                <details>
-                  <summary>Preview the notification</summary>
-                  <pre>{data.notification.text}</pre>
-                </details>
-              </div>
-              <State value={data.notification.accepted ? "accepted by provider" : "unverified"} />
-            </section>
-          ) : null}
-
           {stage >= 7 ? (
             <section className="panel show-context reveal-item">
               <div className="section-heading">
@@ -450,19 +434,19 @@ export default function App() {
             </section>
           ) : null}
 
-          {stage >= 14 ? (
-            <section className="receipts-section reveal-item">
-              <div className="section-heading">
-                <div>
-                  <p className="eyebrow">AUDIT TRAIL</p>
-                  <h2>Receipts for what actually happened</h2>
-                  <p>Each receipt separates the intended action from the observed evidence. Open technical details only when needed.</p>
-                </div>
-                <span className="context-count">{data.custos.receipts.length} records</span>
+          {stage >= 12 ? (
+            <section className="notification-panel reveal-item">
+              <div className="notification-icon" aria-hidden="true">N</div>
+              <div className="notification-copy">
+                <p className="eyebrow">DINNER NOTIFICATION</p>
+                <h2>{data.notification.accepted ? "Recipe notification accepted" : "Notification not confirmed"}</h2>
+                <p>{data.notification.deliveryNote}</p>
+                <details>
+                  <summary>Preview the notification</summary>
+                  <pre>{data.notification.text}</pre>
+                </details>
               </div>
-              <div className="receipt-grid">
-                {data.custos.receipts.map((receipt, i) => <ReceiptCard key={receipt.id ?? receipt.tool + i} receipt={receipt} />)}
-              </div>
+              <State value={data.notification.accepted ? "accepted by provider" : "unverified"} />
             </section>
           ) : null}
 
@@ -484,6 +468,22 @@ export default function App() {
               </div>
             </section>
           ) : null}
+          {stage >= 14 ? (
+            <section className="receipts-section reveal-item">
+              <div className="section-heading">
+                <div>
+                  <p className="eyebrow">AUDIT TRAIL</p>
+                  <h2>Receipts for what actually happened</h2>
+                  <p>Each receipt separates the intended action from the observed evidence. Open technical details only when needed.</p>
+                </div>
+                <span className="context-count">{data.custos.receipts.length} records</span>
+              </div>
+              <div className="receipt-grid">
+                {data.custos.receipts.map((receipt, i) => <ReceiptCard key={receipt.id ?? receipt.tool + i} receipt={receipt} />)}
+              </div>
+            </section>
+          ) : null}
+
           <p className="show-footnote">{data.note}</p>
         </>
       ) : null}
