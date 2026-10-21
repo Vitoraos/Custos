@@ -54,19 +54,6 @@ type Showcase = {
 type RunState = "idle" | "running" | "done" | "error";
 type ProcessStatus = "pending" | "running" | "done" | "failed";
 type ProcessTask = { goal: string; subtask: string; status: ProcessStatus; detail: string };
-const STEPS = [
-  "Parse the request and identify the goals",
-  "Baseline plans its response",
-  "Baseline reports completion without proof",
-  "Custos loads standing rules",
-  "Custos plans immediate and scheduled device actions",
-  "Custos checks the dinner plan against household rules",
-  "Custos checks the pantry and shopping list",
-  "Custos updates the list and sends the recipe",
-  "Custos verifies device and schedule state",
-  "Custos writes and presents receipts",
-];
-
 async function runShowcase(): Promise<Showcase> {
   const response = await fetch(`${API}/sim/showcase`, { method: "POST" });
   const body: unknown = await response.json();
@@ -165,8 +152,8 @@ function ProcessPanel({
         { goal: "Prove what happened", subtask: "Read back state, inspect schedules, and write receipts", detail: "Each outcome labelled by evidence, not assumption" },
       ];
   const completionStage = mode === "baseline"
-    ? [1, 2, 2, 3]
-    : [1, 3, 4, 5, 6, 7, 9];
+    ? [1, 2, 3, 4]
+    : [1, 3, 5, 6, 7, 8, 9];
   return (
     <section className={`process-panel process-${mode}`} aria-label={mode === "baseline" ? "Baseline task progress" : "Custos task progress"}>
       <div className="process-heading">
@@ -184,12 +171,17 @@ function ProcessPanel({
       <div className="process-list">
         {tasks.map((task, index) => {
           const threshold = completionStage[index] ?? 99;
-          const status: ProcessStatus = mode === "baseline"
-            ? stage >= threshold ? "done" : stage + 1 === threshold && state === "running" ? "running" : "pending"
-            : stage >= threshold ? "done" : stage + 1 === threshold && state === "running" ? "running" : "pending";
+          const status: ProcessStatus =
+            stage > threshold || (state === "done" && stage >= threshold)
+              ? "done"
+              : stage === threshold && state === "running"
+                ? "running"
+                : "pending";
           return (
             <article className={`process-task process-${status}`} key={task.subtask}>
-              <span className="process-status">{status === "done" ? "✓" : status === "running" ? "…" : "○"}</span>
+              <span className={`process-status${status === "running" ? " is-spinning" : ""}`} aria-label={status}>
+                {status === "done" ? "✓" : status === "running" ? <span className="process-spinner" aria-hidden="true" /> : "○"}
+              </span>
               <div className="process-task-copy">
                 <div className="process-task-top">
                   <strong>{task.goal}</strong>
@@ -260,12 +252,13 @@ export default function App() {
     try {
       const result = await runShowcase();
       setData(result);
-      // Reveal the result as a paced walkthrough rather than dumping every
-      // panel into the page at once. The underlying scenario has completed;
-      // this is a presentation sequence, not a claim of live tool streaming.
-      for (let next = 1; next <= STEPS.length; next += 1) {
-        await new Promise((resolve) => window.setTimeout(resolve, 1150));
-        setStage(next);
+      // Pace the visible task flow like an agent trace. The API has returned
+      // the completed scenario already; these delays are presentation only,
+      // never a claim that a tool is still executing.
+      const stageDelays = [850, 1250, 1550, 900, 1850, 1650, 1450, 1300, 1750, 950];
+      for (let index = 0; index < stageDelays.length; index += 1) {
+        await new Promise((resolve) => window.setTimeout(resolve, stageDelays[index]));
+        setStage(index + 1);
       }
       setState("done");
       if (!muted) {
@@ -279,9 +272,8 @@ export default function App() {
     }
   }
 
-  const stepIndex = Math.max(0, Math.min(STEPS.length - 1, stage === 0 ? 0 : stage - 1));
   const baselineVisible = stage >= 3 ? 5 : stage >= 2 ? 2 : stage >= 1 ? 1 : 0;
-  const custosVisible = stage >= 9 ? 5 : stage >= 8 ? 4 : stage >= 7 ? 3 : stage >= 5 ? 2 : stage >= 4 ? 1 : 0;
+  const custosVisible = stage >= 9 ? 5 : stage >= 8 ? 4 : stage >= 7 ? 3 : stage >= 5 ? 2 : stage >= 3 ? 1 : 0;
 
   return (
     <main className="showcase-app">
@@ -292,7 +284,7 @@ export default function App() {
         </div>
         <div className="controls">
           <button type="button" onClick={() => void play()} disabled={state === "running"}>
-            {state === "running" ? "Playing the walkthrough…" : state === "done" ? "↻ Run again" : "▶ Play comparison"}
+            {state === "running" ? "Executing comparison…" : state === "done" ? "↻ Run again" : "▶ Play comparison"}
           </button>
           <button
             type="button"
@@ -344,18 +336,6 @@ export default function App() {
 
       {data ? (
         <>
-          <section className="walkthrough-bar" aria-live="polite">
-            <div className="walkthrough-label">
-              <p className="eyebrow">THE WALKTHROUGH</p>
-              <strong>{stage === 0 ? "Request received" : STEPS[stepIndex]}</strong>
-            </div>
-            <span className="walkthrough-count">{Math.min(stage, STEPS.length)} of {STEPS.length}</span>
-            <div className="walkthrough-track">
-              <span style={{ width: `${(Math.min(stage, STEPS.length) / STEPS.length) * 100}%` }} />
-            </div>
-            {state === "running" ? <p className="walkthrough-hint">Each stage appears in sequence so the difference is easy to follow.</p> : null}
-          </section>
-
           <p className="show-disclosure">{data.disclosure}</p>
 
           <section className="comparison-grid" aria-label="Assistant comparison">
@@ -371,7 +351,7 @@ export default function App() {
               {stage >= 1 ? <blockquote className="reveal-item">{data.baseline.summary}</blockquote> : <p className="waiting-copy">Waiting for the baseline run…</p>}
               <ProcessPanel mode="baseline" stage={stage} state={state} />
               <ActionList actions={data.baseline.actions} visible={baselineVisible} />
-              {stage >= 3 ? (
+              {stage >= 4 ? (
                 <div className="show-proof-empty reveal-item">
                   <strong>No receipts</strong>
                   <p>The baseline says it is done, but has no persisted schedule or policy evidence to support that claim.</p>
@@ -437,7 +417,7 @@ export default function App() {
             </section>
           ) : null}
 
-          {stage >= 4 ? (
+          {stage >= 3 ? (
             <section className="panel show-context reveal-item">
               <div className="section-heading">
                 <div>
