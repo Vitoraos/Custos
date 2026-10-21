@@ -276,7 +276,8 @@ export default function App() {
     setState("running");
     try {
       // Custos must not begin until the viewer explicitly chooses Next.
-      for (let index = 4; index < stageDelays.length; index += 1) {
+      setStage(5); // Switch to the Custos panel immediately on the explicit click.
+      for (let index = 5; index < stageDelays.length; index += 1) {
         await new Promise((resolve) => window.setTimeout(resolve, stageDelays[index]));
         setStage(index + 1);
       }
@@ -305,7 +306,7 @@ export default function App() {
           <h1>Custos</h1>
         </div>
         <div className="controls">
-          <button type="button" onClick={() => void play()} disabled={state === "running"}>
+          <button type="button" onClick={() => void play()} disabled={state === "running" || awaitingNext}>
             {state === "running" ? (stage <= 4 ? "Baseline running…" : "Custos running…") : awaitingNext ? "Baseline complete · waiting for Next" : state === "done" ? "↻ Run again" : "▶ Play comparison"}
           </button>
           <button
