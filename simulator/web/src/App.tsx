@@ -255,7 +255,9 @@ export default function App() {
       // Pace the visible task flow like an agent trace. The API has returned
       // the completed scenario already; these delays are presentation only,
       // never a claim that a tool is still executing.
-      const stageDelays = [850, 1250, 1550, 900, 1850, 1650, 1450, 1300, 1750, 950];
+      // Finish the baseline sequence completely before starting Custos.
+      // Stages 1–4 belong to the baseline; stages 5–14 belong to Custos.
+      const stageDelays = [850, 1250, 1550, 900, 1050, 1850, 1650, 1450, 1300, 1750, 950, 1250, 1550, 900];
       for (let index = 0; index < stageDelays.length; index += 1) {
         await new Promise((resolve) => window.setTimeout(resolve, stageDelays[index]));
         setStage(index + 1);
@@ -272,8 +274,10 @@ export default function App() {
     }
   }
 
-  const baselineVisible = stage >= 3 ? 5 : stage >= 2 ? 2 : stage >= 1 ? 1 : 0;
-  const custosVisible = stage >= 9 ? 5 : stage >= 8 ? 4 : stage >= 7 ? 3 : stage >= 5 ? 2 : stage >= 3 ? 1 : 0;
+  const baselineStage = Math.min(stage, 4);
+  const custosStage = Math.max(0, stage - 4);
+  const baselineVisible = baselineStage >= 3 ? 5 : baselineStage >= 2 ? 2 : baselineStage >= 1 ? 1 : 0;
+  const custosVisible = custosStage >= 9 ? 5 : custosStage >= 8 ? 4 : custosStage >= 7 ? 3 : custosStage >= 5 ? 2 : custosStage >= 3 ? 1 : 0;
 
   return (
     <main className="showcase-app">
@@ -338,67 +342,70 @@ export default function App() {
         <>
           <p className="show-disclosure">{data.disclosure}</p>
 
-          <section className="comparison-grid" aria-label="Assistant comparison">
-            <section className="panel show-column baseline-column">
-              <div className="show-column-head">
-                <div>
-                  <p className="eyebrow">CONTROLLED BASELINE</p>
-                  <h2>Alexa+ without Custos</h2>
-                  <p>Raw acknowledgements · no independent verification</p>
+          <section className="comparison-grid sequential-comparison" aria-label="Sequential assistant comparison">
+            {stage <= 4 ? (
+              <section className="panel show-column baseline-column active-run">
+                <div className="show-column-head">
+                  <div>
+                    <p className="eyebrow">RUN 1 OF 2 · CONTROLLED BASELINE</p>
+                    <h2>Alexa+ without Custos</h2>
+                    <p>Raw acknowledgements · no independent verification</p>
+                  </div>
+                  {baselineStage >= 4 ? <State value={data.baseline.status} /> : <State value={state === "running" ? "running" : "waiting"} />}
                 </div>
-                {stage >= 2 ? <State value={data.baseline.status} /> : <State value="waiting" />}
-              </div>
-              {stage >= 1 ? <blockquote className="reveal-item">{data.baseline.summary}</blockquote> : <p className="waiting-copy">Waiting for the baseline run…</p>}
-              <ProcessPanel mode="baseline" stage={stage} state={state} />
-              <ActionList actions={data.baseline.actions} visible={baselineVisible} />
-              {stage >= 4 ? (
-                <div className="show-proof-empty reveal-item">
-                  <strong>No receipts</strong>
-                  <p>The baseline says it is done, but has no persisted schedule or policy evidence to support that claim.</p>
+                {baselineStage >= 1 ? <blockquote className="reveal-item">{data.baseline.summary}</blockquote> : <p className="waiting-copy">Baseline is preparing the response…</p>}
+                <ProcessPanel mode="baseline" stage={baselineStage} state={baselineStage >= 4 ? "done" : state} />
+                <ActionList actions={data.baseline.actions} visible={baselineVisible} />
+                {baselineStage >= 4 ? (
+                  <div className="show-proof-empty reveal-item">
+                    <strong>No receipts</strong>
+                    <p>The baseline says it is done, but has no persisted schedule or policy evidence to support that claim.</p>
+                  </div>
+                ) : null}
+                {baselineStage >= 4 ? <p className="phase-transition">Baseline finished. Custos starts next.</p> : null}
+              </section>
+            ) : (
+              <section className="panel show-column custos-column active-run">
+                <div className="show-column-head">
+                  <div>
+                    <p className="eyebrow">RUN 2 OF 2 · POLICY · ACTION · VERIFICATION</p>
+                    <h2>Your MCP · Custos</h2>
+                    <p>Standing rules · useful follow-through · evidence</p>
+                  </div>
+                  {custosStage >= 10 ? <State value={data.custos.status} /> : <State value="running" />}
                 </div>
-              ) : null}
-            </section>
-
-            <section className="panel show-column custos-column">
-              <div className="show-column-head">
-                <div>
-                  <p className="eyebrow">POLICY · ACTION · VERIFICATION</p>
-                  <h2>Your MCP · Custos</h2>
-                  <p>Standing rules · useful follow-through · evidence</p>
-                </div>
-                {stage >= 4 ? <State value={data.custos.status} /> : <State value="working" />}
-              </div>
-              {stage >= 1 ? <blockquote className="reveal-item">{data.custos.summary}</blockquote> : <p className="waiting-copy">Custos is about to evaluate the request…</p>}
-              <ProcessPanel mode="custos" stage={stage} state={state} />
-              <ActionList actions={data.custos.actions} visible={custosVisible} />
-              {stage >= 7 ? (
-                <div className="dinner-follow-through reveal-item">
-                  <p className="eyebrow">PROACTIVE FOLLOW-THROUGH</p>
-                  <h3>{data.recipe.name}</h3>
-                  <p className="dinner-note">Selected after checking Maya’s beef allergy.</p>
-                  <div className="dinner-columns">
-                    <div>
-                      <h4>Ingredients</h4>
-                      <ul>{data.recipe.ingredients.map((item) => <li key={item}>{item}</li>)}</ul>
+                {custosStage >= 1 ? <blockquote className="reveal-item">{data.custos.summary}</blockquote> : <p className="waiting-copy">Custos is starting after the baseline run…</p>}
+                <ProcessPanel mode="custos" stage={custosStage} state={custosStage >= 10 ? "done" : state} />
+                <ActionList actions={data.custos.actions} visible={custosVisible} />
+                {custosStage >= 7 ? (
+                  <div className="dinner-follow-through reveal-item">
+                    <p className="eyebrow">PROACTIVE FOLLOW-THROUGH</p>
+                    <h3>{data.recipe.name}</h3>
+                    <p className="dinner-note">Selected after checking Maya’s beef allergy.</p>
+                    <div className="dinner-columns">
+                      <div>
+                        <h4>Ingredients</h4>
+                        <ul>{data.recipe.ingredients.map((item) => <li key={item}>{item}</li>)}</ul>
+                      </div>
+                      <div>
+                        <h4>Cooking procedure</h4>
+                        <ol>{data.recipe.instructions.map((item) => <li key={item}>{item}</li>)}</ol>
+                      </div>
                     </div>
-                    <div>
-                      <h4>Cooking procedure</h4>
-                      <ol>{data.recipe.instructions.map((item) => <li key={item}>{item}</li>)}</ol>
+                    <div className="pantry-result">
+                      <div>
+                        <h4>Already in the pantry</h4>
+                        <p>{data.pantry.join(", ")}</p>
+                      </div>
+                      <div>
+                        <h4>Added to shopping list</h4>
+                        <p className="missing-items">{data.recipe.missingIngredients.length ? data.recipe.missingIngredients.join(", ") : "Nothing missing"}</p>
+                      </div>
                     </div>
                   </div>
-                  <div className="pantry-result">
-                    <div>
-                      <h4>Already in the pantry</h4>
-                      <p>{data.pantry.join(", ")}</p>
-                    </div>
-                    <div>
-                      <h4>Added to shopping list</h4>
-                      <p className="missing-items">{data.recipe.missingIngredients.length ? data.recipe.missingIngredients.join(", ") : "Nothing missing"}</p>
-                    </div>
-                  </div>
-                </div>
-              ) : null}
-            </section>
+                ) : null}
+              </section>
+            )}
           </section>
 
           {stage >= 8 ? (
