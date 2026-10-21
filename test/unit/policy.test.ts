@@ -641,6 +641,11 @@ describe("fail-closed policy validation", () => {
         text: "Call Mum",
       },
       ctx(),
+    );
+    expect(result.verdict).toBe("block");
+    expect(result.reasons[0].text).toContain("invalid values");
+  });
+});
 
 describe("scheduled device actions evaluate quiet hours at their target time", () => {
   const rule: Constraint = base({
