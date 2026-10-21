@@ -112,6 +112,7 @@ function isValidAction(action: ProposedAction): boolean {
         action.servingFor.every((profile) => typeof profile === "string" && profile.trim())
       );
     case "device_set":
+    case "device_schedule":
       return (
         typeof action.device === "string" &&
         action.device.trim().length > 0 &&
