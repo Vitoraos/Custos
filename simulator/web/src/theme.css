@@ -1786,3 +1786,25 @@ body {
 .show-state.good { color: #14532d; background: #dcfce7; }
 .show-state.bad { color: #991b1b; background: #fee2e2; }
 .show-state.neutral { color: #1f2937; background: #f3f4f6; }
+
+/* Inline execution flow: show work inside each assistant column, not in a
+   detached walkthrough strip. The spinner marks the currently active task. */
+.process-spinner {
+  display: block;
+  width: var(--s3);
+  height: var(--s3);
+  border: var(--bw2) solid var(--line);
+  border-top-color: var(--teal-ink);
+  border-radius: var(--r-pill);
+  animation: process-spin 0.8s linear infinite;
+}
+
+.process-baseline .process-spinner {
+  border-top-color: var(--baseline);
+}
+
+@keyframes process-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
