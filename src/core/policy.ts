@@ -237,42 +237,27 @@ export function evaluate(
     }
 
     if (r.kind === "quiet_hours") {
-      const domain =
-        action.type === "device_set"
-          ? deviceDomain(action.device, action.attr)
-          : null;
+      const isDeviceAction =
+        action.type === "device_set" ||
+        action.type === "device_schedule";
+
+      const domain = isDeviceAction
+        ? deviceDomain(action.device, action.attr)
+        : null;
+
       const appliesNow =
-
-        (action.type === "device_set" &&
+        (isDeviceAction &&
           (domain === null || r.applies.includes(domain))) ||
+        (action.type === "reminder" &&
+          r.applies.includes("notifications"));
 
-
-        ((action.type === "device_set" || action.type === "device_schedule") &&
-          r.applies.includes(
-            deviceDomain(action.device, action.attr) ?? "lights",
-          )) ||
-
-        (action.type === "reminder" && r.applies.includes("notifications"));
       const actionTime =
-        action.type === "reminder" ? action.at : ctx.now;
-      if (
-        appliesNow &&
+        action.type === "reminder" ||
+        action.type === "device_schedule"
+          ? action.at
+          : ctx.now;
 
-
-        quietActive(r.start, r.end, r.tz, actionTime)
-
-        quietActive(
-          r.start,
-          r.end,
-          r.tz,
-          action.type === "reminder" || action.type === "device_schedule"
-            ? action.at
-            : ctx.now,
-        )
-
-        quietActive(r.start, r.end, r.tz, actionTime)
-
-      ) {
+      if (appliesNow && quietActive(r.start, r.end, r.tz, actionTime)) {
         reasons.push({
           constraintId: r.id,
           text:
@@ -282,7 +267,6 @@ export function evaluate(
         });
       }
     }
-
     if (
       r.kind === "device_limit" &&
       (action.type === "device_set" || action.type === "device_schedule")
