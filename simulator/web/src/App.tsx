@@ -239,28 +239,28 @@ export default function App() {
         id: "s-process", eyebrow: "02 / PLAN AND PROGRESS", title: "How each one worked",
         description: "The final goal, the subtasks inferred from one request, and what each path can substantiate.",
         rows: [
-          { label: "Final goal", meta: "Intended outcome",
+          { label: "Understand and decompose the request", meta: "Planning",
             baseline: cell(undefined, "Respond to the household request."),
             custos: cell(undefined, "Complete the authorized tasks safely, handle obvious follow-through, and prove what happened.") },
-          { label: "Understand the request", meta: "Step 1",
+          { label: "Retrieve standing household rules", meta: "Memory lookup",
             baseline: cell("Done", "Interpret requested actions", "Request understood."),
             custos: cell("Done", "Separate immediate actions, schedules, and dinner planning", "Five outcomes identified.") },
-          { label: "Apply household rules", meta: "Step 2",
+          { label: "Act on immediate devices", meta: "Tool execution",
             baseline: cell("Not checked", "No rule retrieval shown."),
             custos: cell("Verified", "Load Maya's allergy and school-return time", "Rules checked before acting.") },
-          { label: "Act on devices", meta: "Step 3",
+          { label: "Persist future schedules", meta: "Scheduled actions",
             baseline: cell("Not verified", "Acknowledge coffee and lights", "No persisted device write or schedule created."),
             custos: cell("Verified", "Turn on coffee maker and kitchen light; persist schedules", "Device read-back and schedule persistence checked.") },
-          { label: "Plan a safe dinner", meta: "Step 4",
+          { label: "Check dinner against allergy policy", meta: "Policy evaluation",
             baseline: cell("Not checked", "Select a meal without checking Maya's allergy."),
             custos: cell("Policy verified", "Reject beef and choose a compatible alternative", "Recipe passes the allergy policy.") },
-          { label: "Useful follow-through", meta: "Step 5",
+          { label: "Compare pantry and update shopping list", meta: "Follow-through",
             baseline: cell("Not shown", "No pantry comparison or shopping-list update."),
             custos: cell("Done", "Compare recipe ingredients with pantry and shopping list", "Only missing items are added.") },
-          { label: "Inform the user", meta: "Step 6",
+          { label: "Send recipe and cooking instructions", meta: "Notification",
             baseline: cell("Not shown", "No recipe notification evidence."),
             custos: cell(data.notification.accepted ? "Accepted by provider" : "Unverified", "Send recipe, ingredients, cooking steps, and shopping changes", data.notification.deliveryNote) },
-          { label: "Prove what happened", meta: "Step 7",
+          { label: "Verify outcomes and write receipts", meta: "Read-back + audit",
             baseline: cell("No receipts", "Claim completion", "No independent verification or audit receipt."),
             custos: cell(`${custosReceipts.length} receipts`, "Read back state, inspect schedules, and write receipts", "Outcomes are labelled by evidence, not assumption.") },
         ],
@@ -436,7 +436,7 @@ export default function App() {
           <h1>One request. Two execution paths.</h1>
           <p className="request-quote">“{data?.prompt ?? "Turn on the coffee maker and kitchen light now, schedule coffee for 8am, turn on the hall light 5 minutes before my daughter is back from school, and prepare dinner for me and my daughter."}”</p>
           <p className="request-context">The assistant should infer the necessary substeps, respect household rules, take useful action, and report what the evidence supports.</p>
-          <p className="disclosure">Controlled simulator scenario. The baseline is scripted, device state belongs to a simulated device twin, and the staged reveal is not a live Alexa+ integration or live tool trace.</p>
+          <p className="disclosure">Controlled simulator scenario. The baseline is scripted, device state belongs to a simulated device twin, and task animations are staged over prepared showcase data, not a live Alexa+ integration or live tool trace.</p>
 
         </section>
 
@@ -444,7 +444,7 @@ export default function App() {
 
         {phase === "idle" ? (
           <section className="intro-panel">
-            <div><p className="eyebrow">THE DEMO</p><h2>Same request. Different accountability.</h2><p>Run the controlled baseline first. When it finishes, press Next to reveal the Custos path and its evidence.</p></div>
+            <div><p className="eyebrow">THE DEMO</p><h2>Same request. Different accountability.</h2><p>Run the controlled baseline first. When it finishes, start the Custos workflow to see its subtasks and evidence.</p></div>
             <button className="primary" type="button" onClick={() => void play()}>▶ Play the walkthrough</button>
           </section>
         ) : null}
