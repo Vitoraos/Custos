@@ -416,11 +416,6 @@ export default function App() {
     }
   }
 
-  // The section-level Next action and the sticky header button share one handler.
-  if (typeof window !== "undefined") {
-    window.oncustosnext = continueWithCustos;
-  }
-
   return (
     <main className="showcase-app">
       <header className="app showcase-header">
