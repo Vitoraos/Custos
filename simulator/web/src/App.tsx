@@ -208,7 +208,7 @@ export default function App() {
     if (!data) return [];
     const baselineActions = data.baseline.actions;
     const custosActions = data.custos.actions;
-    const actionFor = (actions: Action[], match: RegExp, scheduled = false) => actions.find((item) => match.test(item.title) && (!scheduled || /schedul/i.test(item.status) || Boolean(item.localTime)));
+    const actionFor = (actions: Action[], match: RegExp, scheduled = false) => actions.find((item) => match.test(item.title) && (!scheduled || (!/not scheduled|unscheduled|not changed/i.test(item.status) && (/schedul/i.test(item.status) || Boolean(item.localTime)))));
     const actionCell = (action?: Action, fallback = "No evidence recorded.") =>
       action ? cell(action.status, action.evidence, action.recordId ? `Record: ${action.recordId}` : undefined) : cell("Not shown", fallback);
     const baselineReceipts = data.baseline.receipts;
