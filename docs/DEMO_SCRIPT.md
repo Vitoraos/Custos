@@ -22,7 +22,7 @@ The simulator presents an agentic task timeline first, then expandable evidence 
 7. **Device twin**: immediate simulated device state versus future schedules.
 8. **Receipts**: readable evidence with expandable raw JSON.
 
-Press **Play comparison** once. The baseline task list progresses through queued, running, and complete states, then pauses. Press **Run with Custos** to start the second workflow. Each subtask exposes its result when the staged presentation reaches it. Once Custos finishes, expand the evidence sections for the action details, rules, recipe and shopping follow-through, device twin, and receipts. Do not describe the animation as live execution: the API prepares the showcase data before the UI reveals it progressively.
+Press **Play comparison** once. The baseline task list progresses through queued, running, and complete states, then speaks its final summary aloud before pausing. Press **Run with Custos** to start the second workflow. Each subtask exposes its result when the staged presentation reaches it. Subtask pacing is intentionally slow: about 2.1 seconds per baseline step and 3.1 seconds per Custos step, five times the previous delays. Once Custos finishes, expand the evidence sections for the action details, rules, recipe and shopping follow-through, device twin, and receipts. Do not describe the animation as live execution: the API prepares the showcase data before the UI reveals it progressively.
 
 ## The request
 
@@ -38,7 +38,7 @@ scheduled for 1:25pm. Maya has a beef allergy, so dinner must exclude beef.
 | Time | What is on screen | Narration |
 |---|---|---|
 | 0:00–0:25 | Request card and agent workflow framing | "One natural-language request contains immediate device actions, future schedules, and dinner planning. The challenge is not just parsing the sentence. It is carrying the right context through every dependent action." |
-| 0:25–0:55 | Baseline agent panel, queued/running/complete task states | "First, the controlled baseline. Watch what it acknowledges, what it skips, and what it cannot prove. This is a scripted baseline in our simulator, not a claim about a live Alexa+ session." |
+| 0:25–0:55 | Baseline agent panel, queued/running/complete task states; listen to baseline output | "First, the controlled baseline. Watch what it acknowledges, what it skips, and what it cannot prove. Listen to its final response too. This is a scripted baseline in our simulator, not a claim about a live Alexa+ session." |
 | 0:55–1:05 | Baseline is complete; Run with Custos is visible | "The baseline is complete. A confident response is not evidence. I will start the second run only when I press Next." |
 | 1:05–1:45 | Custos agent panel and its progressive subtask results | "Custos retrieves the standing rules before planning. Maya gets no beef, and the 1:30 school return becomes a 1:25 hall-light schedule. The coffee maker and kitchen light are immediate actions; coffee and the hall light are future schedules." |
 | 1:45–2:15 | Expand dinner evidence for recipe, cooking procedure, pantry comparison, and shopping list | "It does not stop at naming a meal. It shows the ingredients and cooking steps, compares ingredients with the pantry, and identifies missing items for the shopping list." |
@@ -59,7 +59,7 @@ scheduled for 1:25pm. Maya has a beef allergy, so dinner must exclude beef.
 
 ## Recording notes
 
-Keep the request visible, let each stage appear without rushing, and keep raw
+Keep the request visible, let each stage appear without rushing, and let the baseline speak its final summary before starting Custos. The intentionally slower pacing is approximately 2.1 seconds per baseline step and 3.1 seconds per Custos step. Keep raw
 JSON collapsed for the main narration. The workflow is the primary view. The evidence accordion order is: answer, actions, dinner, household rules, notification, device-twin state, then receipts. Keep the raw JSON collapsed unless
 a judge asks to inspect the underlying evidence. Do not ask judges to configure an MCP client or run the
 simulator. The MCP interface and enforcement path are the product; this UI is
