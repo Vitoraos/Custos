@@ -212,6 +212,7 @@ thead th.custos-head strong { color: white; }
 .status-tag.good { background: var(--ink); border-color: var(--ink); color: white; }
 .status-tag.good i { background: white; border-color: white; }
 .status-tag.bad { border-style: dashed; color: var(--bad); background: var(--bad-bg); }
+.status-tag.partial { background: repeating-linear-gradient(135deg, white 0 5px, var(--paper-2) 5px 9px); color: var(--ink-2); border-style: dashed; }
 .status-tag.neutral { color: var(--ink-2); background: var(--paper-2); border-color: #c8c9c2; }
 .status-key { display: flex; flex-wrap: wrap; gap: 9px 20px; margin-top: 17px; }
 .status-key span { display: inline-flex; align-items: center; gap: 7px; color: var(--ink-2); font-size: 11px; }
