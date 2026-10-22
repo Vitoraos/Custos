@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { voice } from "./voice";
 import "./theme.css";
 
@@ -30,20 +30,8 @@ type Showcase = {
   disclosure: string;
   note: string;
   rules: { id: string; profile: string; summary: string; evidence: string }[];
-  baseline: {
-    label: string;
-    summary: string;
-    status: string;
-    actions: Action[];
-    receipts: Receipt[];
-  };
-  custos: {
-    label: string;
-    summary: string;
-    status: string;
-    actions: Action[];
-    receipts: Receipt[];
-  };
+  baseline: { label: string; summary: string; status: string; actions: Action[]; receipts: Receipt[] };
+  custos: { label: string; summary: string; status: string; actions: Action[]; receipts: Receipt[] };
   recipe: { name: string; ingredients: string[]; instructions: string[]; missingIngredients: string[] };
   pantry: string[];
   shoppingList: string[];
@@ -51,151 +39,41 @@ type Showcase = {
   deviceTruth: Record<string, Record<string, Record<string, unknown>>>;
 };
 
-type RunState = "idle" | "running" | "done" | "error";
-type ProcessStatus = "pending" | "running" | "done" | "failed";
-type ProcessTask = { goal: string; subtask: string; status: ProcessStatus; detail: string };
+type Phase = "idle" | "preparing" | "baseline" | "waiting" | "custos" | "done" | "error";
+type Cell = { status?: string; text?: string; detail?: string; content?: ReactNode };
+type CompareRow = { label: string; meta: string; baseline: Cell; custos: Cell };
+type Section = { id: string; eyebrow: string; title: string; description: string; rows: CompareRow[]; key?: boolean };
+
 async function runShowcase(): Promise<Showcase> {
   const response = await fetch(`${API}/sim/showcase`, { method: "POST" });
   const body: unknown = await response.json();
-
   if (!response.ok) {
-    const message =
-      body && typeof body === "object" && "error" in body
-        ? String((body as { error?: unknown }).error ?? "Showcase run failed")
-        : "Showcase run failed";
+    const message = body && typeof body === "object" && "error" in body
+      ? String((body as { error?: unknown }).error ?? "Showcase run failed")
+      : "Showcase run failed";
     throw new Error(message);
   }
-
-  // The API response is a runtime boundary. TypeScript types do not validate
-  // JSON received over HTTP, because apparently the network has no type checker.
-  if (!body || typeof body !== "object") {
-    throw new Error("Showcase API returned an invalid response.");
-  }
-
+  if (!body || typeof body !== "object") throw new Error("Showcase API returned an invalid response.");
   const result = body as Partial<Showcase>;
-  if (
-    !result.baseline ||
-    !result.custos ||
-    !Array.isArray(result.rules) ||
-    !result.notification ||
-    !result.deviceTruth ||
-    !result.recipe ||
-    typeof result.recipe.name !== "string" ||
-    !Array.isArray(result.recipe.ingredients) ||
-    !Array.isArray(result.recipe.instructions) ||
-    !Array.isArray(result.recipe.missingIngredients)
-  ) {
-    throw new Error(
-      "Showcase API response is missing required data (especially recipe.name). Check that the API deployment matches the web app.",
-    );
+  if (!result.baseline || !result.custos || !Array.isArray(result.rules) ||
+      !result.notification || !result.deviceTruth || !result.recipe ||
+      typeof result.recipe.name !== "string" || !Array.isArray(result.recipe.ingredients) ||
+      !Array.isArray(result.recipe.instructions) || !Array.isArray(result.recipe.missingIngredients)) {
+    throw new Error("Showcase API response is missing required data. Check that the API deployment matches the web app.");
   }
-
   return result as Showcase;
 }
 
 function State({ value }: { value: string }) {
-  const cls =
-    value === "scheduled" || value === "policy verified" || value === "verified"
-      ? "show-state good"
-      : value === "not scheduled" || value === "unverified" || value === "rule not checked"
-        ? "show-state bad"
-        : "show-state neutral";
-  return <span className={cls}>{value}</span>;
-}
-
-function ActionList({ actions, visible }: { actions: Action[]; visible: number }) {
-  return (
-    <div className="show-actions">
-      {actions.slice(0, visible).map((action) => (
-        <article className="show-action reveal-item" key={action.title}>
-          <div className="show-action-title">
-            <strong>{action.title}</strong>
-            <State value={action.status} />
-          </div>
-          {action.recipe ? <p className="show-recipe">{action.recipe}</p> : null}
-          <p>{action.evidence}</p>
-          {action.recordId ? (
-            <details>
-              <summary>View persisted schedule record</summary>
-              <code>{action.recordId}</code>
-            </details>
-          ) : null}
-        </article>
-      ))}
-    </div>
-  );
-}
-
-function ProcessPanel({
-  mode,
-  stage,
-  state,
-}: {
-  mode: "baseline" | "custos";
-  stage: number;
-  state: RunState;
-}) {
-  const tasks: Omit<ProcessTask, "status">[] = mode === "baseline"
-    ? [
-        { goal: "Answer the household request", subtask: "Interpret the requested actions", detail: "Request understood" },
-        { goal: "Prepare the requested actions", subtask: "Acknowledge coffee and lights", detail: "No persisted device write or schedule created" },
-        { goal: "Plan dinner", subtask: "Select a meal without checking Maya's allergy", detail: "Standing rule not checked" },
-        { goal: "Finish the request", subtask: "Claim completion", detail: "No independent verification or audit receipt" },
-      ]
-    : [
-        { goal: "Understand the request", subtask: "Extract immediate actions, scheduled actions, and dinner goal", detail: "Five outcomes identified" },
-        { goal: "Apply household rules", subtask: "Load Maya's allergy and school-return time", detail: "Rules checked before acting" },
-        { goal: "Act on devices", subtask: "Turn on coffee maker and kitchen light; persist coffee and hall-light schedules", detail: "Device read-back and schedule persistence checked" },
-        { goal: "Plan a safe dinner", subtask: "Reject beef recipe and choose a compatible alternative", detail: "Recipe passes the allergy policy" },
-        { goal: "Complete useful follow-through", subtask: "Compare recipe ingredients with pantry and shopping list", detail: "Only missing items added; duplicates avoided" },
-        { goal: "Inform the user", subtask: "Send recipe, ingredients, cooking steps, and shopping changes", detail: "Provider acceptance reported separately from delivery" },
-        { goal: "Prove what happened", subtask: "Read back state, inspect schedules, and write receipts", detail: "Each outcome labelled by evidence, not assumption" },
-      ];
-  const completionStage = mode === "baseline"
-    ? [1, 2, 3, 4]
-    : [1, 3, 5, 6, 7, 8, 9];
-  return (
-    <section className={`process-panel process-${mode}`} aria-label={mode === "baseline" ? "Baseline task progress" : "Custos task progress"}>
-      <div className="process-heading">
-        <div>
-          <p className="eyebrow">{mode === "baseline" ? "BASELINE EXECUTION" : "CUSTOS EXECUTION"}</p>
-          <h3>{mode === "baseline" ? "Plan and progress" : "Goal, subtasks and evidence"}</h3>
-        </div>
-        <State value={state === "done" ? "done" : state === "error" ? "failed" : "running"} />
-      </div>
-      <p className="process-final-goal">
-        <strong>Final goal:</strong> {mode === "baseline"
-          ? "Respond to the household request."
-          : "Complete the authorized tasks safely, handle the obvious follow-through, and prove what actually happened."}
-      </p>
-      <div className="process-list">
-        {tasks.map((task, index) => {
-          const threshold = completionStage[index] ?? 99;
-          const status: ProcessStatus =
-            stage > threshold || (state === "done" && stage >= threshold)
-              ? "done"
-              : stage === threshold && state === "running"
-                ? "running"
-                : "pending";
-          return (
-            <article className={`process-task process-${status}`} key={task.subtask}>
-              <span className={`process-status${status === "running" ? " is-spinning" : ""}`} aria-label={status}>
-                {status === "done" ? "✓" : status === "running" ? <span className="process-spinner" aria-hidden="true" /> : "○"}
-              </span>
-              <div className="process-task-copy">
-                <div className="process-task-top">
-                  <strong>{task.goal}</strong>
-                  <State value={status} />
-                </div>
-                <p>{task.subtask}</p>
-                <small>{task.detail}</small>
-              </div>
-            </article>
-          );
-        })}
-      </div>
-    </section>
-  );
+  const normalized = value.toLowerCase();
+  const cls = /not scheduled|unverified|not verified|not changed|not checked|not retrieved|not applied|blocked|failed|no receipts|off$/.test(normalized)
+    ? "bad"
+    : /accepted by provider|^accepted$/.test(normalized)
+      ? "partial"
+      : /verified|scheduled|done|allow|on$|retrieved|applied|recorded/.test(normalized)
+        ? "good"
+        : "neutral";
+  return <span className={`status-tag ${cls}`}><i aria-hidden="true" />{value}</span>;
 }
 
 function humanize(value: string): string {
@@ -212,300 +90,390 @@ function humanize(value: string): string {
   return labels[value] ?? value.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
-function ReceiptCard({ receipt }: { receipt: Receipt }) {
+function cell(status?: string, text?: string, detail?: string, content?: ReactNode): Cell {
+  return { status, text, detail, content };
+}
+
+function ReceiptDetails({ receipt }: { receipt: Receipt }) {
+  const say = (receipt.evidence as { say?: unknown } | null)?.say;
   return (
-    <article className="show-receipt">
-      <div className="receipt-topline">
-        <div>
-          <p className="eyebrow">ACTION RECEIPT</p>
-          <h3>{humanize(receipt.target)}</h3>
-        </div>
-        <State value={receipt.outcome} />
-      </div>
-      <p className="receipt-tool">{humanize(receipt.tool)} · {humanize(receipt.status)}</p>
-      <p className="receipt-say">
-        {String((receipt.evidence as { say?: unknown })?.say ?? "Evidence recorded for this action.")}
-      </p>
-      <p className="receipt-explainer">{receipt.outcome === "verified" ? "What this means: the expected state was read back or the record was persisted and checked." : receipt.outcome === "blocked" ? "What this means: a standing rule prevented this action." : "What this means: this result is not confirmed as successful."}</p>
+    <div className="receipt-copy">
+      <State value={receipt.outcome} />
+      <p className="receipt-say">{String(say ?? "Evidence recorded for this action.")}</p>
+      <p className="muted small">{receipt.outcome === "verified"
+        ? "The expected state was read back or the record was persisted and checked."
+        : receipt.outcome === "blocked"
+          ? "A standing rule prevented this action."
+          : "This result is not confirmed as successful."}</p>
       <details>
         <summary>View raw JSON evidence</summary>
         <pre>{JSON.stringify(receipt.raw ?? receipt, null, 2)}</pre>
       </details>
-      {receipt.id ? <p className="receipt-id">Receipt ID <code>{receipt.id}</code></p> : null}
-    </article>
+      {receipt.id ? <p className="muted small">Receipt ID <code>{receipt.id}</code></p> : null}
+    </div>
+  );
+}
+
+function TableSection({
+  section,
+  index,
+  baselineVisible,
+  custosVisible,
+  phase,
+  onNext,
+}: {
+  section: Section;
+  index: number;
+  baselineVisible: number;
+  custosVisible: number;
+  phase: Phase;
+  onNext: () => void;
+}) {
+  let rowIndex = index;
+  return (
+    <section className="comparison-card" id={section.id} aria-labelledby={`${section.id}-title`}>
+      <div className="card-heading">
+        <p className="eyebrow">{section.eyebrow}</p>
+        <h2 id={`${section.id}-title`}>{section.title}</h2>
+        <p>{section.description}</p>
+        {section.key ? (
+          <div className="status-key">
+            <span><State value="Verified" /> read back or policy-checked</span>
+            <span><State value="Scheduled" /> saved, not run yet</span>
+            <span><State value="Accepted" /> provider accepted, delivery unconfirmed</span>
+            <span><State value="Not done" /> no write, schedule, or check</span>
+          </div>
+        ) : null}
+      </div>
+      <div className="table-scroll">
+        <table>
+          <colgroup><col className="item-col" /><col className="run-col" /><col className="run-col" /></colgroup>
+          <thead>
+            <tr>
+              <th scope="col">Item</th>
+              <th scope="col"><span>Run 1 of 2 · baseline</span><strong>Alexa+ without Custos</strong></th>
+              <th scope="col" className="custos-head"><span>Run 2 of 2 · memory + verification</span><strong>Custos</strong></th>
+            </tr>
+          </thead>
+          <tbody>
+            {section.rows.map((row) => {
+              const currentIndex = rowIndex++;
+              const showBaseline = baselineVisible > currentIndex;
+              const showCustos = custosVisible > currentIndex;
+              return (
+                <tr className="data-row" key={row.label}>
+                  <th scope="row">{row.label}<small>{row.meta}</small></th>
+                  <td className={showBaseline ? "baseline-cell revealed" : "baseline-cell concealed"} data-side="Alexa+ without Custos">
+                    {showBaseline ? <CellContent value={row.baseline} /> : <span className="not-yet">Not shown yet</span>}
+                  </td>
+                  <td className={showCustos ? "custos-cell revealed" : "custos-cell concealed"} data-side="Custos">
+                    {showCustos ? <CellContent value={row.custos} /> : <span className="not-yet">Waiting for Run 2</span>}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      {section.id === "s-answer" && phase === "waiting" ? (
+        <div className="next-callout">
+          <div><strong>Baseline complete.</strong><p>Run 2 will not begin until you press Next.</p></div>
+          <button type="button" className="primary" onClick={onNext}>Next: Run with Custos →</button>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function CellContent({ value }: { value: Cell }) {
+  return (
+    <div className="cell-content">
+      {value.status ? <State value={value.status} /> : null}
+      {value.text ? <p className="cell-text">{value.text}</p> : null}
+      {value.detail ? <p className="muted small">{value.detail}</p> : null}
+      {value.content}
+    </div>
   );
 }
 
 export default function App() {
-  const [state, setState] = useState<RunState>("idle");
+  const [phase, setPhase] = useState<Phase>("idle");
   const [data, setData] = useState<Showcase | null>(null);
-  const [stage, setStage] = useState(0);
+  const [baselineVisible, setBaselineVisible] = useState(0);
+  const [custosVisible, setCustosVisible] = useState(0);
   const [error, setError] = useState("");
   const [muted, setMuted] = useState(false);
-  const [awaitingNext, setAwaitingNext] = useState(false);
 
-  const stageDelays = [1000, 1400, 1700, 1300, 1500, 2200, 2000, 1800, 1750, 2200, 1400, 1700, 1900, 1500];
+  const sections = useMemo<Section[]>(() => {
+    if (!data) return [];
+    const baselineActions = data.baseline.actions;
+    const custosActions = data.custos.actions;
+    const actionFor = (actions: Action[], match: RegExp, scheduled = false) => actions.find((item) => match.test(item.title) && (!scheduled || /schedul/i.test(item.status) || Boolean(item.localTime)));
+    const actionCell = (action?: Action, fallback = "No evidence recorded.") =>
+      action ? cell(action.status, action.evidence, action.recordId ? `Record: ${action.recordId}` : undefined) : cell("Not shown", fallback);
+    const baselineReceipts = data.baseline.receipts;
+    const custosReceipts = data.custos.receipts;
+    const recipeText = data.recipe.ingredients.join(", ");
+    const instructionList = <ol className="compact-list">{data.recipe.instructions.map((step, i) => <li key={i}>{step}</li>)}</ol>;
+    const rulesList = data.rules.map((rule) => (
+      <article className="rule-line" key={rule.id}>
+        <strong>{rule.summary}</strong><p className="muted small">{rule.profile} · {rule.evidence}</p>
+      </article>
+    ));
+    const receiptList = (receipts: Receipt[]) => receipts.length ? (
+      <div className="receipt-stack">{receipts.map((receipt, i) => (
+        <article className="receipt-row" key={receipt.id ?? `${receipt.tool}-${i}`}>
+          <strong>{humanize(receipt.target)}</strong><span className="receipt-tool">{humanize(receipt.tool)}</span>
+          <ReceiptDetails receipt={receipt} />
+        </article>
+      ))}</div>
+    ) : <p className="muted">No receipts recorded.</p>;
+
+    return [
+      {
+        id: "s-answer", eyebrow: "01 / THE OUTCOME", title: "The answer you hear",
+        description: "Compare the assistant's final message with the evidence-backed result.",
+        rows: [
+          { label: "Summary", meta: "Assistant message",
+            baseline: cell(undefined, data.baseline.summary, "Acknowledgement is not independent proof."),
+            custos: cell(undefined, data.custos.summary, "The summary is limited to what the simulator records.") },
+          { label: "Run status", meta: "Overall result",
+            baseline: cell(data.baseline.status, "Baseline response complete", "No independent verification or audit trail."),
+            custos: cell(data.custos.status, "Custos run complete", "See action and receipt evidence below.") },
+        ],
+      },
+      {
+        id: "s-process", eyebrow: "02 / PLAN AND PROGRESS", title: "How each one worked",
+        description: "The final goal, the subtasks inferred from one request, and what each path can substantiate.",
+        rows: [
+          { label: "Final goal", meta: "Intended outcome",
+            baseline: cell(undefined, "Respond to the household request."),
+            custos: cell(undefined, "Complete the authorized tasks safely, handle obvious follow-through, and prove what happened.") },
+          { label: "Understand the request", meta: "Step 1",
+            baseline: cell("Done", "Interpret requested actions", "Request understood."),
+            custos: cell("Done", "Separate immediate actions, schedules, and dinner planning", "Five outcomes identified.") },
+          { label: "Apply household rules", meta: "Step 2",
+            baseline: cell("Not checked", "No rule retrieval shown."),
+            custos: cell("Verified", "Load Maya's allergy and school-return time", "Rules checked before acting.") },
+          { label: "Act on devices", meta: "Step 3",
+            baseline: cell("Not verified", "Acknowledge coffee and lights", "No persisted device write or schedule created."),
+            custos: cell("Verified", "Turn on coffee maker and kitchen light; persist schedules", "Device read-back and schedule persistence checked.") },
+          { label: "Plan a safe dinner", meta: "Step 4",
+            baseline: cell("Not checked", "Select a meal without checking Maya's allergy."),
+            custos: cell("Policy verified", "Reject beef and choose a compatible alternative", "Recipe passes the allergy policy.") },
+          { label: "Useful follow-through", meta: "Step 5",
+            baseline: cell("Not shown", "No pantry comparison or shopping-list update."),
+            custos: cell("Done", "Compare recipe ingredients with pantry and shopping list", "Only missing items are added.") },
+          { label: "Inform the user", meta: "Step 6",
+            baseline: cell("Not shown", "No recipe notification evidence."),
+            custos: cell(data.notification.accepted ? "Accepted by provider" : "Unverified", "Send recipe, ingredients, cooking steps, and shopping changes", data.notification.deliveryNote) },
+          { label: "Prove what happened", meta: "Step 7",
+            baseline: cell("No receipts", "Claim completion", "No independent verification or audit receipt."),
+            custos: cell(`${custosReceipts.length} receipts`, "Read back state, inspect schedules, and write receipts", "Outcomes are labelled by evidence, not assumption.") },
+        ],
+      },
+      {
+        id: "s-actions", eyebrow: "03 / ACTIONS", title: "What each one did",
+        description: "One row per requested outcome. Status and supporting evidence stay together.",
+        key: true,
+        rows: [
+          { label: "Coffee maker now", meta: "Immediate action",
+            baseline: actionCell(actionFor(baselineActions, /coffee maker/i), "No verified device write."),
+            custos: actionCell(actionFor(custosActions, /coffee maker/i), "No matching action returned.") },
+          { label: "Kitchen light now", meta: "Immediate action",
+            baseline: actionCell(actionFor(baselineActions, /kitchen light/i), "No verified device write."),
+            custos: actionCell(actionFor(custosActions, /kitchen light/i), "No matching action returned.") },
+          { label: "Coffee at 8:00 AM", meta: "Scheduled action",
+            baseline: actionCell(actionFor(baselineActions, /coffee/i, true), "No persisted schedule."),
+            custos: actionCell(actionFor(custosActions, /coffee/i, true), "Schedule record not returned.") },
+          { label: "Hall light at 1:25 PM", meta: "Derived schedule",
+            baseline: actionCell(actionFor(baselineActions, /hall light/i), "School-return rule not applied."),
+            custos: actionCell(actionFor(custosActions, /hall light/i), "Schedule record not returned.") },
+          { label: "Dinner", meta: "Household policy",
+            baseline: cell("Rule not checked", "No allergy policy evaluation shown."),
+            custos: cell("Policy verified", data.recipe.name, "Beef is excluded for Maya.") },
+          { label: "Receipts", meta: "Audit evidence",
+            baseline: cell("No receipts", "No persisted records to inspect."),
+            custos: cell(`${custosReceipts.length} records`, "Readable summaries plus expandable raw JSON.") },
+        ],
+      },
+      {
+        id: "s-dinner", eyebrow: "04 / PROACTIVE FOLLOW-THROUGH", title: "Dinner, end to end",
+        description: "A useful dinner plan includes a compatible recipe, cooking steps, and a pantry-aware shopping list.",
+        rows: [
+          { label: "Recipe", meta: "Policy check",
+            baseline: cell("Not shown", "No allergy-aware recipe selection evidence."),
+            custos: cell("Policy verified", data.recipe.name, "Selected after checking Maya's beef allergy.") },
+          { label: "Ingredients", meta: "Recipe contents",
+            baseline: cell("Not shown", "No ingredient list."),
+            custos: cell(undefined, recipeText) },
+          { label: "Cooking procedure", meta: "Recipe instructions",
+            baseline: cell("Not shown", "No cooking procedure."),
+            custos: cell(undefined, undefined, undefined, instructionList) },
+          { label: "Already in the pantry", meta: "Inventory comparison",
+            baseline: cell("Not shown", "No pantry comparison."),
+            custos: cell(undefined, data.pantry.join(", ") || "No pantry items returned.") },
+          { label: "Added to shopping list", meta: "Missing ingredients",
+            baseline: cell("Not shown", "No shopping-list update."),
+            custos: cell(data.recipe.missingIngredients.length ? "Updated" : "No changes needed", data.recipe.missingIngredients.join(", ") || "Nothing missing", "The list is based on the returned pantry comparison.") },
+        ],
+      },
+      {
+        id: "s-rules", eyebrow: "05 / HOUSEHOLD CONTEXT", title: "What Custos remembered",
+        description: "Standing rules are loaded before dependent actions, rather than guessed after the fact.",
+        rows: [
+          { label: "Standing rules", meta: `${data.rules.length} saved rules`,
+            baseline: cell("Not retrieved", "No standing-rule lookup shown."),
+            custos: cell("Retrieved", undefined, undefined, <div className="rule-stack">{rulesList}</div>) },
+          { label: "School return minus 5 minutes", meta: "Derived schedule",
+            baseline: cell("Not applied", "No derived schedule evidence."),
+            custos: cell("Derived schedule", "1:30 PM − 5 min = 1:25 PM", "Hall-light schedule persisted; execution is pending.") },
+          { label: "Beef allergy", meta: "Safety constraint",
+            baseline: cell("Not checked", "No policy evaluation shown."),
+            custos: cell("Applied", "Dinner excludes beef", "Beef tacos are blocked; the alternative recipe passes the policy check.") },
+        ],
+      },
+      {
+        id: "s-notification", eyebrow: "06 / DINNER NOTIFICATION", title: "Recipe notification",
+        description: "Provider acceptance and final delivery are different claims. The UI keeps that distinction explicit.",
+        rows: [
+          { label: "Provider status", meta: "Notification request",
+            baseline: cell("Not shown", "No notification evidence."),
+            custos: cell(data.notification.accepted ? "Accepted by provider" : "Unverified", data.notification.topic, data.notification.deliveryNote) },
+          { label: "Message preview", meta: "Recipe + shopping list",
+            baseline: cell("Not shown", "No notification payload."),
+            custos: cell(undefined, undefined, undefined, <details><summary>Preview notification text</summary><pre>{data.notification.text}</pre></details>) },
+        ],
+      },
+      {
+        id: "s-devices", eyebrow: "07 / INDEPENDENT DEVICE TWIN", title: "What changed on the devices?",
+        description: "Immediate simulated state and future schedules are shown separately. A saved schedule has not fired.",
+        rows: [
+          { label: "Coffee maker", meta: "Device state",
+            baseline: cell("Off", "No verified write."),
+            custos: cell("On", "Read back from the simulated device twin.") },
+          { label: "Kitchen light", meta: "Device state",
+            baseline: cell("Off", "No verified write."),
+            custos: cell("On", "Read back from the simulated device twin.") },
+          { label: "Hall light", meta: "Scheduled device",
+            baseline: cell("Off", "No persisted schedule."),
+            custos: cell("Off", "Simulated twin remains unchanged; scheduled for 1:25 PM.") },
+          { label: "Future schedules", meta: "Execution status",
+            baseline: cell("Not scheduled", "No schedule record to inspect."),
+            custos: cell("Scheduled · pending", "Coffee at 8:00 AM and hall light at 1:25 PM.", "The scheduled actions have not executed yet.") },
+        ],
+      },
+      {
+        id: "s-receipts", eyebrow: "08 / AUDIT TRAIL", title: "Receipts for what happened",
+        description: "Readable evidence first. Expand raw JSON only when technical inspection is useful.",
+        rows: [
+          { label: "Receipt log", meta: `${custosReceipts.length} Custos records`,
+            baseline: cell("No receipts", "The baseline has no independent audit trail."),
+            custos: cell("Recorded", undefined, undefined, receiptList(custosReceipts)) },
+          { label: "Baseline evidence", meta: `${baselineReceipts.length} baseline records`,
+            baseline: cell(baselineReceipts.length ? "Recorded" : "No receipts", undefined, undefined, receiptList(baselineReceipts)),
+            custos: cell("Not applicable", "The Custos column records the verified path.") },
+        ],
+      },
+    ];
+  }, [data]);
+
+  const rowCount = sections.reduce((total, section) => total + section.rows.length, 0);
 
   async function play() {
-    if (state === "running") return;
-    setState("running");
-    setAwaitingNext(false);
+    if (phase === "baseline" || phase === "custos" || phase === "preparing" || phase === "waiting") return;
+    setPhase("preparing");
     setError("");
     setData(null);
-    setStage(0);
+    setBaselineVisible(0);
+    setCustosVisible(0);
     try {
       const result = await runShowcase();
       setData(result);
-      // The API prepares the scenario before this staged presentation starts.
-      // Finish the baseline and stop at stage 4 until the user explicitly clicks Next.
-      for (let index = 0; index < 4; index += 1) {
-        await new Promise((resolve) => window.setTimeout(resolve, stageDelays[index]));
-        setStage(index + 1);
+      setPhase("baseline");
+      // The API prepares the scenario first. This is staged presentation, not a live tool trace.
+      const totalRows = 32;
+      for (let i = 1; i <= totalRows; i += 1) {
+        await new Promise((resolve) => window.setTimeout(resolve, 180));
+        setBaselineVisible(i);
       }
-      setState("done");
-      setAwaitingNext(true);
+      setPhase("waiting");
     } catch (e) {
       setError((e as Error).message);
-      setState("error");
+      setPhase("error");
     }
   }
 
   async function continueWithCustos() {
-    if (!data || !awaitingNext) return;
-    setAwaitingNext(false);
-    setState("running");
-    try {
-      // Custos must not begin until the viewer explicitly chooses Next.
-      setStage(5); // Switch to the Custos panel immediately on the explicit click.
-      for (let index = 5; index < stageDelays.length; index += 1) {
-        await new Promise((resolve) => window.setTimeout(resolve, stageDelays[index]));
-        setStage(index + 1);
-      }
-      setState("done");
-      if (!muted) {
-        void voice.speak(
-          "The coffee maker and kitchen light are on in the simulated device twin. Coffee and the hall light are scheduled. Dinner avoids beef, missing ingredients were added to the shopping list, and the recipe notification was accepted by the provider. Scheduled actions have not run yet.",
-        );
-      }
-    } catch (e) {
-      setError((e as Error).message);
-      setState("error");
+    if (!data || phase !== "waiting") return;
+    setPhase("custos");
+    setCustosVisible(0);
+    for (let i = 1; i <= rowCount; i += 1) {
+      await new Promise((resolve) => window.setTimeout(resolve, 220));
+      setCustosVisible(i);
+    }
+    setPhase("done");
+    if (!muted) {
+      void voice.speak("The coffee maker and kitchen light are on in the simulated device twin. Coffee and the hall light are scheduled. Dinner avoids beef, missing ingredients were added to the shopping list, and the recipe notification was accepted by the provider. Scheduled actions have not run yet.");
     }
   }
-
-  const baselineStage = Math.min(stage, 4);
-  const custosStage = Math.max(0, stage - 4);
-  const baselineVisible = baselineStage >= 3 ? 5 : baselineStage >= 2 ? 2 : baselineStage >= 1 ? 1 : 0;
-  const custosVisible = custosStage >= 9 ? 5 : custosStage >= 8 ? 4 : custosStage >= 7 ? 3 : custosStage >= 5 ? 2 : custosStage >= 3 ? 1 : 0;
 
   return (
     <main className="showcase-app">
       <header className="app showcase-header">
-        <div className="brand-block">
-          <p className="eyebrow">ACCOUNTABILITY FOR AI ASSISTANTS</p>
-          <h1>Custos</h1>
-        </div>
+        <a className="brand-block" href="#top" aria-label="Custos home">
+          <span className="brand-mark" aria-hidden="true">C</span>
+          <span><span className="eyebrow">ACCOUNTABILITY FOR AI ASSISTANTS</span><strong>Custos</strong></span>
+        </a>
         <div className="controls">
-          <button type="button" onClick={() => void play()} disabled={state === "running" || awaitingNext}>
-            {state === "running" ? (stage <= 4 ? "Baseline running…" : "Custos running…") : awaitingNext ? "Baseline complete · waiting for Next" : state === "done" ? "↻ Run again" : "▶ Play comparison"}
+          <button type="button" className="primary" onClick={() => phase === "waiting" ? void continueWithCustos() : phase === "done" || phase === "error" || phase === "idle" ? void play() : undefined} disabled={phase === "preparing" || phase === "baseline" || phase === "custos"}>
+            {phase === "preparing" ? "Preparing…" : phase === "baseline" ? "Baseline running…" : phase === "waiting" ? "Next: Run with Custos →" : phase === "custos" ? "Custos running…" : phase === "done" ? "↻ Run again" : phase === "error" ? "Retry comparison" : "▶ Play comparison"}
           </button>
-          <button
-            type="button"
-            className="secondary-button"
-            onClick={() => {
-              const next = !muted;
-              setMuted(next);
-              if (next) voice.cancel();
-            }}
-          >
+          <button type="button" className="secondary-button" aria-pressed={!muted} onClick={() => { const next = !muted; setMuted(next); if (next) voice.cancel(); }}>
             {muted ? "Voice off" : "Voice summary on"}
           </button>
         </div>
       </header>
 
-      <section className="prompt-card showcase-prompt">
-        <p className="eyebrow">ONE REQUEST · THREE OBLIGATIONS</p>
-        <p className="prompt-copy">
-          Turn on the coffee maker and kitchen light now, schedule coffee for 8am, turn on the hall light 5 minutes before my daughter is back from school, and prepare dinner for me and my daughter.
-        </p>
-        <p className="prompt-context">
-          The assistant should infer the necessary substeps, respect household rules, take useful action, and report what the evidence supports.
-        </p>
-      </section>
-
-      {error ? (
-        <section className="panel show-error" role="alert">
-          <strong>Comparison failed.</strong>
-          <p>{error}</p>
-          <button type="button" onClick={() => void play()}>Retry run</button>
+      <div id="top" className="page-wrap">
+        <section className="request-intro">
+          <p className="eyebrow">ONE REQUEST · MULTIPLE OBLIGATIONS</p>
+          <h1>One request. Two execution paths.</h1>
+          <p className="request-quote">“{data?.prompt ?? "Turn on the coffee maker and kitchen light now, schedule coffee for 8am, turn on the hall light 5 minutes before my daughter is back from school, and prepare dinner for me and my daughter."}”</p>
+          <p className="request-context">The assistant should infer the necessary substeps, respect household rules, take useful action, and report what the evidence supports.</p>
+          <p className="disclosure">Controlled simulator scenario. The baseline is scripted, device state belongs to a simulated device twin, and the staged reveal is not a live Alexa+ integration or live tool trace.</p>
+          <nav className="section-nav" aria-label="Jump to a comparison section">
+            {sections.map((section) => <a href={`#${section.id}`} key={section.id}>{section.title}</a>)}
+          </nav>
         </section>
-      ) : null}
 
-      {state === "idle" ? (
-        <section className="show-start">
-          <h2>One request. Two approaches.</h2>
-          <p>Watch the same household request unfold with and without Custos. The baseline is a controlled simulation, not a live Alexa+ integration.</p>
-          <button type="button" onClick={() => void play()}>▶ Play the walkthrough</button>
-        </section>
-      ) : null}
+        {error ? <section className="error-panel" role="alert"><strong>Comparison failed.</strong><p>{error}</p><button type="button" onClick={() => void play()}>Retry run</button></section> : null}
 
-      {state === "running" && !data ? (
-        <section className="show-start" aria-live="polite">
-          <h2>Preparing the comparison</h2>
-          <p>Creating isolated household state and checking the policy and persistence evidence.</p>
-          <div className="show-progress"><span /></div>
-        </section>
-      ) : null}
-
-      {data ? (
-        <>
-          <p className="show-disclosure">{data.disclosure}</p>
-
-          <section className="comparison-grid sequential-comparison" aria-label="Sequential assistant comparison">
-            {stage <= 4 ? (
-              <section className="panel show-column baseline-column active-run">
-                <div className="show-column-head">
-                  <div>
-                    <p className="eyebrow">RUN 1 OF 2 · CONTROLLED BASELINE</p>
-                    <h2>Alexa+ without Custos</h2>
-                    <p>Raw acknowledgements · no independent verification</p>
-                  </div>
-                  {baselineStage >= 4 ? <State value={data.baseline.status} /> : <State value={state === "running" ? "running" : "waiting"} />}
-                </div>
-                {baselineStage >= 1 ? <blockquote className="reveal-item">{data.baseline.summary}</blockquote> : <p className="waiting-copy">Baseline is preparing the response…</p>}
-                <ProcessPanel mode="baseline" stage={baselineStage} state={baselineStage >= 4 ? "done" : state} />
-                <ActionList actions={data.baseline.actions} visible={baselineVisible} />
-                {baselineStage >= 4 ? (
-                  <div className="show-proof-empty reveal-item">
-                    <strong>No receipts</strong>
-                    <p>The baseline says it is done, but has no persisted schedule or policy evidence to support that claim.</p>
-                  </div>
-                ) : null}
-                {baselineStage >= 4 ? <div className="phase-transition"><p>Baseline complete. Custos will not start until you continue.</p><button type="button" onClick={() => void continueWithCustos()} disabled={!awaitingNext}>Next: Run with Custos →</button></div> : null}
-              </section>
-            ) : (
-              <section className="panel show-column custos-column active-run">
-                <div className="show-column-head">
-                  <div>
-                    <p className="eyebrow">RUN 2 OF 2 · POLICY · ACTION · VERIFICATION</p>
-                    <h2>Your MCP · Custos</h2>
-                    <p>Standing rules · useful follow-through · evidence</p>
-                  </div>
-                  {custosStage >= 10 ? <State value={data.custos.status} /> : <State value="running" />}
-                </div>
-                {custosStage >= 1 ? <blockquote className="reveal-item">{data.custos.summary}</blockquote> : <p className="waiting-copy">Custos is starting after the baseline run…</p>}
-                <ProcessPanel mode="custos" stage={custosStage} state={custosStage >= 10 ? "done" : state} />
-                <ActionList actions={data.custos.actions} visible={custosVisible} />
-                {custosStage >= 7 ? (
-                  <div className="dinner-follow-through reveal-item">
-                    <p className="eyebrow">PROACTIVE FOLLOW-THROUGH</p>
-                    <h3>{data.recipe.name}</h3>
-                    <p className="dinner-note">Selected after checking Maya’s beef allergy.</p>
-                    <div className="dinner-columns">
-                      <div>
-                        <h4>Ingredients</h4>
-                        <ul>{data.recipe.ingredients.map((item) => <li key={item}>{item}</li>)}</ul>
-                      </div>
-                      <div>
-                        <h4>Cooking procedure</h4>
-                        <ol>{data.recipe.instructions.map((item) => <li key={item}>{item}</li>)}</ol>
-                      </div>
-                    </div>
-                    <div className="pantry-result">
-                      <div>
-                        <h4>Already in the pantry</h4>
-                        <p>{data.pantry.join(", ")}</p>
-                      </div>
-                      <div>
-                        <h4>Added to shopping list</h4>
-                        <p className="missing-items">{data.recipe.missingIngredients.length ? data.recipe.missingIngredients.join(", ") : "Nothing missing"}</p>
-                      </div>
-                    </div>
-                  </div>
-                ) : null}
-              </section>
-            )}
+        {phase === "idle" ? (
+          <section className="intro-panel">
+            <div><p className="eyebrow">THE DEMO</p><h2>Same request. Different accountability.</h2><p>Run the controlled baseline first. When it finishes, press Next to reveal the Custos path and its evidence.</p></div>
+            <button className="primary" type="button" onClick={() => void play()}>▶ Play the walkthrough</button>
           </section>
+        ) : null}
 
-          {stage >= 7 ? (
-            <section className="panel show-context reveal-item">
-              <div className="section-heading">
-                <div>
-                  <p className="eyebrow">HOUSEHOLD CONTEXT</p>
-                  <h2>What Custos remembered</h2>
-                </div>
-                <span className="context-count">{data.rules.length} standing rules</span>
-              </div>
-              <div className="context-grid">
-                {data.rules.map((rule) => (
-                  <article className="show-rule" key={rule.id}>
-                    <span className="rule-profile">{rule.profile}</span>
-                    <strong>{rule.summary}</strong>
-                    <p>{rule.evidence}</p>
-                  </article>
-                ))}
-                <article className="show-rule time-rule">
-                  <span className="rule-profile">DERIVED ACTION</span>
-                  <strong>1:30 PM − 5 minutes = 1:25 PM</strong>
-                  <p>Custos converted the school return time into the correct scheduled action.</p>
-                </article>
-              </div>
-            </section>
-          ) : null}
+        {phase === "preparing" ? <section className="intro-panel" aria-live="polite"><div><p className="eyebrow">PREPARING RUN</p><h2>Setting up the comparison</h2><p>Preparing isolated household state and collecting policy, device-twin, schedule, and receipt evidence.</p></div><div className="progress-track"><span /></div></section> : null}
 
-          {stage >= 12 ? (
-            <section className="notification-panel reveal-item">
-              <div className="notification-icon" aria-hidden="true">N</div>
-              <div className="notification-copy">
-                <p className="eyebrow">DINNER NOTIFICATION</p>
-                <h2>{data.notification.accepted ? "Recipe notification accepted" : "Notification not confirmed"}</h2>
-                <p>{data.notification.deliveryNote}</p>
-                <details>
-                  <summary>Preview the notification</summary>
-                  <pre>{data.notification.text}</pre>
-                </details>
-              </div>
-              <State value={data.notification.accepted ? "accepted by provider" : "unverified"} />
-            </section>
-          ) : null}
-
-          {stage >= 13 ? (
-            <section className="panel show-truth reveal-item">
-              <div>
-                <p className="eyebrow">INDEPENDENT DEVICE TWIN</p>
-                <h2>What changed on the devices?</h2>
-                <p>These are future schedules, so the simulated devices remain off. Persisting a schedule is not the same as executing it.</p>
-              </div>
-              <div className="show-device-grid">
-                {Object.entries(data.deviceTruth.custos ?? {}).map(([name, value]) => (
-                  <article className="show-device" key={name}>
-                    <strong>{name.replaceAll("_", " ")}</strong>
-                    <span>{String(value.power ?? "unknown")}</span>
-                    <small>Simulated device twin · unchanged</small>
-                  </article>
-                ))}
-              </div>
-            </section>
-          ) : null}
-          {stage >= 14 ? (
-            <section className="receipts-section reveal-item">
-              <div className="section-heading">
-                <div>
-                  <p className="eyebrow">AUDIT TRAIL</p>
-                  <h2>Receipts for what actually happened</h2>
-                  <p>Each receipt separates the intended action from the observed evidence. Open technical details only when needed.</p>
-                </div>
-                <span className="context-count">{data.custos.receipts.length} records</span>
-              </div>
-              <div className="receipt-grid">
-                {data.custos.receipts.map((receipt, i) => <ReceiptCard key={receipt.id ?? receipt.tool + i} receipt={receipt} />)}
-              </div>
-            </section>
-          ) : null}
-
-          <p className="show-footnote">{data.note}</p>
-        </>
-      ) : null}
+        {data ? (
+          <>
+            <div className="run-banner">
+              <div><p className="eyebrow">CURRENT PHASE</p><strong>{phase === "baseline" ? "Run 1 · controlled baseline" : phase === "waiting" ? "Run 1 complete · awaiting your Next" : phase === "custos" ? "Run 2 · Custos" : "Both runs presented"}</strong></div>
+              <span className="run-count">{phase === "baseline" ? "01 / 02" : phase === "waiting" ? "01 / 02 · PAUSED" : "02 / 02"}</span>
+              <div className="run-progress" aria-label="Walkthrough progress"><span style={{ width: `${phase === "idle" || phase === "preparing" ? 0 : phase === "baseline" ? 35 : phase === "waiting" ? 45 : phase === "custos" ? 45 + Math.round((custosVisible / Math.max(rowCount, 1)) * 55) : 100}%` }} /></div>
+              {phase === "waiting" ? <p className="run-hint">Baseline is complete. Custos will not start until you press Next.</p> : null}
+            </div>
+            {sections.map((section, index) => {
+              const start = sections.slice(0, index).reduce((sum, previous) => sum + previous.rows.length, 0);
+              return <TableSection key={section.id} section={section} index={start} baselineVisible={baselineVisible} custosVisible={custosVisible} phase={phase} onNext={() => void continueWithCustos()} />;
+            })}
+            <footer className="page-note"><strong>Read the evidence carefully.</strong> “Verified” refers to simulated device-state read-back or a persisted record checked by the simulator. Scheduled actions have not fired, and notification-provider acceptance is not proof of delivery.</footer>
+          </>
+        ) : null}
+      </div>
     </main>
   );
 }
