@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { voice } from "./voice";
 import "./theme.css";
 
@@ -40,7 +40,7 @@ type Showcase = {
 };
 
 type Phase = "idle" | "preparing" | "baseline" | "waiting" | "custos" | "done" | "error";
-type Cell = { status?: string; text?: string; detail?: string; content?: React.ReactNode };
+type Cell = { status?: string; text?: string; detail?: string; content?: ReactNode };
 type CompareRow = { label: string; meta: string; baseline: Cell; custos: Cell };
 type Section = { id: string; eyebrow: string; title: string; description: string; rows: CompareRow[]; key?: boolean };
 
@@ -88,7 +88,7 @@ function humanize(value: string): string {
   return labels[value] ?? value.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
-function cell(status?: string, text?: string, detail?: string, content?: React.ReactNode): Cell {
+function cell(status?: string, text?: string, detail?: string, content?: ReactNode): Cell {
   return { status, text, detail, content };
 }
 
@@ -174,7 +174,7 @@ function TableSection({
       {section.id === "s-answer" && phase === "waiting" ? (
         <div className="next-callout">
           <div><strong>Baseline complete.</strong><p>Run 2 will not begin until you press Next.</p></div>
-          <button type="button" className="primary" onClick={() => window.dispatchEvent(new Event("custos-next"))}>Next: Run with Custos →</button>
+          <button type="button" className="primary" onClick={onNext}>Next: Run with Custos →</button>
         </div>
       ) : null}
     </section>
@@ -388,7 +388,7 @@ export default function App() {
       setData(result);
       setPhase("baseline");
       // The API prepares the scenario first. This is staged presentation, not a live tool trace.
-      const totalRows = 29;
+      const totalRows = 32;
       for (let i = 1; i <= totalRows; i += 1) {
         await new Promise((resolve) => window.setTimeout(resolve, 180));
         setBaselineVisible(i);
@@ -469,7 +469,7 @@ export default function App() {
             </div>
             {sections.map((section, index) => {
               const start = sections.slice(0, index).reduce((sum, previous) => sum + previous.rows.length, 0);
-              return <TableSection key={section.id} section={section} index={start} baselineVisible={baselineVisible} custosVisible={custosVisible} phase={phase} />;
+              return <TableSection key={section.id} section={section} index={start} baselineVisible={baselineVisible} custosVisible={custosVisible} phase={phase} onNext={() => void continueWithCustos()} />;
             })}
             <footer className="page-note"><strong>Read the evidence carefully.</strong> “Verified” refers to simulated device-state read-back or a persisted record checked by the simulator. Scheduled actions have not fired, and notification-provider acceptance is not proof of delivery.</footer>
           </>
