@@ -39,7 +39,7 @@ scheduled for 1:25pm. Maya has a beef allergy, so dinner must exclude beef.
 |---|---|---|
 | 0:00–0:25 | Request card and the two-run framing | "One natural-language request contains immediate device actions, future schedules, and dinner planning. The challenge is not just parsing the sentence. It is carrying the right context through every dependent action." |
 | 0:25–0:55 | Baseline run and its task statuses | "First, the controlled baseline. Watch what it acknowledges, what it skips, and what it cannot prove. This is a scripted baseline in our simulator, not a claim about a live Alexa+ session." |
-| 0:55–1:05 | Baseline ends; Custos run begins | "A confident response is not evidence. Now the same request goes through Custos." |
+| 0:55–1:05 | Baseline is complete; the Next control is visible | "The baseline is complete. A confident response is not evidence. I will start the second run only when I press Next." |
 | 1:05–1:45 | Custos task list, household rules, and device actions | "Custos retrieves the standing rules before planning. Maya gets no beef, and the 1:30 school return becomes a 1:25 hall-light schedule. The coffee maker and kitchen light are immediate actions; coffee and the hall light are future schedules." |
 | 1:45–2:15 | Dinner recipe, cooking procedure, pantry comparison, shopping list | "It does not stop at naming a meal. It shows the ingredients and cooking steps, compares ingredients with the pantry, and identifies missing items for the shopping list." |
 | 2:15–2:35 | Notification card and independent device-twin state | "The notification status means the provider accepted the request, not that delivery was independently confirmed. The device panel is the simulated device twin. Future schedules are persisted; they have not fired yet." |
@@ -60,8 +60,8 @@ scheduled for 1:25pm. Maya has a beef allergy, so dinner must exclude beef.
 ## Recording notes
 
 Keep the request visible, let each stage appear without rushing, and keep raw
-JSON collapsed for the main narration. The evidence order is: request and
-execution flow, household context, dinner notification, independent device
-state, then receipts. Do not ask judges to configure an MCP client or run the
+JSON collapsed for the main narration. The table order is: answer, plan and progress, actions, dinner, household rules,
+notification, device-twin state, then receipts. Keep the raw JSON collapsed unless
+a judge asks to inspect the underlying evidence. Do not ask judges to configure an MCP client or run the
 simulator. The MCP interface and enforcement path are the product; this UI is
 supporting visual evidence.
