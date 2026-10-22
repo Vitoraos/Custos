@@ -389,10 +389,11 @@ export default function App() {
       // The API prepares the scenario first. This is staged presentation, not a live tool trace.
       const totalRows = 8;
       for (let i = 1; i <= totalRows; i += 1) {
-        await new Promise((resolve) => window.setTimeout(resolve, 420));
+        await new Promise((resolve) => window.setTimeout(resolve, 2100));
         setBaselineVisible(i);
       }
       setPhase("waiting");
+      if (!muted) void voice.speak(result.baseline.summary);
     } catch (e) {
       setError((e as Error).message);
       setPhase("error");
@@ -404,7 +405,7 @@ export default function App() {
     setPhase("custos");
     setCustosVisible(0);
     for (let i = 1; i <= rowCount; i += 1) {
-      await new Promise((resolve) => window.setTimeout(resolve, 620));
+      await new Promise((resolve) => window.setTimeout(resolve, 3100));
       setCustosVisible(i);
     }
     setPhase("done");
