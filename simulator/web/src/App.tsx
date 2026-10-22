@@ -123,13 +123,13 @@ function WorkflowPanel({
   const active = side === "baseline" ? phase === "baseline" : phase === "custos";
   const complete = side === "baseline" ? ["waiting", "custos", "done"].includes(phase) : phase === "done";
   return (
-    <section className={"agent-panel " + (side === "custos" ? "agent-panel-custos" : "agent-panel-baseline")} aria-label={title}>
+    <section className={`agent-panel ${side === "custos" ? "agent-panel-custos" : "agent-panel-baseline"}`} aria-label={title}>
       <header className="agent-panel-header">
         <div className="agent-identity">
-          <span className={"agent-avatar " + (side === "custos" ? "custos-avatar" : "")}>{side === "custos" ? "C" : "A"}</span>
+          <span className={`agent-avatar ${side === "custos" ? "custos-avatar" : ""}`}>{side === "custos" ? "C" : "A"}</span>
           <div><p className="eyebrow">{side === "custos" ? "MEMORY + TOOLS + VERIFICATION" : "CONTROLLED BASELINE"}</p><h2>{title}</h2><p className="agent-subtitle">{subtitle}</p></div>
         </div>
-        <span className={"agent-run-state " + (complete ? "state-complete" : active ? "state-running" : "state-pending")}><i aria-hidden="true" />{complete ? "Completed" : active ? "Working" : "Waiting"}</span>
+        <span className={`agent-run-state ${complete ? "state-complete" : active ? "state-running" : "state-pending"}`}><i aria-hidden="true" />{complete ? "Completed" : active ? "Working" : "Waiting"}</span>
       </header>
       <div className="agent-task-list">
         {rows.map((row, index) => {
@@ -137,7 +137,7 @@ function WorkflowPanel({
           const isRunning = active && index === visible && visible < rows.length;
           const value = side === "baseline" ? row.baseline : row.custos;
           return (
-            <article className={"agent-task " + (isDone ? "task-done" : isRunning ? "task-running" : "task-pending")} key={row.label}>
+            <article className={`agent-task ${isDone ? "task-done" : isRunning ? "task-running" : "task-pending"}`} key={row.label}>
               <div className="task-rail"><span className="task-marker" aria-hidden="true">{isDone ? "✓" : isRunning ? <span className="spinner" /> : String(index + 1).padStart(2, "0")}</span>{index < rows.length - 1 ? <span className="task-connector" /> : null}</div>
               <div className="task-main">
                 <div className="task-title-row"><h3>{row.label}</h3><span className="task-state">{isDone ? "Complete" : isRunning ? "Running" : "Queued"}</span></div>
@@ -456,11 +456,11 @@ export default function App() {
             <div className="run-banner">
               <div><p className="eyebrow">CURRENT PHASE</p><strong>{phase === "baseline" ? "Run 1 · controlled baseline" : phase === "waiting" ? "Run 1 complete · awaiting your Next" : phase === "custos" ? "Run 2 · Custos" : "Both runs presented"}</strong></div>
               <span className="run-count">{phase === "baseline" ? "01 / 02" : phase === "waiting" ? "01 / 02 · PAUSED" : "02 / 02"}</span>
-              <div className="run-progress" aria-label="Walkthrough progress"><span style={{ width: `${phase === "idle" || phase === "preparing" ? 0 : phase === "baseline" ? 35 : phase === "waiting" ? 45 : phase === "custos" ? 45 + Math.round((custosVisible / Math.max(rowCount, 1)) * 55) : 100}%` }} /></div>
+              <div className="run-progress" role="progressbar" aria-label="Walkthrough progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={phase === "idle" || phase === "preparing" ? 0 : phase === "baseline" ? 35 : phase === "waiting" ? 45 : phase === "custos" ? 45 + Math.round((custosVisible / Math.max(rowCount, 1)) * 55) : 100}><span style={{ width: `${phase === "idle" || phase === "preparing" ? 0 : phase === "baseline" ? 35 : phase === "waiting" ? 45 : phase === "custos" ? 45 + Math.round((custosVisible / Math.max(rowCount, 1)) * 55) : 100}%` }} /></div>
               {phase === "waiting" ? <p className="run-hint">Baseline is complete. Custos will not start until you press Next.</p> : null}
             </div>
             <section className="workflow-area" aria-label="Agent workflow">
-              <div className="workflow-heading"><div><p className="eyebrow">AGENT WORKFLOW</p><h2>From request to verified outcome</h2><p>Follow each subtask as it moves from queued to running to complete.</p></div><span className="workflow-count">{phase === "done" ? rowCount + " / " + rowCount + " steps complete" : phase === "waiting" ? rowCount + " / " + rowCount + " baseline steps complete" : phase === "custos" ? custosVisible + " / " + rowCount + " Custos steps complete" : baselineVisible + " / " + rowCount + " steps complete"}</span></div>
+              <div className="workflow-heading"><div><p className="eyebrow">AGENT WORKFLOW</p><h2>From request to verified outcome</h2><p>Follow each subtask as it moves from queued to running to complete.</p></div><span className="workflow-count">{phase === "done" ? `${rowCount} / ${rowCount} steps complete` : phase === "waiting" ? `${rowCount} / ${rowCount} baseline steps complete` : phase === "custos" ? `${custosVisible} / ${rowCount} Custos steps complete` : `${baselineVisible} / ${rowCount} steps complete`}</span></div>
               <div className="agent-grid">
                 <WorkflowPanel title="Alexa+ without Custos" subtitle="Acknowledgement without a reliable evidence trail." rows={workflowRows} side="baseline" visible={baselineVisible} phase={phase} onNext={() => void continueWithCustos()} />
                 {phase === "custos" || phase === "done" ? <WorkflowPanel title="Custos" subtitle="Retrieve rules, execute the plan, verify state, and keep receipts." rows={workflowRows} side="custos" visible={custosVisible} phase={phase} /> : phase === "waiting" ? <section className="agent-panel agent-panel-placeholder"><div className="placeholder-mark">C</div><p className="eyebrow">RUN 2 · CUSTOS</p><h2>Ready when you are</h2><p>The baseline is complete. Custos will start only after you press the button on the left.</p><span className="agent-run-state state-pending"><i aria-hidden="true" />Waiting for approval</span></section> : null}
