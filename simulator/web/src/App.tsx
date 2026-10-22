@@ -66,11 +66,13 @@ async function runShowcase(): Promise<Showcase> {
 
 function State({ value }: { value: string }) {
   const normalized = value.toLowerCase();
-  const cls = /verified|scheduled|done|accepted|allow|on$/.test(normalized)
-    ? "good"
-    : /not scheduled|unverified|not changed|not checked|blocked|failed|off$/.test(normalized)
-      ? "bad"
-      : "neutral";
+  const cls = /not scheduled|unverified|not verified|not changed|not checked|not retrieved|not applied|blocked|failed|no receipts|off$/.test(normalized)
+    ? "bad"
+    : /accepted by provider|^accepted$/.test(normalized)
+      ? "partial"
+      : /verified|scheduled|done|allow|on$|retrieved|applied|recorded/.test(normalized)
+        ? "good"
+        : "neutral";
   return <span className={`status-tag ${cls}`}><i aria-hidden="true" />{value}</span>;
 }
 
@@ -325,7 +327,7 @@ export default function App() {
             custos: cell("Retrieved", undefined, undefined, <div className="rule-stack">{rulesList}</div>) },
           { label: "School return minus 5 minutes", meta: "Derived schedule",
             baseline: cell("Not applied", "No derived schedule evidence."),
-            custos: cell("1:30 PM − 5 min = 1:25 PM", "Hall light schedule", "Persisted schedule is pending execution.") },
+            custos: cell("Derived schedule", "1:30 PM − 5 min = 1:25 PM", "Hall-light schedule persisted; execution is pending.") },
           { label: "Beef allergy", meta: "Safety constraint",
             baseline: cell("Not checked", "No policy evaluation shown."),
             custos: cell("Applied", "Dinner excludes beef", "Beef tacos are blocked; the alternative recipe passes the policy check.") },
