@@ -210,7 +210,7 @@ export default function App() {
     const custosActions = data.custos.actions;
     const actionFor = (actions: Action[], match: RegExp, scheduled = false) => actions.find((item) => match.test(item.title) && (!scheduled || (!/not scheduled|unscheduled|not changed/i.test(item.status) && (/schedul/i.test(item.status) || Boolean(item.localTime)))));
     const actionCell = (action?: Action, fallback = "No evidence recorded.") =>
-      action ? cell(action.status, action.evidence, action.recordId ? `Record: ${action.recordId}` : undefined) : cell("Not shown", fallback);
+      action ? cell(action.status, action.evidence, action.recordId ? `Record: ${action.recordId}` : action.localTime ? `Scheduled for ${action.localTime}` : undefined) : cell("Not shown", fallback);
     const baselineReceipts = data.baseline.receipts;
     const custosReceipts = data.custos.receipts;
     const baselineTruth = data.deviceTruth.baseline ?? {};
