@@ -118,12 +118,14 @@ function TableSection({
   baselineVisible,
   custosVisible,
   phase,
+  onNext,
 }: {
   section: Section;
   index: number;
   baselineVisible: number;
   custosVisible: number;
   phase: Phase;
+  onNext: () => void;
 }) {
   let rowIndex = index;
   return (
