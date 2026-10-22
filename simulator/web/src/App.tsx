@@ -425,7 +425,7 @@ export default function App() {
           <button type="button" className="primary" onClick={() => phase === "waiting" ? void continueWithCustos() : phase === "done" || phase === "error" || phase === "idle" ? void play() : undefined} disabled={phase === "preparing" || phase === "baseline" || phase === "custos"}>
             {phase === "preparing" ? "Preparing…" : phase === "baseline" ? "Baseline running…" : phase === "waiting" ? "Next: Run with Custos →" : phase === "custos" ? "Custos running…" : phase === "done" ? "↻ Run again" : phase === "error" ? "Retry comparison" : "▶ Play comparison"}
           </button>
-          <button type="button" className="secondary-button" aria-pressed={!muted} onClick={() => { const next = !muted; setMuted(next); if (next) voice.cancel(); }}>
+          <button type="button" className="secondary-button" aria-pressed={!muted} onClick={() => { const next = !muted; setMuted(next); voice.muted = next; if (next) voice.cancel(); }}>
             {muted ? "Voice off" : "Voice summary on"}
           </button>
         </div>
