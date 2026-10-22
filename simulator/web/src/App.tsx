@@ -114,74 +114,61 @@ function ReceiptDetails({ receipt }: { receipt: Receipt }) {
   );
 }
 
-function TableSection({
-  section,
-  index,
-  baselineVisible,
-  custosVisible,
-  phase,
-  onNext,
+function WorkflowPanel({
+  title, subtitle, rows, side, visible, phase, onNext,
 }: {
-  section: Section;
-  index: number;
-  baselineVisible: number;
-  custosVisible: number;
-  phase: Phase;
-  onNext: () => void;
+  title: string; subtitle: string; rows: CompareRow[];
+  side: "baseline" | "custos"; visible: number; phase: Phase; onNext?: () => void;
 }) {
-  let rowIndex = index;
+  const active = side === "baseline" ? phase === "baseline" : phase === "custos";
+  const complete = side === "baseline" ? ["waiting", "custos", "done"].includes(phase) : phase === "done";
   return (
-    <section className="comparison-card" id={section.id} aria-labelledby={`${section.id}-title`}>
-      <div className="card-heading">
-        <p className="eyebrow">{section.eyebrow}</p>
-        <h2 id={`${section.id}-title`}>{section.title}</h2>
-        <p>{section.description}</p>
-        {section.key ? (
-          <div className="status-key">
-            <span><State value="Verified" /> read back or policy-checked</span>
-            <span><State value="Scheduled" /> saved, not run yet</span>
-            <span><State value="Accepted" /> provider accepted, delivery unconfirmed</span>
-            <span><State value="Not done" /> no write, schedule, or check</span>
-          </div>
-        ) : null}
-      </div>
-      <div className="table-scroll">
-        <table>
-          <colgroup><col className="item-col" /><col className="run-col" /><col className="run-col" /></colgroup>
-          <thead>
-            <tr>
-              <th scope="col">Item</th>
-              <th scope="col"><span>Run 1 of 2 · baseline</span><strong>Alexa+ without Custos</strong></th>
-              <th scope="col" className="custos-head"><span>Run 2 of 2 · memory + verification</span><strong>Custos</strong></th>
-            </tr>
-          </thead>
-          <tbody>
-            {section.rows.map((row) => {
-              const currentIndex = rowIndex++;
-              const showBaseline = baselineVisible > currentIndex;
-              const showCustos = custosVisible > currentIndex;
-              return (
-                <tr className="data-row" key={row.label}>
-                  <th scope="row">{row.label}<small>{row.meta}</small></th>
-                  <td className={showBaseline ? "baseline-cell revealed" : "baseline-cell concealed"} data-side="Alexa+ without Custos">
-                    {showBaseline ? <CellContent value={row.baseline} /> : <span className="not-yet">Not shown yet</span>}
-                  </td>
-                  <td className={showCustos ? "custos-cell revealed" : "custos-cell concealed"} data-side="Custos">
-                    {showCustos ? <CellContent value={row.custos} /> : <span className="not-yet">Waiting for Run 2</span>}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-      {section.id === "s-answer" && phase === "waiting" ? (
-        <div className="next-callout">
-          <div><strong>Baseline complete.</strong><p>Run 2 will not begin until you press Next.</p></div>
-          <button type="button" className="primary" onClick={onNext}>Next: Run with Custos →</button>
+    <section className={"agent-panel " + (side === "custos" ? "agent-panel-custos" : "agent-panel-baseline")} aria-label={title}>
+      <header className="agent-panel-header">
+        <div className="agent-identity">
+          <span className={"agent-avatar " + (side === "custos" ? "custos-avatar" : "")}>{side === "custos" ? "C" : "A"}</span>
+          <div><p className="eyebrow">{side === "custos" ? "MEMORY + TOOLS + VERIFICATION" : "CONTROLLED BASELINE"}</p><h2>{title}</h2><p className="agent-subtitle">{subtitle}</p></div>
         </div>
+        <span className={"agent-run-state " + (complete ? "state-complete" : active ? "state-running" : "state-pending")}><i aria-hidden="true" />{complete ? "Completed" : active ? "Working" : "Waiting"}</span>
+      </header>
+      <div className="agent-task-list">
+        {rows.map((row, index) => {
+          const isDone = complete || index < visible;
+          const isRunning = active && index === visible && visible < rows.length;
+          const value = side === "baseline" ? row.baseline : row.custos;
+          return (
+            <article className={"agent-task " + (isDone ? "task-done" : isRunning ? "task-running" : "task-pending")} key={row.label}>
+              <div className="task-rail"><span className="task-marker" aria-hidden="true">{isDone ? "✓" : isRunning ? <span className="spinner" /> : String(index + 1).padStart(2, "0")}</span>{index < rows.length - 1 ? <span className="task-connector" /> : null}</div>
+              <div className="task-main">
+                <div className="task-title-row"><h3>{row.label}</h3><span className="task-state">{isDone ? "Complete" : isRunning ? "Running" : "Queued"}</span></div>
+                <p className="task-meta">{row.meta}</p>
+                {isDone ? <div className="task-output"><CellContent value={value} /></div> : isRunning ? <p className="task-live-copy">{side === "custos" ? "Checking context, choosing the next action, and recording evidence…" : "Processing the request…"}</p> : null}
+              </div>
+            </article>
+          );
+        })}
+      </div>
+      {side === "baseline" && phase === "waiting" ? (
+        <div className="agent-next"><div><strong>Baseline run complete</strong><p>Custos is paused until you explicitly start the second run.</p></div><button type="button" className="primary" onClick={onNext}>Run with Custos <span aria-hidden="true">→</span></button></div>
       ) : null}
     </section>
+  );
+}
+
+function EvidenceSection({ section }: { section: Section }) {
+  return (
+    <details className="evidence-group" id={section.id}>
+      <summary><span className="evidence-heading"><span className="eyebrow">{section.eyebrow}</span><strong>{section.title}</strong><small>{section.description}</small></span><span className="evidence-toggle">View evidence <span aria-hidden="true">＋</span></span></summary>
+      <div className="evidence-rows">
+        {section.rows.map((row) => (
+          <article className="evidence-row" key={row.label}>
+            <header><h3>{row.label}</h3><p>{row.meta}</p></header>
+            <div className="evidence-side"><span className="evidence-side-label">Alexa+ without Custos</span><CellContent value={row.baseline} /></div>
+            <div className="evidence-side evidence-side-custos"><span className="evidence-side-label">Custos</span><CellContent value={row.custos} /></div>
+          </article>
+        ))}
+      </div>
+    </details>
   );
 }
 
@@ -384,7 +371,9 @@ export default function App() {
     ];
   }, [data]);
 
-  const rowCount = sections.reduce((total, section) => total + section.rows.length, 0);
+  const workflowRows = sections.find((section) => section.id === "s-process")?.rows ?? [];
+  const evidenceSections = sections.filter((section) => section.id !== "s-process");
+  const rowCount = workflowRows.length;
 
   async function play() {
     if (phase === "baseline" || phase === "custos" || phase === "preparing" || phase === "waiting") return;
@@ -398,9 +387,9 @@ export default function App() {
       setData(result);
       setPhase("baseline");
       // The API prepares the scenario first. This is staged presentation, not a live tool trace.
-      const totalRows = 32;
+      const totalRows = 8;
       for (let i = 1; i <= totalRows; i += 1) {
-        await new Promise((resolve) => window.setTimeout(resolve, 180));
+        await new Promise((resolve) => window.setTimeout(resolve, 420));
         setBaselineVisible(i);
       }
       setPhase("waiting");
@@ -415,7 +404,7 @@ export default function App() {
     setPhase("custos");
     setCustosVisible(0);
     for (let i = 1; i <= rowCount; i += 1) {
-      await new Promise((resolve) => window.setTimeout(resolve, 220));
+      await new Promise((resolve) => window.setTimeout(resolve, 620));
       setCustosVisible(i);
     }
     setPhase("done");
@@ -448,9 +437,7 @@ export default function App() {
           <p className="request-quote">“{data?.prompt ?? "Turn on the coffee maker and kitchen light now, schedule coffee for 8am, turn on the hall light 5 minutes before my daughter is back from school, and prepare dinner for me and my daughter."}”</p>
           <p className="request-context">The assistant should infer the necessary substeps, respect household rules, take useful action, and report what the evidence supports.</p>
           <p className="disclosure">Controlled simulator scenario. The baseline is scripted, device state belongs to a simulated device twin, and the staged reveal is not a live Alexa+ integration or live tool trace.</p>
-          <nav className="section-nav" aria-label="Jump to a comparison section">
-            {sections.map((section) => <a href={`#${section.id}`} key={section.id}>{section.title}</a>)}
-          </nav>
+
         </section>
 
         {error ? <section className="error-panel" role="alert"><strong>Comparison failed.</strong><p>{error}</p><button type="button" onClick={() => void play()}>Retry run</button></section> : null}
@@ -472,10 +459,14 @@ export default function App() {
               <div className="run-progress" aria-label="Walkthrough progress"><span style={{ width: `${phase === "idle" || phase === "preparing" ? 0 : phase === "baseline" ? 35 : phase === "waiting" ? 45 : phase === "custos" ? 45 + Math.round((custosVisible / Math.max(rowCount, 1)) * 55) : 100}%` }} /></div>
               {phase === "waiting" ? <p className="run-hint">Baseline is complete. Custos will not start until you press Next.</p> : null}
             </div>
-            {sections.map((section, index) => {
-              const start = sections.slice(0, index).reduce((sum, previous) => sum + previous.rows.length, 0);
-              return <TableSection key={section.id} section={section} index={start} baselineVisible={baselineVisible} custosVisible={custosVisible} phase={phase} onNext={() => void continueWithCustos()} />;
-            })}
+            <section className="workflow-area" aria-label="Agent workflow">
+              <div className="workflow-heading"><div><p className="eyebrow">AGENT WORKFLOW</p><h2>From request to verified outcome</h2><p>Follow each subtask as it moves from queued to running to complete.</p></div><span className="workflow-count">{phase === "done" ? rowCount + " / " + rowCount + " steps complete" : phase === "waiting" ? rowCount + " / " + rowCount + " baseline steps complete" : phase === "custos" ? custosVisible + " / " + rowCount + " Custos steps complete" : baselineVisible + " / " + rowCount + " steps complete"}</span></div>
+              <div className="agent-grid">
+                <WorkflowPanel title="Alexa+ without Custos" subtitle="Acknowledgement without a reliable evidence trail." rows={workflowRows} side="baseline" visible={baselineVisible} phase={phase} onNext={() => void continueWithCustos()} />
+                {phase === "custos" || phase === "done" ? <WorkflowPanel title="Custos" subtitle="Retrieve rules, execute the plan, verify state, and keep receipts." rows={workflowRows} side="custos" visible={custosVisible} phase={phase} /> : phase === "waiting" ? <section className="agent-panel agent-panel-placeholder"><div className="placeholder-mark">C</div><p className="eyebrow">RUN 2 · CUSTOS</p><h2>Ready when you are</h2><p>The baseline is complete. Custos will start only after you press the button on the left.</p><span className="agent-run-state state-pending"><i aria-hidden="true" />Waiting for approval</span></section> : null}
+              </div>
+            </section>
+            {phase === "done" ? <section className="evidence-area"><div className="workflow-heading"><div><p className="eyebrow">INSPECTABLE EVIDENCE</p><h2>What backs up the result</h2><p>Expand a section to compare actions, household rules, dinner follow-through, device state, and receipts.</p></div></div><div className="evidence-stack">{evidenceSections.map((section) => <EvidenceSection key={section.id} section={section} />)}</div></section> : null}
             <footer className="page-note"><strong>Read the evidence carefully.</strong> “Verified” refers to simulated device-state read-back or a persisted record checked by the simulator. Scheduled actions have not fired, and notification-provider acceptance is not proof of delivery.</footer>
           </>
         ) : null}
