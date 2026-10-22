@@ -8,6 +8,22 @@ device-twin scenario. The API prepares the scenario before the UI reveals it in
 stages, so describe the animation as a staged walkthrough, not a live tool
 trace. There is no real Alexa+ integration in this demo.
 
+
+## UI progression
+
+The simulator presents the evidence in eight table sections, in this order:
+
+1. **The answer you hear**: the final message and overall run status.
+2. **How each one worked**: final goal, inferred subtasks, and progress.
+3. **What each one did**: immediate actions, schedules, dinner policy, and receipts.
+4. **Dinner, end to end**: recipe, ingredients, cooking procedure, pantry comparison, and shopping-list changes.
+5. **What Custos remembered**: the school-return time and beef-allergy rule.
+6. **Recipe notification**: provider acceptance and the message preview.
+7. **Device twin**: immediate simulated device state versus future schedules.
+8. **Receipts**: readable evidence with expandable raw JSON.
+
+Press **Play comparison** once. The baseline column reveals first and the page pauses. Press **Next: Run with Custos** to reveal the second path. Do not describe this animation as live execution: the API prepares the showcase data before the UI reveals it progressively.
+
 ## The request
 
 > Turn on the coffee maker and kitchen light now, schedule coffee for 8am, turn
