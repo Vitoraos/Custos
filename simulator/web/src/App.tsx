@@ -213,6 +213,12 @@ export default function App() {
       action ? cell(action.status, action.evidence, action.recordId ? `Record: ${action.recordId}` : undefined) : cell("Not shown", fallback);
     const baselineReceipts = data.baseline.receipts;
     const custosReceipts = data.custos.receipts;
+    const baselineTruth = data.deviceTruth.baseline ?? {};
+    const custosTruth = data.deviceTruth.custos ?? {};
+    const deviceCell = (truth: Record<string, Record<string, unknown>>, name: string) => {
+      const power = String(truth[name]?.power ?? "unknown");
+      return cell(power === "unknown" ? "Unverified" : power, power === "unknown" ? "No device state returned." : `Device twin power state: ${power}.`);
+    };
     const recipeText = data.recipe.ingredients.join(", ");
     const instructionList = <ol className="compact-list">{data.recipe.instructions.map((step, i) => <li key={i}>{step}</li>)}</ol>;
     const rulesList = data.rules.map((rule) => (
@@ -350,14 +356,14 @@ export default function App() {
         description: "Immediate simulated state and future schedules are shown separately. A saved schedule has not fired.",
         rows: [
           { label: "Coffee maker", meta: "Device state",
-            baseline: cell("Off", "No verified write."),
-            custos: cell("On", "Read back from the simulated device twin.") },
+            baseline: deviceCell(baselineTruth, "coffee_maker"),
+            custos: deviceCell(custosTruth, "coffee_maker") },
           { label: "Kitchen light", meta: "Device state",
-            baseline: cell("Off", "No verified write."),
-            custos: cell("On", "Read back from the simulated device twin.") },
+            baseline: deviceCell(baselineTruth, "kitchen_light"),
+            custos: deviceCell(custosTruth, "kitchen_light") },
           { label: "Hall light", meta: "Scheduled device",
-            baseline: cell("Off", "No persisted schedule."),
-            custos: cell("Off", "Simulated twin remains unchanged; scheduled for 1:25 PM.") },
+            baseline: deviceCell(baselineTruth, "hall_light"),
+            custos: cell(String(custosTruth.hall_light?.power ?? "unknown"), "Future schedule: 1:25 PM.", "The hall light state remains separate from its persisted schedule.") },
           { label: "Future schedules", meta: "Execution status",
             baseline: cell("Not scheduled", "No schedule record to inspect."),
             custos: cell("Scheduled · pending", "Coffee at 8:00 AM and hall light at 1:25 PM.", "The scheduled actions have not executed yet.") },
