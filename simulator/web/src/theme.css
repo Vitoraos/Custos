@@ -286,7 +286,7 @@ code { font-family: var(--mono); font-size: .92em; overflow-wrap: anywhere; }
   .status-key { display: grid; gap: 8px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+  *, *::before, *::after { scroll-behavior: auto; animation-duration: .01ms; animation-iteration-count: 1; transition-duration: .01ms; }
 }
 
 
