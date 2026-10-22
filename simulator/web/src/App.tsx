@@ -206,7 +206,7 @@ export default function App() {
     if (!data) return [];
     const baselineActions = data.baseline.actions;
     const custosActions = data.custos.actions;
-    const actionFor = (actions: Action[], match: RegExp) => actions.find((item) => match.test(item.title));
+    const actionFor = (actions: Action[], match: RegExp, scheduled = false) => actions.find((item) => match.test(item.title) && (!scheduled || /schedul/i.test(item.status) || Boolean(item.localTime)));
     const actionCell = (action?: Action, fallback = "No evidence recorded.") =>
       action ? cell(action.status, action.evidence, action.recordId ? `Record: ${action.recordId}` : undefined) : cell("Not shown", fallback);
     const baselineReceipts = data.baseline.receipts;
@@ -282,8 +282,8 @@ export default function App() {
             baseline: actionCell(actionFor(baselineActions, /kitchen light/i), "No verified device write."),
             custos: actionCell(actionFor(custosActions, /kitchen light/i), "No matching action returned.") },
           { label: "Coffee at 8:00 AM", meta: "Scheduled action",
-            baseline: actionCell(actionFor(baselineActions, /coffee.*schedule|schedule.*coffee/i), "No persisted schedule."),
-            custos: actionCell(actionFor(custosActions, /coffee.*schedule|schedule.*coffee/i), "Schedule record not returned.") },
+            baseline: actionCell(actionFor(baselineActions, /coffee/i, true), "No persisted schedule."),
+            custos: actionCell(actionFor(custosActions, /coffee/i, true), "Schedule record not returned.") },
           { label: "Hall light at 1:25 PM", meta: "Derived schedule",
             baseline: actionCell(actionFor(baselineActions, /hall light/i), "School-return rule not applied."),
             custos: actionCell(actionFor(custosActions, /hall light/i), "Schedule record not returned.") },
