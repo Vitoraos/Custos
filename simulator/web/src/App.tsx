@@ -207,7 +207,7 @@ export default function App() {
       return cell(power === "unknown" ? "Unverified" : power, power === "unknown" ? "No device state returned." : `Device twin power state: ${power}.`);
     };
     const recipeText = data.recipe.ingredients.join(", ");
-    const instructionList = <ol className="compact-list">{data.recipe.instructions.map((step, i) => <li key={i}>{step}</li>)}</ol>;
+    const instructionList = <ol className="compact-list">{data.recipe.instructions.map((step, i) => <li key={`${i}-${step}`}>{step}</li>)}</ol>;
     const rulesList = data.rules.map((rule) => (
       <article className="rule-line" key={rule.id}>
         <strong>{rule.summary}</strong><p className="muted small">{rule.profile} · {rule.evidence}</p>
