@@ -105,7 +105,7 @@ function ReceiptDetails({ receipt }: { receipt: Receipt }) {
         : receipt.outcome === "blocked"
           ? "A standing rule prevented this action."
           : "This result is not confirmed as successful."}</p>
-      <details open={receipt.outcome === "blocked"}>
+      <details>
         <summary>View raw JSON evidence</summary>
         <pre>{JSON.stringify(receipt.raw ?? receipt, null, 2)}</pre>
       </details>
@@ -452,7 +452,7 @@ export default function App() {
             <div className="proof-device-strip">
               <article><span className="eyebrow">COFFEE MAKER</span><strong>{String(data.deviceTruth.custos?.coffee_maker?.power ?? "Unknown").toUpperCase()}</strong><State value={String(data.deviceTruth.custos?.coffee_maker?.power ?? "Unverified")} /></article>
               <article><span className="eyebrow">KITCHEN LIGHT</span><strong>{String(data.deviceTruth.custos?.kitchen_light?.power ?? "Unknown").toUpperCase()}</strong><State value={String(data.deviceTruth.custos?.kitchen_light?.power ?? "Unverified")} /></article>
-              <article><span className="eyebrow">HALL LIGHT</span><strong>{String(data.deviceTruth.custos?.hall_light?.power ?? "Unknown").toUpperCase()}</strong><State value="Scheduled · 1:25 PM" /><small>Still off until the scheduled action runs.</small></article>
+              <article><span className="eyebrow">HALL LIGHT</span><strong>{String(data.deviceTruth.custos?.hall_light?.power ?? "Unknown").toUpperCase()}</strong><State value="Scheduled · 1:25 PM" /><small>{String(data.deviceTruth.custos?.hall_light?.power ?? "unknown").toLowerCase() === "off" ? "Still off until the scheduled action runs." : "Current state is separate from the future schedule."}</small></article>
             </div>
             <div className="proof-spotlight"><div><p className="eyebrow">DINNER DECISION</p><h3>{data.recipe.name}</h3><p>Beef is excluded under Maya's standing allergy rule. Missing ingredients: {data.recipe.missingIngredients.join(", ") || "none"}.</p></div><div className="proof-notification"><span className="eyebrow">RECIPE NOTIFICATION</span><State value={data.notification.accepted ? "Accepted by provider" : "Unverified"} /><p>{data.notification.deliveryNote}</p></div></div>
             <div className="workflow-heading proof-heading"><div><p className="eyebrow">AUDIT TRAIL</p><h2>Receipts for what happened</h2><p>Open the receipt for the blocked beef recipe. Raw JSON stays tucked away unless you need it.</p></div></div>
