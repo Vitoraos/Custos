@@ -1,6 +1,6 @@
 # Custos
 
-![CI](https://github.com/Vitoraos/Custos/actions/workflows/check.yml/badge.svg)
+
 ![License: MIT](https://img.shields.io/badge/license-MIT-green)
 
 **Make “done” mean something.**
