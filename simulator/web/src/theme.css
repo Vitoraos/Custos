@@ -441,3 +441,10 @@ code { font-family: var(--mono); font-size: .92em; overflow-wrap: anywhere; }
   .proof-next { align-items: flex-start; flex-direction: column; }
   .proof-next button { width: 100%; }
 }
+
+.baseline-reality { margin-top: 18px; padding: 18px; border: 1px solid var(--rule); border-radius: 9px; background: white; }
+.baseline-reality > .eyebrow { margin-bottom: 13px; }
+.baseline-reality-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.baseline-reality-grid article { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; min-width: 0; padding: 12px; border: 1px solid var(--rule); border-radius: 6px; background: #fbfbf8; }
+.baseline-reality-grid article > span:first-child { color: var(--ink-2); font-size: 11px; }
+@media (max-width: 640px) { .baseline-reality { padding: 13px; } .baseline-reality-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
