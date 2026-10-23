@@ -39,7 +39,7 @@ type Showcase = {
   deviceTruth: Record<string, Record<string, Record<string, unknown>>>;
 };
 
-type Phase = "idle" | "preparing" | "baseline" | "waiting" | "custos" | "done" | "error";
+type Phase = "idle" | "preparing" | "baseline" | "waiting" | "custos" | "done" | "end_card" | "error";
 type Cell = { status?: string; text?: string; detail?: string; content?: ReactNode };
 type CompareRow = { label: string; meta: string; baseline: Cell; custos: Cell };
 type Section = { id: string; eyebrow: string; title: string; description: string; rows: CompareRow[]; key?: boolean };
@@ -105,7 +105,7 @@ function ReceiptDetails({ receipt }: { receipt: Receipt }) {
         : receipt.outcome === "blocked"
           ? "A standing rule prevented this action."
           : "This result is not confirmed as successful."}</p>
-      <details>
+      <details open={receipt.outcome === "blocked"}>
         <summary>View raw JSON evidence</summary>
         <pre>{JSON.stringify(receipt.raw ?? receipt, null, 2)}</pre>
       </details>
@@ -121,7 +121,7 @@ function WorkflowPanel({
   side: "baseline" | "custos"; visible: number; phase: Phase; onNext?: () => void;
 }) {
   const active = side === "baseline" ? phase === "baseline" : phase === "custos";
-  const complete = side === "baseline" ? ["waiting", "custos", "done"].includes(phase) : phase === "done";
+  const complete = side === "baseline" ? ["waiting", "custos", "done", "end_card"].includes(phase) : ["done", "end_card"].includes(phase);
   return (
     <section className={`agent-panel ${side === "custos" ? "agent-panel-custos" : "agent-panel-baseline"}`} aria-label={title}>
       <header className="agent-panel-header">
@@ -149,7 +149,7 @@ function WorkflowPanel({
         })}
       </div>
       {side === "baseline" && phase === "waiting" ? (
-        <div className="agent-next"><div><strong>Baseline run complete</strong><p>Custos is paused until you explicitly start the second run.</p></div><button type="button" className="primary" onClick={onNext}>Run with Custos <span aria-hidden="true">→</span></button></div>
+        <div className="agent-next"><div><strong>Baseline run complete</strong><p>Custos is paused until you explicitly start the second run.</p></div><button type="button" className="primary" onClick={onNext}>Next <span aria-hidden="true">→</span></button></div>
       ) : null}
     </section>
   );
@@ -157,7 +157,7 @@ function WorkflowPanel({
 
 function EvidenceSection({ section }: { section: Section }) {
   return (
-    <details className="evidence-group" id={section.id}>
+    <details className="evidence-group" id={section.id} open={section.id === "s-receipts"}>
       <summary><span className="evidence-heading"><span className="eyebrow">{section.eyebrow}</span><strong>{section.title}</strong><small>{section.description}</small></span><span className="evidence-toggle">View evidence <span aria-hidden="true">＋</span></span></summary>
       <div className="evidence-rows">
         {section.rows.map((row) => (
@@ -372,7 +372,7 @@ export default function App() {
   }, [data]);
 
   const workflowRows = sections.find((section) => section.id === "s-process")?.rows ?? [];
-  const evidenceSections = sections.filter((section) => section.id !== "s-process");
+  const evidenceSections = sections.filter((section) => ["s-actions", "s-dinner", "s-rules", "s-notification", "s-devices", "s-receipts"].includes(section.id));
   const rowCount = workflowRows.length;
 
   async function play() {
@@ -417,60 +417,41 @@ export default function App() {
   return (
     <main className="showcase-app">
       <header className="app showcase-header">
-        <a className="brand-block" href="#top" aria-label="Custos home">
-          <span className="brand-mark" aria-hidden="true">C</span>
-          <span><span className="eyebrow">ACCOUNTABILITY FOR AI ASSISTANTS</span><strong>Custos</strong></span>
-        </a>
+        <a className="brand-block" href="#top" aria-label="Custos home"><span className="brand-mark" aria-hidden="true">C</span><span><span className="eyebrow">ACCOUNTABILITY FOR AI ASSISTANTS</span><strong>Custos</strong></span></a>
         <div className="controls">
-          <button type="button" className="primary" onClick={() => phase === "waiting" ? void continueWithCustos() : phase === "done" || phase === "error" || phase === "idle" ? void play() : undefined} disabled={phase === "preparing" || phase === "baseline" || phase === "custos"}>
-            {phase === "preparing" ? "Preparing…" : phase === "baseline" ? "Baseline running…" : phase === "waiting" ? "Next: Run with Custos →" : phase === "custos" ? "Custos running…" : phase === "done" ? "↻ Run again" : phase === "error" ? "Retry comparison" : "▶ Play comparison"}
-          </button>
-          <button type="button" className="secondary-button" aria-pressed={!muted} onClick={() => { const next = !muted; setMuted(next); voice.muted = next; if (next) voice.cancel(); }}>
-            {muted ? "Voice off" : "Voice summary on"}
-          </button>
+          {phase === "idle" || phase === "error" || phase === "end_card" ? <button type="button" className="primary" onClick={() => void play()}>{phase === "end_card" ? "↻ Replay demo" : phase === "error" ? "Retry demo" : "▶ Play comparison"}</button> : phase === "waiting" ? <button type="button" className="primary" onClick={() => void continueWithCustos()}>Next <span aria-hidden="true">→</span></button> : <button type="button" className="primary" disabled>{phase === "preparing" ? "Preparing…" : phase === "baseline" ? "Baseline running…" : phase === "custos" ? "Custos running…" : "Evidence ready"}</button>}
+          <button type="button" className="secondary-button" aria-pressed={!muted} onClick={() => { const next = !muted; setMuted(next); voice.muted = next; if (next) voice.cancel(); }}>{muted ? "Voice off" : "Voice summary on"}</button>
         </div>
       </header>
-
       <div id="top" className="page-wrap">
-        <section className="request-intro">
-          <p className="eyebrow">ONE REQUEST · MULTIPLE OBLIGATIONS</p>
-          <h1>One request. Two execution paths.</h1>
-          <p className="request-quote">“{data?.prompt ?? "Turn on the coffee maker and kitchen light now, schedule coffee for 8am, turn on the hall light 5 minutes before my daughter is back from school, and prepare dinner for me and my daughter."}”</p>
-          <p className="request-context">The assistant should infer the necessary substeps, respect household rules, take useful action, and report what the evidence supports.</p>
-          <p className="disclosure">Controlled simulator scenario. The baseline is scripted, device state belongs to a simulated device twin, and task animations are staged over prepared showcase data, not a live Alexa+ integration or live tool trace.</p>
-
-        </section>
-
-        {error ? <section className="error-panel" role="alert"><strong>Comparison failed.</strong><p>{error}</p><button type="button" onClick={() => void play()}>Retry run</button></section> : null}
-
-        {phase === "idle" ? (
-          <section className="intro-panel">
-            <div><p className="eyebrow">THE DEMO</p><h2>Same request. Different accountability.</h2><p>Run the controlled baseline first. When it finishes, start the Custos workflow to see its subtasks and evidence.</p></div>
-            <button className="primary" type="button" onClick={() => void play()}>▶ Play the walkthrough</button>
-          </section>
-        ) : null}
-
-        {phase === "preparing" ? <section className="intro-panel" aria-live="polite"><div><p className="eyebrow">PREPARING RUN</p><h2>Setting up the comparison</h2><p>Preparing isolated household state and collecting policy, device-twin, schedule, and receipt evidence.</p></div><div className="progress-track"><span /></div></section> : null}
-
-        {data ? (
-          <>
-            <div className="run-banner">
-              <div><p className="eyebrow">CURRENT PHASE</p><strong>{phase === "baseline" ? "Run 1 · controlled baseline" : phase === "waiting" ? "Run 1 complete · awaiting your Next" : phase === "custos" ? "Run 2 · Custos" : "Both runs presented"}</strong></div>
-              <span className="run-count">{phase === "baseline" ? "01 / 02" : phase === "waiting" ? "01 / 02 · PAUSED" : "02 / 02"}</span>
-              <div className="run-progress" role="progressbar" aria-label="Walkthrough progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={phase === "idle" || phase === "preparing" ? 0 : phase === "baseline" ? 35 : phase === "waiting" ? 45 : phase === "custos" ? 45 + Math.round((custosVisible / Math.max(rowCount, 1)) * 55) : 100}><span style={{ width: `${phase === "idle" || phase === "preparing" ? 0 : phase === "baseline" ? 35 : phase === "waiting" ? 45 : phase === "custos" ? 45 + Math.round((custosVisible / Math.max(rowCount, 1)) * 55) : 100}%` }} /></div>
-              {phase === "waiting" ? <p className="run-hint">Baseline is complete. Custos will not start until you press Next.</p> : null}
+        {phase !== "end_card" ? <section className="request-intro story-intro">
+          <p className="eyebrow">{phase === "idle" || phase === "preparing" ? "YOUR REQUEST" : phase === "baseline" || phase === "waiting" ? "THE OLD WAY" : phase === "custos" ? "THE CUSTOS WAY" : "THE PROOF"}</p>
+          <h1>{phase === "idle" || phase === "preparing" ? "One request. Two possible outcomes." : phase === "baseline" || phase === "waiting" ? "It said “Done.”" : phase === "custos" ? "Remember. Check. Prove." : "What can we actually prove?"}</h1>
+          {phase !== "idle" ? <p className="request-quote">“{data?.prompt ?? "Turn on the coffee maker and kitchen light now, schedule coffee for 8am, turn on the hall light 5 minutes before my daughter is back from school, and prepare dinner for me and my daughter."}”</p> : <p className="story-hint">Start with the same household request. Nothing is running yet.</p>}
+          {phase !== "idle" && phase !== "preparing" ? <p className="disclosure">Controlled simulator scenario. The baseline is scripted, device state belongs to a simulated device twin, and the UI reveals prepared showcase data in stages. This is not a live Alexa+ integration or live tool trace.</p> : null}
+        </section> : null}
+        {error ? <section className="error-panel" role="alert"><strong>Demo failed.</strong><p>{error}</p><button type="button" onClick={() => void play()}>Retry run</button></section> : null}
+        {phase === "idle" ? <section className="story-request-card"><div className="story-card-top"><span className="eyebrow">THE REQUEST</span><span className="story-status">Nothing running</span></div><p>Start the coffee, turn on the lights, bring the hall light on before my daughter gets home, and plan dinner.</p><button className="primary" type="button" onClick={() => void play()}>Play comparison <span aria-hidden="true">→</span></button></section> : null}
+        {phase === "preparing" ? <section className="intro-panel" aria-live="polite"><div><p className="eyebrow">PREPARING THE DEMO</p><h2>Preparing the household scenario</h2><p>Loading the baseline, household rules, simulated device states, schedules, and receipt evidence.</p></div><div className="progress-track"><span /></div></section> : null}
+        {data && phase !== "idle" && phase !== "preparing" && phase !== "error" && phase !== "end_card" ? <>
+          <div className="story-stage-line"><span>{phase === "baseline" || phase === "waiting" ? "01 / THE OLD WAY" : phase === "custos" ? "02 / THE CUSTOS WAY" : "03 / THE PROOF"}</span><span>{phase === "baseline" ? "Showing the baseline" : phase === "waiting" ? "Baseline complete" : phase === "custos" ? "Custos run in progress" : "Evidence available"}</span></div>
+          {(phase === "baseline" || phase === "waiting") ? <section className="story-beat"><p className="story-narration">{phase === "baseline" ? "First, the same request without Custos." : "“Done.” But the response is not proof. Look at what the baseline did not verify."}</p><WorkflowPanel title="The baseline" subtitle="A scripted control case, not a live Alexa+ session." rows={workflowRows} side="baseline" visible={baselineVisible} phase={phase} onNext={() => void continueWithCustos()} />{phase === "waiting" ? <p className="story-pause">You'd never know.</p> : null}</section> : null}
+          {phase === "custos" ? <section className="story-beat"><p className="story-narration">Now, the same request with Custos. Watch the household rules shape the plan, then follow the evidence.</p><WorkflowPanel title="Custos" subtitle="Remembers the rules, checks before acting, and records what the evidence supports." rows={workflowRows} side="custos" visible={custosVisible} phase={phase} /></section> : null}
+          {phase === "done" ? <section className="evidence-area story-proof">
+            <div className="proof-lead"><p className="eyebrow">THE PROOF</p><h2>It only claims what it can prove.</h2><p>Immediate device state, future schedules, policy decisions, and notification status are kept distinct.</p></div>
+            <div className="proof-device-strip">
+              <article><span className="eyebrow">COFFEE MAKER</span><strong>{String(data.deviceTruth.custos?.coffee_maker?.power ?? "Unknown").toUpperCase()}</strong><State value={String(data.deviceTruth.custos?.coffee_maker?.power ?? "Unverified")} /></article>
+              <article><span className="eyebrow">KITCHEN LIGHT</span><strong>{String(data.deviceTruth.custos?.kitchen_light?.power ?? "Unknown").toUpperCase()}</strong><State value={String(data.deviceTruth.custos?.kitchen_light?.power ?? "Unverified")} /></article>
+              <article><span className="eyebrow">HALL LIGHT</span><strong>{String(data.deviceTruth.custos?.hall_light?.power ?? "Unknown").toUpperCase()}</strong><State value="Scheduled · 1:25 PM" /><small>Still off until the scheduled action runs.</small></article>
             </div>
-            <section className="workflow-area" aria-label="Agent workflow">
-              <div className="workflow-heading"><div><p className="eyebrow">AGENT WORKFLOW</p><h2>From request to verified outcome</h2><p>Follow each subtask as it moves from queued to running to complete.</p></div><span className="workflow-count">{phase === "done" ? `${rowCount} / ${rowCount} steps complete` : phase === "waiting" ? `${rowCount} / ${rowCount} baseline steps complete` : phase === "custos" ? `${custosVisible} / ${rowCount} Custos steps complete` : `${baselineVisible} / ${rowCount} steps complete`}</span></div>
-              <div className="agent-grid">
-                <WorkflowPanel title="Alexa+ without Custos" subtitle="Acknowledgement without a reliable evidence trail." rows={workflowRows} side="baseline" visible={baselineVisible} phase={phase} onNext={() => void continueWithCustos()} />
-                {phase === "custos" || phase === "done" ? <WorkflowPanel title="Custos" subtitle="Retrieve rules, execute the plan, verify state, and keep receipts." rows={workflowRows} side="custos" visible={custosVisible} phase={phase} /> : phase === "waiting" ? <section className="agent-panel agent-panel-placeholder"><div className="placeholder-mark">C</div><p className="eyebrow">RUN 2 · CUSTOS</p><h2>Ready when you are</h2><p>The baseline is complete. Custos will start only after you press the button on the left.</p><span className="agent-run-state state-pending"><i aria-hidden="true" />Waiting for approval</span></section> : null}
-              </div>
-            </section>
-            {phase === "done" ? <section className="evidence-area"><div className="workflow-heading"><div><p className="eyebrow">INSPECTABLE EVIDENCE</p><h2>What backs up the result</h2><p>Expand a section to compare actions, household rules, dinner follow-through, device state, and receipts.</p></div></div><div className="evidence-stack">{evidenceSections.map((section) => <EvidenceSection key={section.id} section={section} />)}</div></section> : null}
-            <footer className="page-note"><strong>Read the evidence carefully.</strong> “Verified” refers to simulated device-state read-back or a persisted record checked by the simulator. Scheduled actions have not fired, and notification-provider acceptance is not proof of delivery.</footer>
-          </>
-        ) : null}
+            <div className="proof-spotlight"><div><p className="eyebrow">DINNER DECISION</p><h3>{data.recipe.name}</h3><p>Beef is excluded under Maya's standing allergy rule. Missing ingredients: {data.recipe.missingIngredients.join(", ") || "none"}.</p></div><div className="proof-notification"><span className="eyebrow">RECIPE NOTIFICATION</span><State value={data.notification.accepted ? "Accepted by provider" : "Unverified"} /><p>{data.notification.deliveryNote}</p></div></div>
+            <div className="workflow-heading proof-heading"><div><p className="eyebrow">AUDIT TRAIL</p><h2>Receipts for what happened</h2><p>Open the receipt for the blocked beef recipe. Raw JSON stays tucked away unless you need it.</p></div></div>
+            <div className="evidence-stack">{evidenceSections.map((section) => <EvidenceSection key={section.id} section={section} />)}</div>
+            <div className="proof-next"><p>Custos distinguishes what happened, what is scheduled, and what remains unconfirmed.</p><button type="button" className="primary" onClick={() => setPhase("end_card")}>Finish <span aria-hidden="true">→</span></button></div>
+          </section> : null}
+        </> : null}
+        {phase === "end_card" ? <section className="story-end-card"><p className="eyebrow">CUSTOS · OPEN SOURCE · MIT</p><h1>Make done mean done.</h1><p>Persistent context. Verified actions. An auditable record.</p><a className="end-repo-link" href="https://github.com/Vitoraos/Custos" target="_blank" rel="noreferrer">View repository <span aria-hidden="true">↗</span></a><p className="end-note">Evidence and architecture in the README.</p><small>Today this runs in a simulated home. The promise is simple: trust, but verify.</small></section> : null}
+        {data && phase !== "end_card" ? <footer className="page-note"><strong>Evidence boundaries:</strong> device state belongs to the simulated device twin; scheduled actions have not fired; notification-provider acceptance is not proof of delivery. The staged reveal is not a live tool trace.</footer> : null}
       </div>
     </main>
   );
