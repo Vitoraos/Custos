@@ -1,66 +1,56 @@
-# Custos demo script: one request, two execution paths
+# Custos demo script: make done mean done
 
 ## Setup
 
-Open the hosted simulator and press **Play comparison**. Let the baseline finish,
-then click **Next: Run with Custos** when ready to show the second run. This is a controlled
-device-twin scenario. The API prepares the scenario before the UI reveals it in
-stages, so describe the animation as a staged walkthrough, not a live tool
-trace. There is no real Alexa+ integration in this demo.
+Open the simulator at its idle state. The opening screen contains one household request and a **Play comparison** button. It does not show a time-of-day setup or ask the audience to inspect technical details.
 
+The API prepares the showcase data before the interface reveals it in stages. Describe the UI as a staged walkthrough, not a live tool trace. The baseline is scripted and is not a live Alexa+ integration.
 
-## UI progression
+## The sales story
 
-The simulator presents an agentic task timeline first, then expandable evidence sections:
+1. **Pain:** one household request, with no evidence yet.
+2. **Promise:** an assistant should prove what it says it did.
+3. **Contrast:** run the scripted baseline first and let its “Done” response land before pointing to the missing evidence.
+4. **Proof:** advance to Custos, then inspect device state, household rules, dinner policy, shopping-list changes, and receipts.
+5. **Call to action:** “Make done mean done.” End card links to the repository and notes MIT licensing and the README.
 
-1. **The answer you hear**: the final message and overall run status.
-2. **How each one worked**: final goal, inferred subtasks, and progress.
-3. **What each one did**: immediate actions, schedules, dinner policy, and receipts.
-4. **Dinner, end to end**: recipe, ingredients, cooking procedure, pantry comparison, and shopping-list changes.
-5. **What Custos remembered**: the school-return time and beef-allergy rule.
-6. **Recipe notification**: provider acceptance and the message preview.
-7. **Device twin**: immediate simulated device state versus future schedules.
-8. **Receipts**: readable evidence with expandable raw JSON.
+## Narration (about 2:50)
 
-Press **Play comparison** once. The baseline task list progresses through queued, running, and complete states, then speaks its final summary aloud before pausing. Press **Run with Custos** to start the second workflow. Each subtask exposes its result when the staged presentation reaches it. Subtask pacing is intentionally slow: about 2.1 seconds per baseline step and 3.1 seconds per Custos step, five times the previous delays. Once Custos finishes, expand the evidence sections for the action details, rules, recipe and shopping follow-through, device twin, and receipts. Do not describe the animation as live execution: the API prepares the showcase data before the UI reveals it progressively.
-
-## The request
-
-> Turn on the coffee maker and kitchen light now, schedule coffee for 8am, turn
-> on the hall light 5 minutes before my daughter is back from school, and
-> prepare dinner for me and my daughter.
-
-Standing context: Maya's school day ends at 1:30pm, so the hall light should be
-scheduled for 1:25pm. Maya has a beef allergy, so dinner must exclude beef.
-
-## Narration (about 3 minutes)
-
-| Time | What is on screen | Narration |
+| Time | What to do | Narration |
 |---|---|---|
-| 0:00–0:25 | Request card and agent workflow framing | "One natural-language request contains immediate device actions, future schedules, and dinner planning. The challenge is not just parsing the sentence. It is carrying the right context through every dependent action." |
-| 0:25–0:55 | Baseline agent panel, queued/running/complete task states; listen to baseline output | "First, the controlled baseline. Watch what it acknowledges, what it skips, and what it cannot prove. Listen to its final response too. This is a scripted baseline in our simulator, not a claim about a live Alexa+ session." |
-| 0:55–1:05 | Baseline is complete; Run with Custos is visible | "The baseline is complete. A confident response is not evidence. I will start the second run only when I press Next." |
-| 1:05–1:45 | Custos agent panel and its progressive subtask results | "Custos retrieves the standing rules before planning. Maya gets no beef, and the 1:30 school return becomes a 1:25 hall-light schedule. The coffee maker and kitchen light are immediate actions; coffee and the hall light are future schedules." |
-| 1:45–2:15 | Expand dinner evidence for recipe, cooking procedure, pantry comparison, and shopping list | "It does not stop at naming a meal. It shows the ingredients and cooking steps, compares ingredients with the pantry, and identifies missing items for the shopping list." |
-| 2:15–2:35 | Expand notification and device-twin evidence | "The notification status means the provider accepted the request, not that delivery was independently confirmed. The device panel is the simulated device twin. Future schedules are persisted; they have not fired yet." |
-| 2:35–3:00 | Expand receipts, with raw JSON left collapsed unless asked | "Finally, the receipts separate the intended action from the evidence. Readable summaries are for people; raw JSON is available for technical inspection. Custos makes the outcome easier to audit instead of asking you to trust the assistant's wording." |
+| 0:00–0:20 | Leave the opening request card idle. Do not click yet. | “You ask your assistant: start the coffee, turn on the lights, bring the hall light on before my daughter gets home, and plan dinner. It says… ‘Done.’ You walk out the door. But was it?” |
+| 0:20–0:35 | Keep the request card still. Pause after “You'd never know.” | “Because ‘done’ is just a word. Maybe the coffee maker never switched on. Maybe nothing was scheduled. Maybe dinner has beef, and your daughter is allergic. You'd find out at six o'clock. And people report assistants saying it's done when it isn't.” |
+| 0:35–0:45 | Keep the same screen; let the product promise land before starting. | “So here's the idea. What if your assistant couldn't just say ‘done’, it had to prove it? That's Custos.” |
+| 0:45–1:05 | Click **Play comparison**. Let the baseline sequence complete and its spoken summary finish. | “First, how it works today. This is a scripted baseline, not live Alexa+, same request. ‘Done!’ Now look. The device twin reports the state. Coffee: never scheduled. Dinner: never checked for the allergy. And no record of it. You'd never know.” |
+| 1:05–1:10 | Click **Next**. | “Now, the same morning, with Custos.” |
+| 1:10–1:55 | Let Custos tasks reveal. Scroll slowly only when needed to keep the current task visible. | “Custos remembers your family. Maya has a beef allergy, and school ends at one-thirty. So the hall light is set for one twenty-five, five minutes before she's home. It checks before it acts. The beef tacos? Refused. Lentil stew? Safe, and it adds only the missing ingredients to your shopping list. And it proves what it did. Coffee maker, kitchen light: turned on, then checked. Really on.” |
+| 1:55–2:25 | In the proof stage, show device states, dinner decision, then receipts. The receipt section opens by default; open the blocked-recipe receipt if needed. | “And look how honest it is. The hall light is still off, because it's scheduled for later, and Custos says exactly that. The recipe message? Sent, but not confirmed delivered. It only claims what it can prove. Every action leaves a receipt: what it meant to do, what really happened. Here's the beef it blocked. That's your family's paper trail.” |
+| 2:25–2:50 | Click **Finish** to show the end card. Leave it on screen. | “Today this runs in a simulated home. But the promise is simple: trust, but verify. Custos is open source and built to plug into your assistant. Your assistant shouldn't just say done. Custos makes done mean done.” |
+
+## Delivery notes
+
+- Pause for one full second after “Done” in the hook and after “You'd never know.”
+- Slow down on “Refused”, “Really on”, and “paper trail”.
+- Address one parent, not a panel.
+- The interface should reveal faster than the narration. Scroll to the relevant result just before naming it.
+- The baseline speaks its final summary. Wait for it to finish before pressing **Next**.
+- Voice summaries can be muted with the voice control if recording conditions require it.
 
 ## Claims to keep precise
 
-- The baseline is a controlled simulation, not a live Alexa+ integration or a
-  representative evaluation of Alexa+.
-- The UI reveal is presentation pacing. It is not a real-time stream of tool
-  execution.
+- The baseline is a controlled simulation, not a live Alexa+ integration or a representative evaluation of Alexa+.
+- The UI reveal is presentation pacing, not a real-time stream of tool execution.
 - Device state belongs to the simulated device twin, not physical devices.
 - A scheduled action is not the same as an executed action.
-- Notification acceptance is not proof of final delivery.
-- Say **"the receipt records"** or **"the device twin reports"** when that is
-  what the evidence supports. Do not claim real-world completion.
+- Notification-provider acceptance is not proof of final delivery.
+- Say “the receipt records” or “the device twin reports” when that is what the evidence supports.
+- The script’s spoken claims must be checked against the returned showcase data before recording. Do not claim a recipe was blocked unless a matching policy decision or receipt exists.
 
-## Recording notes
+## End card
 
-Keep the request visible, let each stage appear without rushing, and let the baseline speak its final summary before starting Custos. The intentionally slower pacing is approximately 2.1 seconds per baseline step and 3.1 seconds per Custos step. Keep raw
-JSON collapsed for the main narration. The workflow is the primary view. The evidence accordion order is: answer, actions, dinner, household rules, notification, device-twin state, then receipts. Keep the raw JSON collapsed unless
-a judge asks to inspect the underlying evidence. Do not ask judges to configure an MCP client or run the
-simulator. The MCP interface and enforcement path are the product; this UI is
-supporting visual evidence.
+- Tagline: **Make done mean done.**
+- Repository: https://github.com/Vitoraos/Custos
+- License: MIT
+- Supporting technical detail: **Evidence and architecture in the README.**
+
+The MCP interface and enforcement path are the product. The simulator is supporting visual evidence, not a substitute for a live MCP integration.
